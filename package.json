@@ -1,0 +1,9 @@
+{
+  "name": "found-it-school-lost-and-found",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local school lost and found app",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

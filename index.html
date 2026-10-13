@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f6ef" />
+    <meta name="description" content="A school community lost and found board." />
+    <title>Found It | School Lost &amp; Found</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="Found It home"
+        ><span class="brand-mark" aria-hidden="true">⌕</span><span>Found It</span></a
+      >
+      <nav class="nav" id="nav" aria-label="Main navigation"></nav>
+    </header>
+
+    <main>
+      <section class="auth-screen" id="auth-screen" aria-labelledby="welcome-title">
+        <div class="auth-card">
+          <div class="eyebrow">SCHOOL COMMUNITY</div>
+          <div id="auth-choice" class="auth-view active">
+            <h1 id="welcome-title">Lost something? Let's find it.</h1>
+            <p class="subtext">Sign in to report an item or search the school lost and found.</p>
+            <button class="button primary full" id="open-signup" type="button">
+              Create an account
+            </button>
+            <button class="button full" id="open-login" type="button">Log in</button>
+            <p class="fine-print">Use your name, student ID, and a password.</p>
+          </div>
+          <form id="signup-form" class="auth-view" novalidate>
+            <h1>Create an account</h1>
+            <p class="subtext">Join your school community.</p>
+            <label for="signup-name">Name</label>
+            <input
+              id="signup-name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              maxlength="80"
+              required
+              placeholder="Your name"
+            />
+            <label for="signup-id">Student ID</label>
+            <input
+              id="signup-id"
+              name="studentId"
+              type="text"
+              autocomplete="username"
+              maxlength="40"
+              required
+              placeholder="Your student ID"
+            />
+            <label for="signup-password">Password</label>
+            <input
+              id="signup-password"
+              name="password"
+              type="password"
+              autocomplete="new-password"
+              minlength="8"
+              required
+              placeholder="At least 8 characters"
+            />
+            <div id="admin-setup-field" class="admin-setup-field hidden">
+              <label for="admin-setup-code">Administrator setup code</label>
+              <input
+                id="admin-setup-code"
+                name="adminSetupCode"
+                type="password"
+                autocomplete="one-time-code"
+                placeholder="Code shown in the server terminal"
+              />
+              <p class="form-hint">Only needed for the administrator account.</p>
+            </div>
+            <p class="form-message" id="signup-message" aria-live="polite"></p>
+            <button class="button primary full" type="submit">Sign up</button>
+            <p class="switch-copy">
+              Already have an account?
+              <button class="text-button" id="to-login" type="button">Log in</button>
+            </p>
+          </form>
+          <form id="login-form" class="auth-view" novalidate>
+            <h1>Welcome back</h1>
+            <p class="subtext">Log in to continue to the board.</p>
+            <label for="login-id">Student ID</label>
+            <input
+              id="login-id"
+              name="studentId"
+              type="text"
+              autocomplete="username"
+              required
+              placeholder="Your student ID"
+            />
+            <label for="login-password">Password</label>
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <p class="form-message" id="login-message" aria-live="polite"></p>
+            <button class="button primary full" type="submit">Log in</button>
+            <p class="switch-copy">
+              New here?
+              <button class="text-button" id="to-signup" type="button">Create an account</button>
+            </p>
+          </form>
+        </div>
+      </section>
+
+      <div id="app" class="hidden">
+        <section class="hero" id="home">
+          <div>
+            <div class="eyebrow">SCHOOL LOST &amp; FOUND</div>
+            <h1>Lost something? Let's find it.</h1>
+            <p>Report a lost item or help return something you found.</p>
+          </div>
+          <div class="hero-actions">
+            <button class="button" id="report-lost" type="button">＋ Report lost item</button
+            ><button class="button primary" id="report-found" type="button">
+              Report found item　↗
+            </button>
+          </div>
+        </section>
+        <section class="stats" aria-label="Board summary">
+          <article class="stat">
+            <span class="stat-icon">⌕</span>
+            <div><strong id="lost-count">0</strong><span>Items being searched for</span></div>
+          </article>
+          <article class="stat">
+            <span class="stat-icon">＋</span>
+            <div><strong id="found-count">0</strong><span>Items found</span></div>
+          </article>
+          <article class="stat">
+            <span class="stat-icon">✓</span>
+            <div><strong id="match-count">0</strong><span>Possible matches</span></div>
+          </article>
+        </section>
+        <section class="board" id="board" aria-labelledby="board-title">
+          <div class="board-heading">
+            <div>
+              <h2 id="board-title">Recent items</h2>
+              <p>Search by item, category, or location.</p>
+            </div>
+            <span class="live-label"><i></i> School board</span>
+          </div>
+          <div class="filters">
+            <label class="search-box"
+              ><span aria-hidden="true">⌕</span
+              ><input
+                id="search-input"
+                type="search"
+                placeholder="Try ‘blue water bottle’"
+                aria-label="Search items" /></label
+            ><select id="category-filter" aria-label="Filter by category">
+              <option value="">All categories</option>
+              <option>School supplies</option>
+              <option>Clothing</option>
+              <option>Personal items</option>
+              <option>Electronics</option>
+              <option>Other</option></select
+            ><select id="location-filter" aria-label="Filter by location">
+              <option value="">All locations</option>
+              <option>Classroom</option>
+              <option>Library</option>
+              <option>Cafeteria</option>
+              <option>Sports area</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="tabs" role="tablist" aria-label="Item type">
+            <button class="tab active" data-filter="all" role="tab" aria-selected="true">
+              All items</button
+            ><button class="tab" data-filter="lost" role="tab" aria-selected="false">Lost</button
+            ><button class="tab" data-filter="found" role="tab" aria-selected="false">Found</button>
+          </div>
+          <div id="item-list" class="item-grid" aria-live="polite"></div>
+          <div id="empty-state" class="empty-state hidden">
+            <span>⌕</span>
+            <h3>No matching items</h3>
+            <p>Try a different search or report the item.</p>
+          </div>
+        </section>
+        <section class="privacy-note">
+          <span aria-hidden="true">♧</span>
+          <p>
+            <strong>Your privacy matters.</strong> Contact details are shared only through the item
+            contact flow.
+          </p>
+        </section>
+        <section class="contact-strip">
+          <div>
+            <h2>Need help?</h2>
+            <p>Send a message to the school lost and found team.</p>
+          </div>
+          <button class="button" id="contact-staff" type="button">Contact school staff</button>
+        </section>
+        <section id="admin-panel" class="admin-panel hidden" aria-labelledby="admin-title">
+          <div class="admin-panel-heading">
+            <div>
+              <div class="eyebrow">SYSTEM MANAGEMENT</div>
+              <h1 id="admin-title">Admin dashboard</h1>
+              <p class="subtext">Manage school accounts, reports, and support requests.</p>
+            </div>
+            <button class="button primary" id="admin-open-inbox" type="button">
+              Support inbox
+            </button>
+          </div>
+          <div class="admin-summary" aria-label="School summary">
+            <article class="admin-stat">
+              <span>Lost reports</span>
+              <strong id="admin-lost-count">0</strong>
+            </article>
+            <article class="admin-stat">
+              <span>Found reports</span>
+              <strong id="admin-found-count">0</strong>
+            </article>
+            <article class="admin-stat">
+              <span>Accounts</span>
+              <strong id="admin-user-count">0</strong>
+            </article>
+            <article class="admin-stat">
+              <span>Support requests</span>
+              <strong id="admin-support-count">0</strong>
+            </article>
+          </div>
+          <section class="admin-card" aria-labelledby="admin-accounts-title">
+            <div class="admin-card-heading">
+              <div>
+                <h2 id="admin-accounts-title">School accounts</h2>
+                <p>Removing an account also removes its reports, photos, and messages.</p>
+              </div>
+              <button class="button" id="admin-refresh" type="button">Refresh</button>
+            </div>
+            <p id="admin-message" class="form-message" aria-live="polite"></p>
+            <div id="admin-user-list" class="admin-user-list" aria-live="polite"></div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <dialog class="dialog" id="item-dialog" aria-labelledby="dialog-title">
+      <form id="item-form" class="dialog-card">
+        <button class="icon-button dialog-close" id="close-dialog" type="button" aria-label="Close">
+          ×
+        </button>
+        <div class="eyebrow" id="dialog-kind">NEW REPORT</div>
+        <h2 id="dialog-title">Report an item</h2>
+        <p class="subtext">Add useful details so the community can recognize it.</p>
+        <label for="item-name">Item name</label
+        ><input
+          id="item-name"
+          name="itemName"
+          required
+          maxlength="90"
+          placeholder="e.g. Blue water bottle"
+        />
+        <div class="two-col">
+          <div>
+            <label for="item-category">Category</label
+            ><select id="item-category" name="category" required>
+              <option value="">Choose a category</option>
+              <option>School supplies</option>
+              <option>Clothing</option>
+              <option>Personal items</option>
+              <option>Electronics</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="item-color">Main color</label
+            ><input id="item-color" name="color" maxlength="40" placeholder="e.g. Blue" />
+          </div>
+        </div>
+        <label for="item-description">Description</label
+        ><textarea
+          id="item-description"
+          name="description"
+          rows="3"
+          maxlength="500"
+          placeholder="Visible details that help identify it"
+        ></textarea>
+        <div class="two-col">
+          <div>
+            <label for="item-location">Location</label
+            ><select id="item-location" name="location" required>
+              <option value="">Choose a location</option>
+              <option>Classroom</option>
+              <option>Library</option>
+              <option>Cafeteria</option>
+              <option>Sports area</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="item-date">Date</label
+            ><input id="item-date" name="date" type="date" required />
+          </div>
+        </div>
+        <label for="item-contact">Contact method <span class="optional">(optional)</span></label>
+        <input
+          id="item-contact"
+          name="contact"
+          type="text"
+          maxlength="100"
+          placeholder="e.g. Phone number or LINE ID"
+        />
+        <p class="form-hint">Visible to signed-in students who can view this report.</p>
+        <label>Item photo <span class="optional">(optional)</span></label>
+        <div class="camera-box">
+          <video id="camera-preview" autoplay playsinline hidden></video
+          ><img id="photo-preview" alt="Selected item photo" hidden />
+          <div class="camera-actions">
+            <button class="button small" id="camera-open" type="button">Open camera</button
+            ><button class="button small" id="camera-capture" type="button" hidden>
+              Take photo</button
+            ><button class="button small" id="photo-pick" type="button">Choose photo</button
+            ><button class="button small" id="camera-stop" type="button" hidden>
+              Close camera
+            </button>
+          </div>
+          <input
+            id="photo-file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            hidden
+          />
+          <p id="camera-status" class="camera-status" aria-live="polite">
+            Avoid including faces or personal information in the photo.
+          </p>
+        </div>
+        <p id="item-message" class="form-message" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button class="button" id="cancel-report" type="button">Cancel</button
+          ><button class="button primary" type="submit">Post item</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="dialog" id="contact-dialog" aria-labelledby="contact-title">
+      <form id="contact-form" class="dialog-card">
+        <button
+          class="icon-button dialog-close"
+          id="close-contact"
+          type="button"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <div class="eyebrow">SCHOOL SUPPORT</div>
+        <h2 id="contact-title">Contact school staff</h2>
+        <p class="subtext" id="contact-intro">Tell the lost and found team how they can help.</p>
+        <label for="contact-message">Message</label
+        ><textarea
+          id="contact-message"
+          rows="5"
+          maxlength="1000"
+          required
+          placeholder="How can we help?"
+        ></textarea>
+        <p id="contact-status" class="form-message" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button class="button" id="cancel-contact" type="button">Cancel</button
+          ><button class="button primary" type="submit">Send message</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog class="dialog" id="messages-dialog" aria-labelledby="messages-title">
+      <section class="dialog-card">
+        <button
+          class="icon-button dialog-close"
+          id="close-messages"
+          type="button"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <div class="eyebrow">YOUR INBOX</div>
+        <h2 id="messages-title">Messages</h2>
+        <p class="subtext">Contact requests about items you posted appear here.</p>
+        <div id="message-list" class="message-list"></div>
+        <p id="messages-empty" class="empty-message hidden">No messages yet.</p>
+      </section>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
+
