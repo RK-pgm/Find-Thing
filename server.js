@@ -587,7 +587,7 @@ setInterval(
   },
   30 * 60 * 1000,
 ).unref();
-server.listen(PORT, '127.0.0.1', () =>
-  console.log(`Found It is running at http://127.0.0.1:${PORT}`),
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+server.listen(PORT, HOST, () =>
+  console.log(`Found It is running at http://${HOST}:${PORT}`),
 );
-

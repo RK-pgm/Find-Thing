@@ -1,57 +1,60 @@
-# Found It — School Lost & Found
+# Found It — ระบบแจ้งของหายและของที่พบในโรงเรียน
 
-## Run locally
+เว็บสำหรับแจ้งของหายและของที่พบ ค้นหารายการตามหมวดหมู่และสถานที่ ติดต่อผู้แจ้งผ่านข้อความส่วนตัว และส่งข้อความถึงเจ้าหน้าที่ได้
 
-1. Open PowerShell in this folder.
-2. Start the app:
+## สิ่งที่ต้องมี
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\start-server.ps1
-   ```
+- Windows และ PowerShell
+- Node.js
+- cloudflared หากต้องการเปิดลิงก์ให้คนอื่นเข้าจากอินเทอร์เน็ต
 
-The script uses Node.js from your PATH. If it is missing, it tries the Node.js runtime bundled with Codex. If neither is available, install Node.js and restart VS Code.
+## เปิดเว็บบนเครื่อง
 
-3. Open <http://127.0.0.1:3000>. On localhost, the browser can use the camera after you grant permission.
+เปิด PowerShell ในโฟลเดอร์โปรเจกต์ แล้วรัน:
 
-Account and item data is saved in `data/store.json`; photos are saved in `uploads/`. Both folders are ignored by Git so school data does not get committed with the source.
-## Administrator setup
+~~~powershell
+powershell -ExecutionPolicy Bypass -File .\start-server.ps1
+~~~
 
-When no administrator account exists, the server prints a one-time setup code in the terminal.
-Register using the exact name `AdminRK` and student ID `T36699`, enter that code, and choose a
-password. The code becomes invalid after the administrator account is created. Keep the terminal
-private while the code is visible.
+จากนั้นเปิด http://127.0.0.1:3000
 
-The Admin panel shows counts for lost reports, found reports, accounts, and support requests.
-Administrators can reply to school support messages and delete student accounts. Deleting an
-account also deletes that account's reports, photos, and related messages. Administrator accounts
-cannot be deleted from the panel.
+## เปิดเว็บให้คนอื่นเข้าผ่านลิงก์ชั่วคราว
 
-## Staff inbox
+รันคำสั่งนี้ใน PowerShell ที่เปิดในโฟลเดอร์โปรเจกต์:
 
-For a local demo, set a staff student ID before starting the server, then register that ID as the staff account:
+~~~powershell
+powershell -ExecutionPolicy Bypass -File .\start-public.ps1
+~~~
 
-```powershell
+สคริปต์จะเริ่มเว็บและเปิดหน้าเว็บในเครื่อง ลิงก์สาธารณะจะแสดงในหน้าต่าง PowerShell คัดลอกลิงก์ trycloudflare.com แล้วส่งให้ผู้ใช้คนอื่นได้
+
+ระหว่างแชร์เว็บ ต้องเปิดเครื่องและหน้าต่าง PowerShell ค้างไว้ หากปิดหน้าต่างหรือหยุดโปรแกรม ลิงก์จะเข้าเว็บไม่ได้ เมื่อเริ่มใหม่จะได้รับลิงก์ชั่วคราวอันใหม่
+
+## ตั้งค่าผู้ดูแลระบบ
+
+หากยังไม่มีบัญชีผู้ดูแลระบบ เซิร์ฟเวอร์จะแสดงรหัสตั้งค่าครั้งเดียวในหน้าต่าง PowerShell ให้สมัครด้วยชื่อ AdminRK และรหัสนักเรียน T36699 จากนั้นกรอกรหัสดังกล่าวและตั้งรหัสผ่าน เมื่อสร้างบัญชีแล้ว รหัสตั้งค่าจะใช้ซ้ำไม่ได้
+
+เก็บหน้าต่าง PowerShell ที่แสดงรหัสนี้ไว้เป็นส่วนตัว ผู้ดูแลระบบสามารถดูสรุปรายงาน ตอบข้อความที่ส่งถึงโรงเรียน และจัดการบัญชีนักเรียนได้ การลบบัญชีนักเรียนจะลบรายงาน รูปภาพ และข้อความที่เกี่ยวข้องด้วย บัญชีผู้ดูแลระบบไม่สามารถลบจากแผงควบคุมได้
+
+## ตั้งค่าบัญชีเจ้าหน้าที่
+
+สำหรับการสาธิต สามารถกำหนดรหัสนักเรียนของเจ้าหน้าที่ก่อนเริ่มเซิร์ฟเวอร์ได้:
+
+~~~powershell
 $env:STAFF_STUDENT_ID = 'staff-id-here'
 node server.js
-```
+~~~
 
-This only marks the matching ID as staff. It does not verify that a person belongs to the school.
-The one-time administrator code protects initial administrator setup, but this demo still does not
-verify student identities. Do not publish it or enter real student data until the school adds
-roster or school-account verification, HTTPS hosting, managed database storage, backups, and a staff
-account policy.
+ระบบจะกำหนดบทบาทเจ้าหน้าที่ให้บัญชีที่ใช้รหัสนักเรียนตรงกันเท่านั้น วิธีนี้ไม่ได้ตรวจสอบว่าบุคคลนั้นเป็นเจ้าหน้าที่ของโรงเรียนจริง
 
-## Included
+## ข้อมูลและการจัดเก็บ
 
-- Registration with name, student ID, and password; login is required before the board opens.
-- Salted scrypt password hashes and HTTP-only same-site session cookies.
-- Lost and found reports with optional camera capture/photo upload.
-- Category/location filters and a basic item similarity score.
-- Private messages between a report owner and another signed-in user, including replies.
-- A school support queue that configured staff accounts can read and reply to.
-- An administrator dashboard with account management and lost/found summaries.
+- บัญชีและรายการแจ้งของหายเก็บใน data/store.json
+- รูปภาพเก็บในโฟลเดอร์ uploads/
+- สองโฟลเดอร์นี้ไม่รวมอยู่ใน Git เพื่อไม่ให้ข้อมูลถูกส่งไปพร้อมซอร์สโค้ด
+- เซสชันเข้าสู่ระบบเก็บในหน่วยความจำของเซิร์ฟเวอร์ เมื่อปิดหรือเริ่มเซิร์ฟเวอร์ใหม่ ผู้ใช้อาจต้องเข้าสู่ระบบอีกครั้ง
+- ควรสำรองข้อมูลใน data/ และ uploads/ อย่างปลอดภัย
 
-Sessions live in server memory and end when the server stops. This is suitable for a local school project demo, not a production service.
+## ข้อควรทราบ
 
-
-
+ลิงก์ Cloudflare แบบชั่วคราวทำให้ผู้ที่มีลิงก์เข้าถึงหน้าเว็บจากอินเทอร์เน็ตได้ การเข้าสู่ระบบช่วยป้องกันหน้าข้อมูลภายในแอป แต่ระบบสาธิตนี้ยังไม่ได้ตรวจสอบตัวตนนักเรียนกับบัญชีหรือทะเบียนของโรงเรียน อย่าใช้ข้อมูลจริงของนักเรียนจนกว่าโรงเรียนจะเพิ่มการตรวจสอบตัวตน การจัดเก็บฐานข้อมูลและรูปภาพที่เหมาะสม การสำรองข้อมูล และนโยบายบัญชีเจ้าหน้าที่
