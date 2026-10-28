@@ -1,9 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "builds": [
-    { "src": "api/**/*.js", "use": "@vercel/node" },
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "style.css", "use": "@vercel/static" },
-    { "src": "script.js", "use": "@vercel/static" }
+    { "src": "script.js", "use": "@vercel/static" },
+    { "src": "api/session.js", "use": "@vercel/node" },
+    { "src": "api/register.js", "use": "@vercel/node" },
+    { "src": "api/login.js", "use": "@vercel/node" },
+    { "src": "api/logout.js", "use": "@vercel/node" },
+    { "src": "api/items.js", "use": "@vercel/node" },
+    { "src": "api/messages.js", "use": "@vercel/node" },
+    { "src": "api/messages/reply.js", "use": "@vercel/node" },
+    { "src": "api/contact.js", "use": "@vercel/node" },
+    { "src": "api/contact/reply.js", "use": "@vercel/node" },
+    { "src": "api/admin/overview.js", "use": "@vercel/node" },
+    { "src": "api/admin/users.js", "use": "@vercel/node" },
+    { "src": "api/admin/users/delete.js", "use": "@vercel/node" }
   ]
 }

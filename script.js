@@ -624,7 +624,7 @@ async function deleteAdminUser(user) {
   );
   if (!confirmed) return;
   try {
-    await api(`/api/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
+    await api('/api/admin/users/delete', { method: 'POST', body: JSON.stringify({ userId: user.id }) });
     showToast('Account deleted.');
     await loadAdminData();
     await loadItems();

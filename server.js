@@ -432,10 +432,10 @@ async function handler(req, res) {
         }));
       return json(res, 200, { users });
     }
-    if (req.method === 'DELETE' && route.startsWith('/api/admin/users/')) {
+    if ((req.method === 'DELETE' && route.startsWith('/api/admin/users/')) || (req.method === 'POST' && route === '/api/admin/users/delete')) {
       const admin = await requireAdmin(req, res);
       if (!admin) return;
-      const targetId = route.slice('/api/admin/users/'.length);
+      const targetId = req.method === 'DELETE' ? route.slice('/api/admin/users/'.length) : String((await readBody(req)).userId || '');
       if (!/^[\da-f-]{36}$/i.test(targetId))
         return json(res, 400, { error: 'Invalid account ID.' });
       if (targetId === admin.id)
