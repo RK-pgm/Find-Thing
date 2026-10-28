@@ -19,6 +19,8 @@ const BODY_LIMIT = 5 * 1024 * 1024;
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const ADMIN_NAME = 'AdminRK';
 const ADMIN_STUDENT_ID = 'T36699';
+const ADMIN_LOGIN_ID = process.env.ADMIN_LOGIN_ID || 'A1010';
+const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || (process.env.VERCEL ? '' : 'Admin001');
 const loginAttempts = new Map();
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -320,6 +322,8 @@ async function handler(req, res) {
         return json(res, 400, {
           error: 'Student ID must contain 2–40 letters, numbers, or hyphens.',
         });
+      if (studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase())
+        return json(res, 403, { error: 'This login ID is reserved for the administrator.' });
       if (password.length < 8 || password.length > 128)
         return json(res, 400, { error: 'Password must contain at least 8 characters.' });
       const adminCandidate = isAdminIdentity(name, studentId);
@@ -381,6 +385,38 @@ async function handler(req, res) {
       const body = await readBody(req);
       const studentId = String(body.studentId || '').trim();
       const password = String(body.password || '');
+      if (studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase()) {
+        if (!ADMIN_LOGIN_PASSWORD)
+          return json(res, 503, { error: 'Administrator login is not configured for this deployment.' });
+        const provided = Buffer.from(password);
+        const expected = Buffer.from(ADMIN_LOGIN_PASSWORD);
+        if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+          attempts.push(now);
+          loginAttempts.set(ip, attempts);
+          return json(res, 401, { error: 'Administrator ID or password is incorrect.' });
+        }
+        const store = await readStore();
+        let admin = store.users.find((user) => user.studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase());
+        if (admin && admin.role !== 'admin')
+          return json(res, 409, { error: 'The administrator login ID is already assigned to a non-admin account.' });
+        if (!admin) {
+          const salt = crypto.randomBytes(16).toString('hex');
+          const hash = await scrypt(ADMIN_LOGIN_PASSWORD, salt, 64);
+          admin = {
+            id: crypto.randomUUID(),
+            name: 'ผู้ดูแลระบบ',
+            studentId: ADMIN_LOGIN_ID,
+            role: 'admin',
+            salt,
+            passwordHash: hash.toString('hex'),
+            createdAt: new Date().toISOString(),
+          };
+          store.users.push(admin);
+          await writeStore(store);
+        }
+        loginAttempts.delete(ip);
+        return json(res, 200, { user: cleanUser(admin) }, { 'Set-Cookie': sessionCookie(admin.id) });
+      }
       const user = (await readStore()).users.find(
         (u) => u.studentId.toLowerCase() === studentId.toLowerCase(),
       );
@@ -419,6 +455,28 @@ async function handler(req, res) {
         userCount: store.users.length,
         supportCount: store.staffMessages.length,
       });
+    }
+    if (req.method === 'POST' && route === '/api/admin/items/update') {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const itemId = String(body.itemId || '');
+      const status = String(body.status || '');
+      const assignedTo = String(body.assignedTo || '').trim();
+      if (!/^[\da-f-]{36}$/i.test(itemId))
+        return json(res, 400, { error: 'Invalid report ID.' });
+      if (!['open', 'reviewing', 'resolved'].includes(status))
+        return json(res, 400, { error: 'Choose a valid work status.' });
+      if (assignedTo.length > 80)
+        return json(res, 400, { error: 'Assignee name must be 80 characters or fewer.' });
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'Report not found.' });
+      item.status = status;
+      item.assignedTo = assignedTo;
+      item.updatedAt = new Date().toISOString();
+      await writeStore(store);
+      return json(res, 200, { ok: true, itemId, status, assignedTo });
     }
     if (req.method === 'GET' && route === '/api/admin/users') {
       if (!(await requireAdmin(req, res))) return;
@@ -489,12 +547,15 @@ async function handler(req, res) {
       if (!user) return;
       const body = await readBody(req);
       const itemName = String(body.itemName || '').trim();
+      const reporterName = String(body.reporterName || '').trim();
       const type = body.type;
       const category = String(body.category || '');
       const location = String(body.location || '');
       const date = String(body.date || '');
       if (itemName.length < 2 || itemName.length > 90)
         return json(res, 400, { error: 'Enter an item name between 2 and 90 characters.' });
+      if (reporterName.length < 2 || reporterName.length > 80)
+        return json(res, 400, { error: 'Enter the reporter name (2–80 characters).' });
       if (!['lost', 'found'].includes(type))
         return json(res, 400, { error: 'Choose whether the item is lost or found.' });
       if (
@@ -511,6 +572,7 @@ async function handler(req, res) {
         id: crypto.randomUUID(),
         type,
         itemName,
+        reporterName,
         category,
         color: String(body.color || '')
           .trim()
@@ -526,6 +588,8 @@ async function handler(req, res) {
         photo: null,
         ownerId: user.id,
         ownerName: user.name,
+        status: 'open',
+        assignedTo: '',
         createdAt: new Date().toISOString(),
       };
       if (body.photo) {

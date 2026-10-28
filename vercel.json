@@ -14,6 +14,7 @@
     { "src": "api/contact.js", "use": "@vercel/node" },
     { "src": "api/contact/reply.js", "use": "@vercel/node" },
     { "src": "api/admin/overview.js", "use": "@vercel/node" },
+    { "src": "api/admin/items/update.js", "use": "@vercel/node" },
     { "src": "api/admin/users.js", "use": "@vercel/node" },
     { "src": "api/admin/users/delete.js", "use": "@vercel/node" }
   ]

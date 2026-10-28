@@ -36,8 +36,22 @@ function setMessage(id, text, kind = 'error') {
   node.classList.toggle('success-message', kind === 'success');
 }
 function setAuthView(id) {
+  if (id === 'login-form') {
+    byId('login-title').textContent = 'ยินดีต้อนรับกลับ';
+    byId('login-intro').textContent = 'เข้าสู่ระบบเพื่อดูและติดตามประกาศของโรงเรียน';
+    if (byId('login-id').value === 'A1010') byId('login-id').value = '';
+  }
   document.querySelectorAll('.auth-view').forEach((view) => view.classList.remove('active'));
   byId(id).classList.add('active');
+}
+function openAdminLogin() {
+  byId('login-title').textContent = 'เข้าสู่ระบบผู้ดูแล';
+  byId('login-intro').textContent = 'สำหรับเจ้าหน้าที่แผงควบคุมงานประชาสัมพันธ์';
+  byId('login-id').value = 'A1010';
+  byId('login-password').value = '';
+  document.querySelectorAll('.auth-view').forEach((view) => view.classList.remove('active'));
+  byId('login-form').classList.add('active');
+  byId('login-password').focus();
 }
 function showToast(text) {
   const toast = byId('toast');
@@ -64,23 +78,23 @@ function renderNav() {
   const board = document.createElement('button');
   board.className = 'button';
   board.type = 'button';
-  board.textContent = 'Board';
+    board.textContent = 'หน้าประกาศ';
   board.addEventListener('click', showBoard);
   const inbox = document.createElement('button');
   inbox.className = 'button';
-  inbox.textContent = canManageSupport() ? 'Support inbox' : 'Messages';
+  inbox.textContent = canManageSupport() ? 'กล่องข้อความเจ้าหน้าที่' : 'ข้อความ';
   inbox.addEventListener('click', openInbox);
   nav.append(board, inbox);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
     adminPanel.className = 'button';
-    adminPanel.textContent = 'Admin panel';
+    adminPanel.textContent = 'แผงควบคุมงาน';
     adminPanel.addEventListener('click', openAdminPanel);
     nav.append(adminPanel);
   }
   const logout = document.createElement('button');
   logout.className = 'button';
-  logout.textContent = 'Log out';
+  logout.textContent = 'ออกจากระบบ';
   logout.addEventListener('click', logoutUser);
   nav.append(logout);
 }
@@ -103,7 +117,8 @@ function enterApp(user) {
   byId('app').classList.remove('hidden');
   showBoard();
   renderNav();
-  loadItems();
+  if (user.role === 'admin') openAdminPanel();
+  else loadItems();
 }
 function exitApp() {
   state.user = null;
@@ -177,6 +192,13 @@ function formatDate(value) {
     ? value
     : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(date);
 }
+function formatPostedDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'เวลาไม่ระบุ';
+  return new Intl.DateTimeFormat('th-TH', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  }).format(date);
+}
 function makeItemCard(item) {
   const article = document.createElement('article');
   article.className = 'item-card';
@@ -208,7 +230,10 @@ function makeItemCard(item) {
   const desc = document.createElement('p');
   desc.className = 'item-description';
   desc.textContent =
-    item.description || `${item.color || 'No color details'} · Posted by ${item.ownerName}`;
+    item.description || `${item.color || 'ไม่ระบุสี'}`;
+  const reporter = document.createElement('p');
+  reporter.className = 'item-reporter';
+  reporter.textContent = `👤 ผู้แจ้ง: ${item.reporterName || item.ownerName || 'ไม่ระบุชื่อ'}`;
   const contactMethod = document.createElement('p');
   contactMethod.className = 'item-contact-method';
   contactMethod.textContent = item.contact ? 'Contact: ' + item.contact : '';
@@ -216,7 +241,11 @@ function makeItemCard(item) {
   bottom.className = 'item-bottom';
   const date = document.createElement('span');
   date.className = 'item-date';
-  date.textContent = formatDate(item.date);
+  const eventDate = document.createElement('span');
+  eventDate.textContent = `${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  const postedDate = document.createElement('small');
+  postedDate.textContent = `ลงประกาศ ${formatPostedDate(item.createdAt)}`;
+  date.append(eventDate, postedDate);
   const contact = document.createElement('button');
   contact.className = 'item-contact';
   contact.type = 'button';
@@ -228,7 +257,7 @@ function makeItemCard(item) {
     contact.addEventListener('click', () => openItemContact(item));
   }
   bottom.append(date, contact);
-  body.append(title, meta, desc);
+  body.append(title, meta, desc, reporter);
   if (item.contact) body.append(contactMethod);
   if (item.possibleMatches?.length) {
     const match = document.createElement('span');
@@ -273,6 +302,15 @@ function updateStats() {
   byId('lost-count').textContent = state.items.filter((x) => x.type === 'lost').length;
   byId('found-count').textContent = state.items.filter((x) => x.type === 'found').length;
   byId('match-count').textContent = state.items.filter((x) => x.possibleMatches?.length).length;
+  const tabCounts = {
+    all: state.items.length,
+    lost: state.items.filter((x) => x.type === 'lost').length,
+    found: state.items.filter((x) => x.type === 'found').length,
+  };
+  for (const [filter, count] of Object.entries(tabCounts)) {
+    const node = document.querySelector(`[data-filter="${filter}"] .tab-count`);
+    if (node) node.textContent = count;
+  }
 }
 function openReport(type) {
   state.reportType = type;
@@ -281,6 +319,7 @@ function openReport(type) {
   byId('item-message').textContent = '';
   byId('dialog-kind').textContent = type === 'lost' ? 'LOST ITEM' : 'FOUND ITEM';
   byId('dialog-title').textContent = type === 'lost' ? 'Report a lost item' : 'Report a found item';
+  byId('item-date-label').textContent = type === 'lost' ? 'วันที่หาย' : 'วันที่พบ';
   const today = new Date();
   byId('item-date').value = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
     .toISOString()
@@ -383,6 +422,7 @@ async function submitItem(event) {
   }
   const payload = {
     type: state.reportType,
+    reporterName: byId('item-reporter').value.trim(),
     itemName: byId('item-name').value.trim(),
     category: byId('item-category').value,
     color: byId('item-color').value.trim(),
@@ -605,18 +645,105 @@ function renderAdminUsers(users) {
     list.append(row);
   }
 }
+function renderAdminReports(items) {
+  const body = byId('admin-report-list');
+  body.replaceChildren();
+  byId('admin-report-count').textContent = `${items.length} รายการ`;
+  if (!items.length) {
+    const row = document.createElement('tr');
+    const empty = document.createElement('td');
+    empty.className = 'admin-table-empty';
+    empty.colSpan = 7;
+    empty.textContent = 'ยังไม่มีประกาศให้ติดตาม';
+    row.append(empty);
+    body.append(row);
+    return;
+  }
+  const statuses = [
+    ['open', 'เปิดรับแจ้ง'],
+    ['reviewing', 'กำลังติดตาม'],
+    ['resolved', 'ปิดงาน / คืนแล้ว'],
+  ];
+  for (const item of items) {
+    const row = document.createElement('tr');
+    const code = document.createElement('td');
+    const codeText = document.createElement('strong');
+    codeText.className = 'admin-table-id';
+    codeText.textContent = `${item.type === 'lost' ? 'LF' : 'FF'}-${item.id.slice(0, 8).toUpperCase()}`;
+    const type = document.createElement('small');
+    type.textContent = item.type === 'lost' ? 'ของหาย' : 'เก็บได้';
+    code.append(codeText, document.createElement('br'), type);
+    const nameCell = document.createElement('td');
+    const name = document.createElement('div');
+    name.className = 'admin-table-item';
+    const title = document.createElement('strong');
+    title.textContent = item.itemName;
+    const date = document.createElement('small');
+    date.textContent = `ลงประกาศ ${formatPostedDate(item.createdAt)}`;
+    name.append(title, date);
+    nameCell.append(name);
+    const location = document.createElement('td');
+    location.textContent = item.location || '—';
+    const reporter = document.createElement('td');
+    reporter.textContent = item.reporterName || item.ownerName || 'ไม่ระบุ';
+    const statusCell = document.createElement('td');
+    const status = document.createElement('select');
+    status.setAttribute('aria-label', `สถานะงาน ${item.itemName}`);
+    for (const [value, label] of statuses) {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      status.append(option);
+    }
+    status.value = statuses.some(([value]) => value === item.status) ? item.status : 'open';
+    statusCell.append(status);
+    const assigneeCell = document.createElement('td');
+    const assignee = document.createElement('input');
+    assignee.value = item.assignedTo || '';
+    assignee.maxLength = 80;
+    assignee.placeholder = 'ชื่อผู้ดูแล';
+    assignee.setAttribute('aria-label', `ผู้รับผิดชอบ ${item.itemName}`);
+    assigneeCell.append(assignee);
+    const actionCell = document.createElement('td');
+    const save = document.createElement('button');
+    save.className = 'button primary';
+    save.type = 'button';
+    save.textContent = 'บันทึก';
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try {
+        await api('/api/admin/items/update', {
+          method: 'POST',
+          body: JSON.stringify({ itemId: item.id, status: status.value, assignedTo: assignee.value.trim() }),
+        });
+        showToast('บันทึกสถานะงานแล้ว');
+        await loadAdminData();
+      } catch (error) {
+        setMessage('admin-report-message', error.message);
+      } finally {
+        save.disabled = false;
+      }
+    });
+    actionCell.append(save);
+    row.append(code, nameCell, location, reporter, statusCell, assigneeCell, actionCell);
+    body.append(row);
+  }
+}
 async function loadAdminData() {
   setMessage('admin-message', '');
+  setMessage('admin-report-message', '');
   try {
-    const [overview, accounts] = await Promise.all([
+    const [overview, accounts, reports] = await Promise.all([
       api('/api/admin/overview'),
       api('/api/admin/users'),
+      api('/api/items'),
     ]);
     byId('admin-lost-count').textContent = overview.lostCount;
     byId('admin-found-count').textContent = overview.foundCount;
     byId('admin-user-count').textContent = overview.userCount;
     byId('admin-support-count').textContent = overview.supportCount;
     renderAdminUsers(accounts.users);
+    renderAdminReports(reports.items);
   } catch (error) {
     setMessage('admin-message', error.message);
   }
@@ -638,6 +765,7 @@ async function deleteAdminUser(user) {
 function bindEvents() {
   byId('open-signup').addEventListener('click', () => setAuthView('signup-form'));
   byId('open-login').addEventListener('click', () => setAuthView('login-form'));
+  byId('open-admin-login').addEventListener('click', openAdminLogin);
   byId('to-login').addEventListener('click', () => setAuthView('login-form'));
   byId('to-signup').addEventListener('click', () => setAuthView('signup-form'));
   byId('signup-form').addEventListener('submit', (event) => submitAuth(event, 'register'));

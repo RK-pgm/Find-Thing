@@ -989,7 +989,9 @@ main { padding-top: 30px; }
 .search-box:focus-within, .filters select:focus { border-color: #8db99d; box-shadow: 0 0 0 3px #e8f2e9; }
 .tabs { gap: 7px; padding: 4px 22px 14px; }
 .tab { border-radius: 999px; padding: 8px 16px; }
-.tab.active { background: var(--green); box-shadow: 0 4px 12px rgba(38,115,84,.17); }
+.tab.active { background: var(--green); color: #fff; box-shadow: 0 4px 12px rgba(38,115,84,.17); }
+.tab-count { display: inline-grid; min-width: 21px; height: 21px; margin-left: 5px; padding: 0 6px; place-items: center; border-radius: 99px; background: #ffffffbb; font-size: 10px; font-weight: 700; }
+.tab.active .tab-count { background: #fff; color: var(--green); }
 .item-grid { gap: 15px; padding: 6px 22px 22px; }
 .item-card { border-color: #e4e9e2; border-radius: 16px; box-shadow: 0 5px 18px rgba(31,69,52,.035); transition: transform .18s ease, box-shadow .18s ease; }
 .item-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(31,69,52,.1); }
@@ -1013,4 +1015,38 @@ main { padding-top: 30px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+/* Polished reporting and work-management UI */
+.auth-card h1 span { color: var(--green); }
+.auth-card .admin-entry { border-color: #dce8f3; color: #315e91; }
+.hero-actions #report-lost { background: #e23e45; border-color: #e23e45; color: #fff; box-shadow: 0 8px 18px #e23e452b; }
+.hero-actions #report-lost:hover { background: #c92f38; }
+.hero-actions #report-found { background: #08a778; border-color: #08a778; color: #fff; box-shadow: 0 8px 18px #08a7782b; }
+.hero-actions #report-found:hover { background: #078960; }
+.item-reporter { margin: 10px 0 0; color: #566b60; font-size: 12px; font-weight: 700; }
+.item-date { display: grid; gap: 3px; }
+.item-date small { color: var(--muted); font-size: 10px; font-weight: 500; }
+.admin-panel { display: grid; gap: 18px; }
+.admin-panel-heading h1 { color: var(--ink); }
+.admin-stat { position: relative; overflow: hidden; }
+.admin-stat::after { position: absolute; inset: auto 0 0; height: 3px; background: linear-gradient(90deg,#4f46e5,#0eaa78); content: ""; }
+.admin-table-count { padding: 7px 11px; border-radius: 999px; background: #edf5ee; color: var(--green); font-size: 12px; font-weight: 700; }
+.admin-table-wrap { overflow: auto; margin: 10px -4px -4px; border: 1px solid var(--line); border-radius: 13px; }
+.admin-table { width: 100%; border-collapse: collapse; min-width: 880px; font-size: 12px; }
+.admin-table th { padding: 13px 12px; background: #f1f5f3; color: #53685e; text-align: left; white-space: nowrap; }
+.admin-table td { padding: 11px 12px; border-top: 1px solid var(--line); vertical-align: middle; }
+.admin-table tbody tr:hover { background: #fbfdfb; }
+.admin-table-item { display: grid; gap: 3px; min-width: 130px; }
+.admin-table-item strong { color: var(--ink); }
+.admin-table-item small, .admin-table-id { color: var(--muted); font-size: 10px; }
+.admin-table select, .admin-table input { max-width: 160px; min-width: 125px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); font: inherit; }
+.admin-table .button { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+.admin-table-empty { padding: 28px !important; color: var(--muted); text-align: center; }
+.admin-user-row { background: #fff; }
+@media (max-width: 760px) {
+  .admin-panel { gap: 13px; }
+  .admin-panel-heading { align-items: flex-start; }
+  .admin-work-card { padding: 16px 13px; }
+  .admin-table-wrap { margin-inline: -5px; }
 }

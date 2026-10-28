@@ -13,7 +13,7 @@
 <body>
     <header class="topbar">
       <a class="brand" href="#home" aria-label="Found It home"
-        ><span class="brand-mark" aria-hidden="true">⌕</span><span>Found It <small class="brand-caption">ศูนย์ติดตามของหายในโรงเรียน</small></span></a
+        ><span class="brand-mark" aria-hidden="true">🏫</span><span>ศูนย์ติดตามของหายในโรงเรียน <small class="brand-caption">School Lost &amp; Found Hub</small></span></a
       >
       <nav class="nav" id="nav" aria-label="Main navigation"></nav>
   </header>
@@ -23,18 +23,19 @@
         <div class="auth-card">
           <div class="eyebrow">SCHOOL COMMUNITY</div>
           <div id="auth-choice" class="auth-view active">
-            <h1 id="welcome-title">Lost something? Let's find it.</h1>
-            <p class="subtext">เข้าสู่ระบบเพื่อแจ้งของหาย ค้นหาสิ่งของ และส่งข้อความถึงชุมชนโรงเรียน</p>
+            <h1 id="welcome-title">ของหายก็มีโอกาสได้คืน<br /><span>เริ่มตามหาได้ที่นี่</span></h1>
+            <p class="subtext">ศูนย์ติดตามของหายในโรงเรียน ค้นหา แจ้ง และช่วยกันส่งคืนอย่างปลอดภัย</p>
             <button class="button primary full" id="open-signup" type="button">
-              Create an account
+              สร้างบัญชี
             </button>
-            <button class="button full" id="open-login" type="button">เข้าสู่ระบบ</button>
-            <p class="fine-print">Use your name, student ID, and a password.</p>
+            <button class="button full" id="open-login" type="button">เข้าสู่ระบบสมาชิก</button>
+            <button class="button admin-entry full" id="open-admin-login" type="button">🛡️ เข้าสู่ระบบผู้ดูแล</button>
+            <p class="fine-print">สร้างบัญชีด้วยชื่อ รหัสนักเรียน และรหัสผ่าน</p>
           </div>
           <form id="signup-form" class="auth-view" novalidate>
-            <h1>Create an account</h1>
-            <p class="subtext">Join your school community.</p>
-            <label for="signup-name">Name</label>
+            <h1>สร้างบัญชี</h1>
+            <p class="subtext">เข้าร่วมชุมชนโรงเรียนและติดตามประกาศ</p>
+            <label for="signup-name">ชื่อ–นามสกุล</label>
             <input
               id="signup-name"
               name="name"
@@ -42,9 +43,9 @@
               autocomplete="name"
               maxlength="80"
               required
-              placeholder="Your name"
+              placeholder="เช่น ด.ช. ธนกร ใจดี"
             />
-            <label for="signup-id">Student ID</label>
+            <label for="signup-id">รหัสนักเรียน</label>
             <input
               id="signup-id"
               name="studentId"
@@ -52,9 +53,9 @@
               autocomplete="username"
               maxlength="40"
               required
-              placeholder="Your student ID"
+              placeholder="กรอกรหัสนักเรียน"
             />
-      <label for="signup-password">Password</label>
+      <label for="signup-password">รหัสผ่าน</label>
             <input
               id="signup-password"
               name="password"
@@ -62,7 +63,7 @@
               autocomplete="new-password"
               minlength="8"
               required
-              placeholder="At least 8 characters"
+              placeholder="อย่างน้อย 8 ตัวอักษร"
             />
             <div id="admin-setup-field" class="admin-setup-field hidden">
               <label for="admin-setup-code">Administrator setup code</label>
@@ -83,18 +84,18 @@
             </p>
           </form>
           <form id="login-form" class="auth-view" novalidate>
-            <h1>Welcome back</h1>
-            <p class="subtext">Log in to continue to the board.</p>
-        <label for="login-id">Student ID</label>
+            <h1 id="login-title">ยินดีต้อนรับกลับ</h1>
+            <p class="subtext" id="login-intro">เข้าสู่ระบบเพื่อดูและติดตามประกาศของโรงเรียน</p>
+        <label for="login-id">รหัสนักเรียน / รหัสผู้ดูแล</label>
             <input
               id="login-id"
               name="studentId"
               type="text"
               autocomplete="username"
               required
-              placeholder="Your student ID"
+              placeholder="เช่น รหัสนักเรียน หรือ A1010"
             />
-        <label for="login-password">Password</label>
+        <label for="login-password">รหัสผ่าน</label>
             <input
               id="login-password"
               name="password"
@@ -172,9 +173,9 @@
           </div>
           <div class="tabs" role="tablist" aria-label="กรองประเภทประกาศ">
             <button class="tab active" data-filter="all" role="tab" aria-selected="true">
-              ทั้งหมด</button
-            ><button class="tab" data-filter="lost" role="tab" aria-selected="false">ของหาย</button
-            ><button class="tab" data-filter="found" role="tab" aria-selected="false">เก็บได้</button>
+              ทั้งหมด <span class="tab-count">0</span></button
+            ><button class="tab" data-filter="lost" role="tab" aria-selected="false">ของหาย <span class="tab-count">0</span></button
+            ><button class="tab" data-filter="found" role="tab" aria-selected="false">เก็บได้ <span class="tab-count">0</span></button>
           </div>
           <div id="item-list" class="item-grid" aria-live="polite"></div>
           <div id="empty-state" class="empty-state hidden">
@@ -199,39 +200,57 @@
         <section id="admin-panel" class="admin-panel hidden" aria-labelledby="admin-title">
           <div class="admin-panel-heading">
             <div>
-              <div class="eyebrow">SYSTEM MANAGEMENT</div>
-              <h1 id="admin-title">Admin dashboard</h1>
-              <p class="subtext">Manage school accounts, reports, and support requests.</p>
+              <div class="eyebrow">ระบบจัดการโรงเรียน</div>
+              <h1 id="admin-title">แผงควบคุมงาน</h1>
+              <p class="subtext">จัดการประกาศ ติดตามสถานะ และดูบัญชีที่สมัครใช้งาน</p>
             </div>
             <button class="button primary" id="admin-open-inbox" type="button">
-              Support inbox
+              กล่องข้อความเจ้าหน้าที่
             </button>
           </div>
           <div class="admin-summary" aria-label="School summary">
             <article class="admin-stat">
-              <span>Lost reports</span>
+              <span>ประกาศของหาย</span>
               <strong id="admin-lost-count">0</strong>
             </article>
             <article class="admin-stat">
-              <span>Found reports</span>
+              <span>ประกาศเก็บได้</span>
               <strong id="admin-found-count">0</strong>
             </article>
             <article class="admin-stat">
-              <span>Accounts</span>
+              <span>บัญชีสมาชิก</span>
               <strong id="admin-user-count">0</strong>
             </article>
             <article class="admin-stat">
-              <span>Support requests</span>
+              <span>ข้อความติดต่อ</span>
               <strong id="admin-support-count">0</strong>
             </article>
           </div>
+          <section class="admin-card admin-work-card" aria-labelledby="admin-work-title">
+            <div class="admin-card-heading">
+              <div>
+                <h2 id="admin-work-title">รายการติดตามงาน</h2>
+                <p>ปรับสถานะและผู้ดูแลแต่ละรายการได้จากตารางนี้</p>
+              </div>
+              <span class="admin-table-count" id="admin-report-count">0 รายการ</span>
+            </div>
+            <p id="admin-report-message" class="form-message" aria-live="polite"></p>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr><th>รหัส / ประเภท</th><th>สิ่งของ</th><th>สถานที่</th><th>ผู้แจ้ง</th><th>สถานะงาน</th><th>ผู้รับผิดชอบ</th><th>บันทึก</th></tr>
+                </thead>
+                <tbody id="admin-report-list"></tbody>
+              </table>
+            </div>
+          </section>
           <section class="admin-card" aria-labelledby="admin-accounts-title">
             <div class="admin-card-heading">
               <div>
-                <h2 id="admin-accounts-title">School accounts</h2>
-                <p>Removing an account also removes its reports, photos, and messages.</p>
+                <h2 id="admin-accounts-title">บัญชีที่สมัครใช้งาน</h2>
+                <p>บัญชีผู้ดูแลจะได้รับการป้องกันไม่ให้ลบจากหน้านี้</p>
               </div>
-              <button class="button" id="admin-refresh" type="button">Refresh</button>
+              <button class="button" id="admin-refresh" type="button">รีเฟรชข้อมูล</button>
             </div>
             <p id="admin-message" class="form-message" aria-live="polite"></p>
             <div id="admin-user-list" class="admin-user-list" aria-live="polite"></div>
@@ -248,7 +267,10 @@
         <div class="eyebrow" id="dialog-kind">NEW REPORT</div>
         <h2 id="dialog-title">Report an item</h2>
         <p class="subtext">Add useful details so the community can recognize it.</p>
-        <label for="item-name">Item name</label
+        <label for="item-reporter">ชื่อผู้แจ้ง</label
+        ><input id="item-reporter" name="reporterName" required maxlength="80" placeholder="ชื่อ–นามสกุลผู้แจ้ง" />
+        <p class="form-hint">ชื่อนี้จะแสดงบนประกาศเพื่อให้เจ้าหน้าที่ติดตามได้</p>
+        <label for="item-name">ชื่อสิ่งของ</label
         ><input
           id="item-name"
           name="itemName"
@@ -258,7 +280,7 @@
         />
         <div class="two-col">
           <div>
-            <label for="item-category">Category</label
+            <label for="item-category">หมวดหมู่</label
             ><select id="item-category" name="category" required>
               <option value="">Choose a category</option>
               <option>School supplies</option>
@@ -269,11 +291,11 @@
             </select>
           </div>
           <div>
-            <label for="item-color">Main color</label
+            <label for="item-color">สีหลัก</label
             ><input id="item-color" name="color" maxlength="40" placeholder="e.g. Blue" />
           </div>
         </div>
-        <label for="item-description">Description</label
+        <label for="item-description">รายละเอียด</label
         ><textarea
           id="item-description"
           name="description"
@@ -283,7 +305,7 @@
         ></textarea>
         <div class="two-col">
           <div>
-            <label for="item-location">Location</label
+            <label for="item-location">สถานที่</label
             ><select id="item-location" name="location" required>
               <option value="">Choose a location</option>
               <option>Classroom</option>
@@ -294,7 +316,7 @@
             </select>
           </div>
           <div>
-            <label for="item-date">Date</label
+            <label for="item-date"><span id="item-date-label">วันที่หาย</span></label
             ><input id="item-date" name="date" type="date" required />
           </div>
         </div>
