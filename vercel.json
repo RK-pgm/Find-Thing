@@ -21,7 +21,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "/api/handler?__vercel_route=:path*"
+      "destination": "/api/handler.js?__vercel_route=:path*"
     }
   ]
 }
