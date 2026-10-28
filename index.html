@@ -1,21 +1,21 @@
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f6ef" />
     <meta name="description" content="A school community lost and found board." />
     <title>Found It | School Lost &amp; Found</title>
     <link rel="stylesheet" href="style.css" />
-    <script src="script.js" defer></script>
-  </head>
-  <body>
+  <script src="script.js" defer></script>
+</head>
+<body>
     <header class="topbar">
       <a class="brand" href="#home" aria-label="Found It home"
         ><span class="brand-mark" aria-hidden="true">⌕</span><span>Found It</span></a
       >
       <nav class="nav" id="nav" aria-label="Main navigation"></nav>
-    </header>
+  </header>
 
     <main>
       <section class="auth-screen" id="auth-screen" aria-labelledby="welcome-title">
@@ -53,7 +53,7 @@
               required
               placeholder="Your student ID"
             />
-            <label for="signup-password">Password</label>
+      <label for="signup-password">Password</label>
             <input
               id="signup-password"
               name="password"
@@ -73,7 +73,7 @@
                 placeholder="Code shown in the server terminal"
               />
               <p class="form-hint">Only needed for the administrator account.</p>
-            </div>
+  </div>
             <p class="form-message" id="signup-message" aria-live="polite"></p>
             <button class="button primary full" type="submit">Sign up</button>
             <p class="switch-copy">
@@ -84,7 +84,7 @@
           <form id="login-form" class="auth-view" novalidate>
             <h1>Welcome back</h1>
             <p class="subtext">Log in to continue to the board.</p>
-            <label for="login-id">Student ID</label>
+        <label for="login-id">Student ID</label>
             <input
               id="login-id"
               name="studentId"
@@ -93,7 +93,7 @@
               required
               placeholder="Your student ID"
             />
-            <label for="login-password">Password</label>
+        <label for="login-password">Password</label>
             <input
               id="login-password"
               name="password"
@@ -107,24 +107,13 @@
               New here?
               <button class="text-button" id="to-signup" type="button">Create an account</button>
             </p>
-          </form>
-        </div>
-      </section>
+    </form>
 
-      <div id="app" class="hidden">
-        <section class="hero" id="home">
-          <div>
-            <div class="eyebrow">SCHOOL LOST &amp; FOUND</div>
-            <h1>Lost something? Let's find it.</h1>
-            <p>Report a lost item or help return something you found.</p>
-          </div>
-          <div class="hero-actions">
-            <button class="button" id="report-lost" type="button">＋ Report lost item</button
-            ><button class="button primary" id="report-found" type="button">
-              Report found item　↗
-            </button>
-          </div>
-        </section>
+    <p>New here?
+      <button class="text-link" id="show-signup" type="button">Create an account</button>
+    </p>
+  </div>
+</section>
         <section class="stats" aria-label="Board summary">
           <article class="stat">
             <span class="stat-icon">⌕</span>
@@ -240,7 +229,7 @@
           </section>
         </section>
       </div>
-    </main>
+  </main>
 
     <dialog class="dialog" id="item-dialog" aria-labelledby="dialog-title">
       <form id="item-form" class="dialog-card">
@@ -387,6 +376,6 @@
       </section>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  </body>
+</body>
 </html>
 
