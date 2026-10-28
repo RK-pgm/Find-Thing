@@ -15,7 +15,10 @@ const state = {
 const ADMIN_NAME = 'AdminRK';
 const ADMIN_STUDENT_ID = 'T36699';
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  // This Vercel project exposes Node functions with their .js filenames.
+  // Keep callers readable while targeting the deployed function URLs directly.
+  const endpoint = path.startsWith('/api/') && !path.endsWith('.js') ? `${path}.js` : path;
+  const response = await fetch(endpoint, {
     credentials: 'same-origin',
     ...options,
     headers: {
