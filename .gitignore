@@ -2,6 +2,7 @@ data/
 uploads/
 node_modules/
 .vercel/
+.taste-skill/
 .env
 .env.*
 !.env.example
