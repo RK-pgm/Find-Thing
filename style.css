@@ -1641,3 +1641,41 @@ main { max-width: 1240px; padding-top: 38px; }
   .hero::after { animation: none; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Compact two-column report cards on phones */
+@media (max-width: 560px) {
+  .item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 5px 9px 13px;
+  }
+  .item-card { border-radius: 17px; }
+  .item-art { min-height: 0; max-height: none; aspect-ratio: 1.16 / 1; }
+  .item-art .badge { top: 8px; left: 8px; max-width: calc(100% - 53px); padding: 6px 8px; font-size: 9px; }
+  .item-code { top: 48px; right: 8px; max-width: calc(100% - 16px); overflow: hidden; padding: 5px 7px; border-radius: 8px; font-size: 8px; text-overflow: ellipsis; }
+  .item-favorite { top: 8px; right: 8px; width: 32px; height: 32px; font-size: 17px; }
+  .item-content { gap: 7px; padding: 11px 10px 10px; }
+  .item-category { gap: 5px; font-size: 9px; }
+  .item-content h3 { font-size: 14px; line-height: 1.35; }
+  .item-description { min-height: 30px; font-size: 10px; line-height: 1.45; }
+  .match-preview.compact, .match-empty.compact { padding: 7px; border-radius: 10px; }
+  .match-preview-content { gap: 4px; }
+  .match-preview-content strong { font-size: 9px; line-height: 1.35; }
+  .match-preview-content > span:not(.match-meter) { font-size: 8px; line-height: 1.35; }
+  .match-preview.compact .match-open { width: 100%; padding: 6px 5px; font-size: 8px; }
+  .match-empty.compact { gap: 5px; font-size: 8px; line-height: 1.3; }
+  .match-empty.compact > span:first-child { width: 20px; height: 20px; }
+  .item-card-info { gap: 5px; padding: 8px 0; font-size: 9px; line-height: 1.35; }
+  .item-card-footer { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .item-reporter-chip { max-width: 100%; padding: 5px 7px; font-size: 8px; }
+  .item-card-actions { width: 100%; justify-content: space-between; }
+  .item-contact-icon { width: 32px; height: 32px; }
+  .item-details-button { min-height: 32px; padding: 6px 9px; font-size: 9px; }
+}
+@media (max-width: 380px) {
+  .item-grid { gap: 8px; padding-inline: 7px; }
+  .item-content { padding-inline: 8px; }
+  .item-content h3 { font-size: 13px; }
+  .item-code { font-size: 7px; }
+}
