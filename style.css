@@ -2007,3 +2007,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .match-empty.compact { font-size: 10px; }
   .match-open { font-size: 10px; }
 }
+
+/* Explicit high-contrast actions; older button rules are more specific. */
+.nav .button.primary { box-shadow: none; }
+.hero-actions .button:first-child {
+  border-color: #a93730;
+  background: #a93730;
+  color: #fff;
+  box-shadow: none;
+  text-shadow: none;
+  filter: none;
+}
+.hero-actions .button.found-action {
+  border-color: #17664c;
+  background: #17664c;
+  color: #fff;
+  box-shadow: none;
+  text-shadow: none;
+  filter: none;
+  backdrop-filter: none;
+}
+.hero-actions .button::before, .hero-actions .button::after { display: none; }
+.hero-actions #report-lost {
+  border-color: #a93730;
+  background: #a93730;
+  box-shadow: none;
+}
+.hero-actions #report-found {
+  border-color: #17664c;
+  background: #17664c;
+  box-shadow: none;
+}
