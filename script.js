@@ -11,13 +11,20 @@ const state = {
   contactMode: 'staff',
   contactItemId: null,
   replyMessageId: null,
+  activeItemId: null,
+  replyToCommentId: null,
 };
 const ADMIN_NAME = 'AdminRK';
 const ADMIN_STUDENT_ID = 'T36699';
 async function api(path, options = {}) {
   // This Vercel project exposes Node functions with their .js filenames.
   // Keep callers readable while targeting the deployed function URLs directly.
-  const endpoint = path.startsWith('/api/') && !path.endsWith('.js') ? `${path}.js` : path;
+  const splitAt = path.indexOf('?');
+  const pathname = splitAt < 0 ? path : path.slice(0, splitAt);
+  const query = splitAt < 0 ? '' : path.slice(splitAt);
+  const endpoint = pathname.startsWith('/api/') && !pathname.endsWith('.js')
+    ? `${pathname}.js${query}`
+    : path;
   const response = await fetch(endpoint, {
     credentials: 'same-origin',
     ...options,
@@ -82,9 +89,14 @@ function renderNav() {
   board.addEventListener('click', showBoard);
   const inbox = document.createElement('button');
   inbox.className = 'button';
-  inbox.textContent = canManageSupport() ? 'กล่องข้อความเจ้าหน้าที่' : 'ข้อความ';
+  inbox.textContent = canManageSupport() ? 'กล่องข้อความเจ้าหน้าที่' : 'กล่องข้อความ';
   inbox.addEventListener('click', openInbox);
-  nav.append(board, inbox);
+  const profile = document.createElement('button');
+  profile.className = 'button';
+  profile.type = 'button';
+  profile.textContent = 'โปรไฟล์';
+  profile.addEventListener('click', openProfile);
+  nav.append(board, inbox, profile);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
     adminPanel.className = 'button';
@@ -205,6 +217,18 @@ function makeItemCard(item) {
   article.dataset.type = item.type;
   article.dataset.category = item.category;
   article.dataset.location = item.location;
+  article.tabIndex = 0;
+  article.setAttribute('aria-label', `ดูรายละเอียด ${item.itemName}`);
+  article.addEventListener('click', (event) => {
+    if (event.target.closest('button, a')) return;
+    openItemDetails(item.id);
+  });
+  article.addEventListener('keydown', (event) => {
+    if (event.target === article && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      openItemDetails(item.id);
+    }
+  });
   const art = document.createElement('div');
   art.className = 'item-art';
   art.textContent = categoryIcon(item.category);
@@ -256,7 +280,12 @@ function makeItemCard(item) {
     contact.textContent = 'Contact poster →';
     contact.addEventListener('click', () => openItemContact(item));
   }
-  bottom.append(date, contact);
+  const details = document.createElement('button');
+  details.className = 'button small item-details-button';
+  details.type = 'button';
+  details.textContent = `ดูรายละเอียด · ${item.commentCount || 0} ความคิดเห็น`;
+  details.addEventListener('click', () => openItemDetails(item.id));
+  bottom.append(date, details, contact);
   body.append(title, meta, desc, reporter);
   if (item.contact) body.append(contactMethod);
   if (item.possibleMatches?.length) {
@@ -277,6 +306,153 @@ async function loadItems() {
     updateStats();
   } catch (error) {
     showToast(error.message);
+  }
+}
+async function openItemDetails(itemId, replyToId = null) {
+  let item = state.items.find((entry) => entry.id === itemId);
+  if (!item) {
+    const result = await api('/api/items');
+    state.items = result.items;
+    item = state.items.find((entry) => entry.id === itemId);
+  }
+  if (!item) return showToast('ไม่พบประกาศนี้');
+  state.activeItemId = item.id;
+  state.replyToCommentId = null;
+  byId('comment-replying').classList.add('hidden');
+  byId('cancel-comment-reply').hidden = true;
+  byId('detail-kind').textContent = item.type === 'lost' ? 'ประกาศของหาย' : 'ประกาศของที่พบ';
+  byId('detail-title').textContent = item.itemName;
+  byId('detail-meta').textContent = `${item.category} · ${item.location} · ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  byId('detail-description').textContent = item.description || `สี / ลักษณะ: ${item.color || 'ไม่ได้ระบุ'}`;
+  const photo = byId('detail-photo');
+  photo.classList.toggle('hidden', !item.photo);
+  if (item.photo) photo.src = item.photo;
+  const facts = byId('detail-facts');
+  facts.replaceChildren();
+  const rows = [
+    ['ผู้แจ้ง', item.reporterName || item.ownerName || 'ไม่ระบุ'],
+    ['ลงประกาศ', formatPostedDate(item.createdAt)],
+  ];
+  if (item.contact) rows.push(['ช่องทางติดต่อ', item.contact]);
+  rows.forEach(([label, value]) => {
+    const row = document.createElement('div');
+    row.className = 'detail-fact';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const content = document.createElement('strong');
+    content.textContent = value;
+    row.append(name, content);
+    facts.append(row);
+  });
+  byId('comment-status').textContent = '';
+  byId('comment-text').value = '';
+  byId('detail-dialog').showModal();
+  await loadItemComments(item.id);
+  if (replyToId) setCommentReply(replyToId);
+}
+function renderCommentThreads(comments, parentId = null, depth = 0) {
+  const container = byId('comment-list');
+  comments.filter((comment) => (comment.parentId || null) === parentId).forEach((comment) => {
+    const card = document.createElement('article');
+    card.className = `comment-card${depth ? ' comment-reply' : ''}`;
+    card.style.marginInlineStart = `${Math.min(depth, 3) * 16}px`;
+    const head = document.createElement('div');
+    head.className = 'comment-head';
+    const name = document.createElement('strong');
+    name.textContent = comment.fromName;
+    const date = document.createElement('time');
+    date.dateTime = comment.createdAt;
+    date.textContent = formatPostedDate(comment.createdAt);
+    head.append(name, date);
+    const text = document.createElement('p');
+    text.textContent = comment.text;
+    const reply = document.createElement('button');
+    reply.className = 'text-button comment-reply-button';
+    reply.type = 'button';
+    reply.textContent = 'ตอบกลับ';
+    reply.addEventListener('click', () => setCommentReply(comment.id));
+    card.append(head, text, reply);
+    container.append(card);
+    renderCommentThreads(comments, comment.id, depth + 1);
+  });
+}
+async function loadItemComments(itemId) {
+  try {
+    const result = await api(`/api/comments?itemId=${encodeURIComponent(itemId)}`);
+    state.activeComments = result.comments;
+    const list = byId('comment-list');
+    list.replaceChildren();
+    renderCommentThreads(result.comments);
+    byId('comment-count').textContent = result.comments.length;
+    byId('comments-empty').classList.toggle('hidden', result.comments.length > 0);
+  } catch (error) {
+    byId('comment-status').textContent = error.message;
+  }
+}
+function setCommentReply(commentId) {
+  const comment = state.activeComments?.find((entry) => entry.id === commentId);
+  state.replyToCommentId = commentId;
+  byId('comment-replying').textContent = `กำลังตอบกลับ ${comment?.fromName || 'ความคิดเห็น'}`;
+  byId('comment-replying').classList.remove('hidden');
+  byId('cancel-comment-reply').hidden = false;
+  byId('comment-text').focus();
+}
+async function submitComment(event) {
+  event.preventDefault();
+  const text = byId('comment-text').value.trim();
+  if (!text) return;
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    await api('/api/comments', {
+      method: 'POST',
+      body: JSON.stringify({ itemId: state.activeItemId, parentId: state.replyToCommentId, text }),
+    });
+    state.replyToCommentId = null;
+    byId('comment-text').value = '';
+    byId('comment-replying').classList.add('hidden');
+    byId('cancel-comment-reply').hidden = true;
+    byId('comment-status').textContent = '';
+    await loadItemComments(state.activeItemId);
+    await loadItems();
+    showToast('ส่งความคิดเห็นแล้ว');
+  } catch (error) {
+    byId('comment-status').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+function openProfile() {
+  byId('profile-name').value = state.user?.name || '';
+  byId('profile-student-id').value = state.user?.studentId || '';
+  byId('profile-grade').value = state.user?.grade || '';
+  byId('profile-school').value = state.user?.school || '';
+  byId('profile-status').textContent = '';
+  byId('profile-dialog').showModal();
+}
+async function saveProfile(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    const result = await api('/api/profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: byId('profile-name').value.trim(),
+        grade: byId('profile-grade').value.trim(),
+        school: byId('profile-school').value.trim(),
+      }),
+    });
+    state.user = result.user;
+    byId('profile-dialog').close();
+    renderNav();
+    showToast('บันทึกโปรไฟล์แล้ว');
+  } catch (error) {
+    byId('profile-status').textContent = error.message;
+  } finally {
+    button.disabled = false;
   }
 }
 function renderItems() {
@@ -555,6 +731,27 @@ async function openInbox() {
   try {
     const result = await api('/api/messages');
     let count = 0;
+    (result.commentNotifications || []).forEach((comment) => {
+      const card = document.createElement('article');
+      card.className = 'message-card comment-notice';
+      const title = document.createElement('strong');
+      title.textContent = `ความคิดเห็นในประกาศ “${comment.itemName}”`;
+      const body = document.createElement('p');
+      body.textContent = `${comment.fromName}: ${comment.text}`;
+      const date = document.createElement('small');
+      date.textContent = formatPostedDate(comment.createdAt);
+      const open = document.createElement('button');
+      open.className = 'button small';
+      open.type = 'button';
+      open.textContent = 'เปิดประกาศ / ตอบกลับ';
+      open.addEventListener('click', () => {
+        byId('messages-dialog').close();
+        openItemDetails(comment.itemId, comment.id);
+      });
+      card.append(title, body, date, open);
+      list.append(card);
+      count++;
+    });
     result.messages.forEach((message) => {
       addMessageCard(list, message, message.fromId === state.user.id);
       count++;
@@ -773,6 +970,16 @@ function bindEvents() {
   byId('signup-name').addEventListener('input', updateAdminSetupVisibility);
   byId('signup-id').addEventListener('input', updateAdminSetupVisibility);
   byId('admin-refresh').addEventListener('click', loadAdminData);
+  byId('profile-form').addEventListener('submit', saveProfile);
+  byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
+  byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
+  byId('close-detail').addEventListener('click', () => byId('detail-dialog').close());
+  byId('comment-form').addEventListener('submit', submitComment);
+  byId('cancel-comment-reply').addEventListener('click', () => {
+    state.replyToCommentId = null;
+    byId('comment-replying').classList.add('hidden');
+    byId('cancel-comment-reply').hidden = true;
+  });
   byId('admin-open-inbox').addEventListener('click', openInbox);
   updateAdminSetupVisibility();
   byId('report-lost').addEventListener('click', () => openReport('lost'));

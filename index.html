@@ -361,6 +361,50 @@
       </form>
     </dialog>
 
+    <dialog class="dialog" id="detail-dialog" aria-labelledby="detail-title">
+      <section class="dialog-card item-detail-card">
+        <button class="icon-button dialog-close" id="close-detail" type="button" aria-label="ปิด">×</button>
+        <div class="eyebrow" id="detail-kind">รายละเอียดประกาศ</div>
+        <h2 id="detail-title"></h2>
+        <p class="item-meta" id="detail-meta"></p>
+        <img id="detail-photo" class="detail-photo hidden" alt="รูปสิ่งของ" />
+        <p id="detail-description" class="detail-description"></p>
+        <div id="detail-facts" class="detail-facts"></div>
+        <section class="detail-comments" aria-labelledby="comments-heading">
+          <div class="detail-comments-heading">
+            <div><h3 id="comments-heading">ความคิดเห็น</h3><p class="form-hint">ความคิดเห็นในประกาศนี้สมาชิกที่เข้าสู่ระบบจะมองเห็น</p></div>
+            <span id="comment-count" class="tab-count">0</span>
+          </div>
+          <div id="comment-list" class="comment-list"></div>
+          <p id="comments-empty" class="empty-message">ยังไม่มีความคิดเห็น เป็นคนแรกที่แสดงความคิดเห็นได้เลย</p>
+          <form id="comment-form" class="comment-form">
+            <p id="comment-replying" class="comment-replying hidden"></p>
+            <label for="comment-text">เขียนความคิดเห็น</label>
+            <textarea id="comment-text" rows="3" maxlength="1000" required placeholder="สอบถามหรือให้ข้อมูลเพิ่มเติมเกี่ยวกับสิ่งของนี้"></textarea>
+            <p id="comment-status" class="form-message" aria-live="polite"></p>
+            <div class="dialog-actions"><button class="button" id="cancel-comment-reply" type="button" hidden>ยกเลิกตอบกลับ</button><button class="button primary" type="submit">ส่งความคิดเห็น</button></div>
+          </form>
+        </section>
+      </section>
+    </dialog>
+    <dialog class="dialog" id="profile-dialog" aria-labelledby="profile-title">
+      <form id="profile-form" class="dialog-card">
+        <button class="icon-button dialog-close" id="close-profile" type="button" aria-label="ปิด">×</button>
+        <div class="eyebrow">บัญชีของฉัน</div>
+        <h2 id="profile-title">โปรไฟล์นักเรียน</h2>
+        <p class="subtext">ข้อมูลนี้ช่วยให้ติดต่อและส่งคืนของได้ถูกคน</p>
+        <label for="profile-name">ชื่อ–นามสกุล</label>
+        <input id="profile-name" name="name" required minlength="2" maxlength="80" />
+        <label for="profile-student-id">เลขประจำตัวนักเรียน</label>
+        <input id="profile-student-id" name="studentId" readonly />
+        <label for="profile-grade">ชั้น / ห้อง</label>
+        <input id="profile-grade" name="grade" maxlength="40" placeholder="เช่น ม.3/2" />
+        <label for="profile-school">โรงเรียน</label>
+        <input id="profile-school" name="school" maxlength="100" placeholder="ชื่อโรงเรียน" />
+        <p id="profile-status" class="form-message" aria-live="polite"></p>
+        <div class="dialog-actions"><button class="button" id="cancel-profile" type="button">ยกเลิก</button><button class="button primary" type="submit">บันทึกโปรไฟล์</button></div>
+      </form>
+    </dialog>
     <dialog class="dialog" id="contact-dialog" aria-labelledby="contact-title">
       <form id="contact-form" class="dialog-card">
         <button
@@ -401,7 +445,7 @@
         </button>
         <div class="eyebrow">YOUR INBOX</div>
         <h2 id="messages-title">Messages</h2>
-        <p class="subtext">Contact requests about items you posted appear here.</p>
+        <p class="subtext">ข้อความส่วนตัวและความคิดเห็นที่มีคนส่งถึงคุณจะแสดงที่นี่</p>
         <div id="message-list" class="message-list"></div>
         <p id="messages-empty" class="empty-message hidden">No messages yet.</p>
       </section>

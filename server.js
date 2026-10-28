@@ -49,7 +49,14 @@ function assertDeploymentConfig() {
   }
 }
 function emptyStore() {
-  return { users: [], items: [], messages: [], staffMessages: [] };
+  return { users: [], items: [], messages: [], staffMessages: [], comments: [] };
+}
+function normalizeStore(value) {
+  const store = { ...emptyStore(), ...(value && typeof value === 'object' ? value : {}) };
+  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments']) {
+    if (!Array.isArray(store[key])) store[key] = [];
+  }
+  return store;
 }
 async function redisCommand(...command) {
   if (!KV_URL || !KV_TOKEN) {
@@ -77,10 +84,10 @@ async function redisCommand(...command) {
 async function readStore() {
   if (process.env.VERCEL || KV_URL || KV_TOKEN) {
     const value = await redisCommand('GET', KV_KEY);
-    return value ? JSON.parse(value) : emptyStore();
+    return value ? normalizeStore(JSON.parse(value)) : emptyStore();
   }
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    return normalizeStore(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')));
   } catch {
     return emptyStore();
   }
@@ -224,7 +231,14 @@ function canManageSupport(user) {
   return user?.role === 'staff' || user?.role === 'admin';
 }
 function cleanUser(user) {
-  return { id: user.id, name: user.name, role: user.role || 'student' };
+  return {
+    id: user.id,
+    name: user.name,
+    studentId: user.studentId || '',
+    grade: user.grade || '',
+    school: user.school || '',
+    role: user.role || 'student',
+  };
 }
 function validOrigin(req) {
   const origin = req.headers.origin;
@@ -314,6 +328,29 @@ async function handler(req, res) {
       return user
         ? json(res, 200, { user: cleanUser(user) })
         : json(res, 401, { error: 'Not logged in.' });
+    }
+    if (req.method === 'POST' && route === '/api/profile') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const name = String(body.name || '').trim();
+      const grade = String(body.grade || '').trim();
+      const school = String(body.school || '').trim();
+      if (name.length < 2 || name.length > 80)
+        return json(res, 400, { error: 'Name must contain 2–80 characters.' });
+      if (grade.length > 40) return json(res, 400, { error: 'Class must be 40 characters or fewer.' });
+      if (school.length > 100) return json(res, 400, { error: 'School must be 100 characters or fewer.' });
+      const store = await readStore();
+      const account = store.users.find((entry) => entry.id === user.id);
+      if (!account) return json(res, 404, { error: 'Account not found.' });
+      account.name = name;
+      account.grade = grade;
+      account.school = school;
+      store.items.forEach((item) => {
+        if (item.ownerId === user.id) item.ownerName = name;
+      });
+      await writeStore(store);
+      return json(res, 200, { user: cleanUser(account) });
     }
     if (req.method === 'POST' && route === '/api/register') {
       const body = await readBody(req);
@@ -487,10 +524,12 @@ async function handler(req, res) {
       const users = (await readStore()).users
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map(({ id, name, studentId, role, createdAt }) => ({
+        .map(({ id, name, studentId, grade, school, role, createdAt }) => ({
           id,
           name,
           studentId,
+          grade: grade || '',
+          school: school || '',
           role: role || 'student',
           createdAt,
         }));
@@ -514,6 +553,9 @@ async function handler(req, res) {
       store.items = store.items.filter((item) => item.ownerId !== targetId);
       store.messages = store.messages.filter(
         (message) => message.fromId !== targetId && message.toId !== targetId,
+      );
+      store.comments = store.comments.filter(
+        (comment) => comment.fromId !== targetId && comment.toId !== targetId,
       );
       store.staffMessages = store.staffMessages
         .filter((message) => message.fromId !== targetId)
@@ -541,10 +583,60 @@ async function handler(req, res) {
     }
     if (req.method === 'GET' && route === '/api/items') {
       if (!(await requireUser(req, res))) return;
-      const items = (await readStore()).items
+      const store = await readStore();
+      const commentCounts = new Map();
+      for (const comment of store.comments)
+        commentCounts.set(comment.itemId, (commentCounts.get(comment.itemId) || 0) + 1);
+      const items = store.items
         .slice()
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((item) => {
+          return {
+            ...item,
+            commentCount: commentCounts.get(item.id) || 0,
+          };
+        });
       return json(res, 200, { items: withMatches(items) });
+    }
+    if (req.method === 'GET' && route === '/api/comments') {
+      if (!(await requireUser(req, res))) return;
+      const itemId = String(url.searchParams.get('itemId') || '');
+      const store = await readStore();
+      if (!store.items.some((item) => item.id === itemId))
+        return json(res, 404, { error: 'Report not found.' });
+      const comments = store.comments
+        .filter((comment) => comment.itemId === itemId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      return json(res, 200, { comments });
+    }
+    if (req.method === 'POST' && route === '/api/comments') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const itemId = String(body.itemId || '');
+      const text = String(body.text || '').trim();
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'Report not found.' });
+      if (text.length < 1 || text.length > 1000)
+        return json(res, 400, { error: 'Comment must contain 1–1,000 characters.' });
+      const parentId = String(body.parentId || '');
+      const parent = parentId ? store.comments.find((entry) => entry.id === parentId && entry.itemId === itemId) : null;
+      if (parentId && !parent) return json(res, 404, { error: 'Comment not found.' });
+      const comment = {
+        id: crypto.randomUUID(),
+        itemId,
+        itemName: item.itemName,
+        fromId: user.id,
+        fromName: user.name,
+        toId: parent ? parent.fromId : item.ownerId,
+        parentId: parent ? parent.id : null,
+        text,
+        createdAt: new Date().toISOString(),
+      };
+      store.comments.push(comment);
+      await writeStore(store);
+      return json(res, 201, { comment });
     }
     if (req.method === 'POST' && route === '/api/items') {
       const user = await requireUser(req, res);
@@ -684,6 +776,9 @@ async function handler(req, res) {
       const messages = store.messages
         .filter((m) => m.toId === user.id || m.fromId === user.id)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const commentNotifications = store.comments
+        .filter((comment) => comment.toId === user.id && comment.fromId !== user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const staffMessages =
         canManageSupport(user)
           ? store.staffMessages.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -694,7 +789,7 @@ async function handler(req, res) {
           : store.staffMessages
               .filter((m) => m.fromId === user.id)
               .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { messages, staffMessages, staffRequests });
+      return json(res, 200, { messages, staffMessages, staffRequests, commentNotifications });
     }
     if (req.method === 'POST' && route === '/api/contact/reply') {
       const user = await requireUser(req, res);
