@@ -2,6 +2,21 @@
 
 เว็บสำหรับแจ้งของหายและของที่พบ ค้นหารายการตามหมวดหมู่และสถานที่ ติดต่อผู้แจ้งผ่านข้อความส่วนตัว และส่งข้อความถึงเจ้าหน้าที่ได้
 
+
+## Deploy to Vercel
+
+This project is configured as a static site with a Node.js Function for `/api/*`. Account records, reports, and messages are stored in Upstash Redis; uploaded photos are stored in Vercel Blob. Vercel Functions have a read-only filesystem apart from temporary `/tmp` storage, so the local JSON and `uploads/` folders are only for local development.
+
+1. Push this repository to GitHub, then import it from the Vercel dashboard. Keep the project root at the repository root and use the default install/build settings.
+2. Create an Upstash Redis database and connect it to the Vercel project. The app reads `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or the equivalent `KV_REST_API_URL` and `KV_REST_API_TOKEN`).
+3. Create a Vercel Blob store and connect it to the same project. The app uses the Vercel Blob SDK with public image URLs; only upload photos that are appropriate for anyone with the URL to view.
+4. Add `SESSION_SECRET` and `ADMIN_SETUP_CODE` to the Vercel project environment variables for Preview and Production. Use long, unique random values; never commit them. `SESSION_SECRET` must remain unchanged or existing sessions will be signed out. The admin setup code is needed once to create the built-in first administrator identity (`AdminRK` / `T36699`). Remove `ADMIN_SETUP_CODE` after the administrator account is created.
+5. Optionally set `STAFF_STUDENT_ID` to the student ID assigned the staff role. Deploy the project after connecting the storage and setting the environment variables.
+
+A missing Redis or session secret makes protected API actions return a setup error; it does not fall back to temporary storage. The Redis document updates are serialized with a short-lived lock so concurrent report and message submissions do not overwrite one another. For local development, `npm start` continues to use `data/store.json` and `uploads/`.
+
+For the first admin account, enter the configured `ADMIN_SETUP_CODE` in the administrator setup field. Do not put that code in the source repository or in a public README.
+
 ## สิ่งที่ต้องมี
 
 - Windows และ PowerShell

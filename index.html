@@ -1,18 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f6ef" />
+    <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน" />
     <meta name="description" content="A school community lost and found board." />
-    <title>Found It | School Lost &amp; Found</title>
+    <title>Found It — ศูนย์ติดตามของหายในโรงเรียน</title>
     <link rel="stylesheet" href="style.css" />
   <script src="script.js" defer></script>
 </head>
 <body>
     <header class="topbar">
       <a class="brand" href="#home" aria-label="Found It home"
-        ><span class="brand-mark" aria-hidden="true">⌕</span><span>Found It</span></a
+        ><span class="brand-mark" aria-hidden="true">⌕</span><span>Found It <small class="brand-caption">ศูนย์ติดตามของหายในโรงเรียน</small></span></a
       >
       <nav class="nav" id="nav" aria-label="Main navigation"></nav>
   </header>
@@ -23,11 +24,11 @@
           <div class="eyebrow">SCHOOL COMMUNITY</div>
           <div id="auth-choice" class="auth-view active">
             <h1 id="welcome-title">Lost something? Let's find it.</h1>
-            <p class="subtext">Sign in to report an item or search the school lost and found.</p>
+            <p class="subtext">เข้าสู่ระบบเพื่อแจ้งของหาย ค้นหาสิ่งของ และส่งข้อความถึงชุมชนโรงเรียน</p>
             <button class="button primary full" id="open-signup" type="button">
               Create an account
             </button>
-            <button class="button full" id="open-login" type="button">Log in</button>
+            <button class="button full" id="open-login" type="button">เข้าสู่ระบบ</button>
             <p class="fine-print">Use your name, student ID, and a password.</p>
           </div>
           <form id="signup-form" class="auth-view" novalidate>
@@ -105,36 +106,45 @@
             <button class="button primary full" type="submit">Log in</button>
             <p class="switch-copy">
               New here?
-              <button class="text-button" id="to-signup" type="button">Create an account</button>
+              <button class="text-button" id="to-signup" type="button">สร้างบัญชี</button>
             </p>
     </form>
 
-    <p>New here?
-      <button class="text-link" id="show-signup" type="button">Create an account</button>
-    </p>
   </div>
 </section>
-        <section class="stats" aria-label="Board summary">
+        <div id="app" class="hidden">
+          <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+              <div class="eyebrow">SCHOOL LOST &amp; FOUND · COMMUNITY CARE</div>
+              <h1 id="hero-title">ของหายก็มีโอกาสได้คืน<br /><span>เริ่มตามหาได้ที่นี่</span></h1>
+              <p>แจ้งของหาย แจ้งสิ่งของที่พบ และช่วยกันส่งคืนเจ้าของอย่างปลอดภัย</p>
+            </div>
+            <div class="hero-actions" aria-label="แจ้งข้อมูลสิ่งของ">
+              <button class="button primary" id="report-lost" type="button"><span aria-hidden="true">⌕</span> แจ้งของหาย</button>
+              <button class="button found-action" id="report-found" type="button"><span aria-hidden="true">＋</span> แจ้งเก็บของได้</button>
+            </div>
+          </section>
+        <section class="stats" aria-label="สรุปรายการของหายและของที่พบ">
           <article class="stat">
             <span class="stat-icon">⌕</span>
-            <div><strong id="lost-count">0</strong><span>Items being searched for</span></div>
+            <div><strong id="lost-count">0</strong><span>รายการที่กำลังตามหา</span></div>
           </article>
           <article class="stat">
             <span class="stat-icon">＋</span>
-            <div><strong id="found-count">0</strong><span>Items found</span></div>
+            <div><strong id="found-count">0</strong><span>สิ่งของที่มีผู้เก็บได้</span></div>
           </article>
           <article class="stat">
             <span class="stat-icon">✓</span>
-            <div><strong id="match-count">0</strong><span>Possible matches</span></div>
+            <div><strong id="match-count">0</strong><span>รายการที่อาจตรงกัน</span></div>
           </article>
         </section>
         <section class="board" id="board" aria-labelledby="board-title">
           <div class="board-heading">
             <div>
-              <h2 id="board-title">Recent items</h2>
-              <p>Search by item, category, or location.</p>
+              <h2 id="board-title">ประกาศล่าสุด</h2>
+              <p>ค้นหาตามชื่อ หมวดหมู่ หรือสถานที่ที่พบ</p>
             </div>
-            <span class="live-label"><i></i> School board</span>
+            <span class="live-label"><i></i> กระดานของโรงเรียน</span>
           </div>
           <div class="filters">
             <label class="search-box"
@@ -142,17 +152,17 @@
               ><input
                 id="search-input"
                 type="search"
-                placeholder="Try ‘blue water bottle’"
-                aria-label="Search items" /></label
-            ><select id="category-filter" aria-label="Filter by category">
-              <option value="">All categories</option>
+                placeholder="ลองค้นหา เช่น กระบอกน้ำสีฟ้า"
+                aria-label="ค้นหาสิ่งของ" /></label
+            ><select id="category-filter" aria-label="กรองตามหมวดหมู่">
+              <option value="">ทุกหมวดหมู่</option>
               <option>School supplies</option>
               <option>Clothing</option>
               <option>Personal items</option>
               <option>Electronics</option>
               <option>Other</option></select
-            ><select id="location-filter" aria-label="Filter by location">
-              <option value="">All locations</option>
+            ><select id="location-filter" aria-label="กรองตามสถานที่">
+              <option value="">ทุกสถานที่</option>
               <option>Classroom</option>
               <option>Library</option>
               <option>Cafeteria</option>
@@ -160,32 +170,31 @@
               <option>Other</option>
             </select>
           </div>
-          <div class="tabs" role="tablist" aria-label="Item type">
+          <div class="tabs" role="tablist" aria-label="กรองประเภทประกาศ">
             <button class="tab active" data-filter="all" role="tab" aria-selected="true">
-              All items</button
-            ><button class="tab" data-filter="lost" role="tab" aria-selected="false">Lost</button
-            ><button class="tab" data-filter="found" role="tab" aria-selected="false">Found</button>
+              ทั้งหมด</button
+            ><button class="tab" data-filter="lost" role="tab" aria-selected="false">ของหาย</button
+            ><button class="tab" data-filter="found" role="tab" aria-selected="false">เก็บได้</button>
           </div>
           <div id="item-list" class="item-grid" aria-live="polite"></div>
           <div id="empty-state" class="empty-state hidden">
             <span>⌕</span>
-            <h3>No matching items</h3>
-            <p>Try a different search or report the item.</p>
+            <h3>ไม่พบรายการที่ตรงกัน</h3>
+            <p>ลองเปลี่ยนคำค้นหา หรือแจ้งรายการใหม่</p>
           </div>
         </section>
         <section class="privacy-note">
           <span aria-hidden="true">♧</span>
           <p>
-            <strong>Your privacy matters.</strong> Contact details are shared only through the item
-            contact flow.
+            <strong>เราใส่ใจความเป็นส่วนตัว</strong> ติดต่อเจ้าของประกาศผ่านระบบข้อความส่วนตัวของโรงเรียน
           </p>
         </section>
         <section class="contact-strip">
           <div>
-            <h2>Need help?</h2>
-            <p>Send a message to the school lost and found team.</p>
+            <h2>ต้องการความช่วยเหลือ?</h2>
+            <p>ส่งข้อความถึงเจ้าหน้าที่ศูนย์ติดตามของหาย</p>
           </div>
-          <button class="button" id="contact-staff" type="button">Contact school staff</button>
+          <button class="button" id="contact-staff" type="button">ติดต่อเจ้าหน้าที่</button>
         </section>
         <section id="admin-panel" class="admin-panel hidden" aria-labelledby="admin-title">
           <div class="admin-panel-heading">

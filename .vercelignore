@@ -1,0 +1,9 @@
+.git
+.vercel
+data
+uploads
+node_modules
+.env
+.env.*
+*.log
+start-public.ps1

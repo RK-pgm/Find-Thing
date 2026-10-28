@@ -6,15 +6,19 @@ const crypto = require('node:crypto');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
 const ROOT = __dirname;
-const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
-const PHOTO_DIR = process.env.UPLOAD_DIR || path.join(ROOT, 'uploads');
+const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'data') : path.join(ROOT, 'data'));
+const PHOTO_DIR = process.env.UPLOAD_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'uploads') : path.join(ROOT, 'uploads'));
 const DATA_FILE = path.join(DATA_DIR, 'store.json');
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const KV_KEY = 'found-it:store:v1';
+const KV_LOCK_KEY = 'found-it:store-lock:v1';
+const SESSION_SECRET = process.env.SESSION_SECRET || (process.env.VERCEL ? '' : crypto.randomBytes(32).toString('hex'));
 const PORT = Number(process.env.PORT) || 3000;
 const BODY_LIMIT = 5 * 1024 * 1024;
 const SESSION_MS = 12 * 60 * 60 * 1000;
 const ADMIN_NAME = 'AdminRK';
 const ADMIN_STUDENT_ID = 'T36699';
-const sessions = new Map();
 const loginAttempts = new Map();
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -25,24 +29,102 @@ const MIME = {
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
 };
-fs.mkdirSync(DATA_DIR, { recursive: true });
-fs.mkdirSync(PHOTO_DIR, { recursive: true });
-if (!fs.existsSync(DATA_FILE))
-  fs.writeFileSync(
-    DATA_FILE,
-    JSON.stringify({ users: [], items: [], messages: [], staffMessages: [] }, null, 2),
-  );
-function readStore() {
+if (!process.env.VERCEL) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.mkdirSync(PHOTO_DIR, { recursive: true });
+  if (!fs.existsSync(DATA_FILE))
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ users: [], items: [], messages: [], staffMessages: [] }, null, 2));
+}
+function assertDeploymentConfig() {
+  if (!process.env.VERCEL) return;
+  const missing = [];
+  if (!KV_URL || !KV_TOKEN) missing.push('Upstash Redis REST credentials');
+  if (!SESSION_SECRET) missing.push('SESSION_SECRET');
+  if (missing.length) {
+    const error = new Error(`Deployment setup is incomplete: configure ${missing.join(' and ')}.`);
+    error.status = 503;
+    throw error;
+  }
+}
+function emptyStore() {
+  return { users: [], items: [], messages: [], staffMessages: [] };
+}
+async function redisCommand(...command) {
+  if (!KV_URL || !KV_TOKEN) {
+    const error = new Error('Persistent storage is not configured. Connect Upstash Redis and set its REST URL and token.');
+    error.status = 503;
+    throw error;
+  }
+  const response = await fetch(KV_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${KV_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(command),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.error) {
+    console.error('Upstash Redis request failed:', result.error || response.status);
+    const error = new Error('The persistent data store is temporarily unavailable.');
+    error.status = 503;
+    throw error;
+  }
+  return result.result;
+}
+async function readStore() {
+  if (process.env.VERCEL || KV_URL || KV_TOKEN) {
+    const value = await redisCommand('GET', KV_KEY);
+    return value ? JSON.parse(value) : emptyStore();
+  }
   try {
     return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   } catch {
-    return { users: [], items: [], messages: [], staffMessages: [] };
+    return emptyStore();
   }
 }
-function writeStore(store) {
+async function writeStore(store) {
+  if (process.env.VERCEL || KV_URL || KV_TOKEN) {
+    await redisCommand('SET', KV_KEY, JSON.stringify(store));
+    return;
+  }
   const temp = DATA_FILE + '.tmp';
   fs.writeFileSync(temp, JSON.stringify(store, null, 2), { mode: 0o600 });
   fs.renameSync(temp, DATA_FILE);
+}
+async function acquireStoreLock() {
+  if (!(process.env.VERCEL || KV_URL || KV_TOKEN)) return null;
+  const token = crypto.randomUUID();
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const acquired = await redisCommand('SET', KV_LOCK_KEY, token, 'NX', 'PX', 12000);
+    if (acquired === 'OK') return token;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const error = new Error('The data store is busy. Please try again.');
+  error.status = 503;
+  throw error;
+}
+async function releaseStoreLock(token) {
+  if (!token) return;
+  const script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+  try {
+    await redisCommand('EVAL', script, 1, KV_LOCK_KEY, token);
+  } catch (error) {
+    console.error('Could not release the data-store lock:', error.message);
+  }
+}
+function sessionCookie(userId) {
+  if (!SESSION_SECRET) {
+    const error = new Error('SESSION_SECRET must be configured for Vercel.');
+    error.status = 503;
+    throw error;
+  }
+  const payload = Buffer.from(JSON.stringify({ userId, exp: Date.now() + SESSION_MS })).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  return `school_session=${payload}.${signature}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MS / 1000}${process.env.VERCEL || process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+}
+function clearSessionCookie() {
+  return `school_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${process.env.VERCEL || process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
 function isAdminIdentity(name, studentId) {
   return (
@@ -50,10 +132,13 @@ function isAdminIdentity(name, studentId) {
     String(studentId || '').trim().toLocaleUpperCase() === ADMIN_STUDENT_ID
   );
 }
-let adminSetupCode = null;
-if (!readStore().users.some((user) => user.role === 'admin' && isAdminIdentity(user.name, user.studentId))) {
-  adminSetupCode = crypto.randomBytes(12).toString('hex');
-  console.log(`One-time administrator setup code: ${adminSetupCode}`);
+let adminSetupCode = process.env.ADMIN_SETUP_CODE || null;
+if (!process.env.VERCEL) {
+  const localStore = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  if (!localStore.users.some((user) => user.role === 'admin' && isAdminIdentity(user.name, user.studentId))) {
+    adminSetupCode ||= crypto.randomBytes(12).toString('hex');
+    console.log(`One-time administrator setup code: ${adminSetupCode}`);
+  }
 }
 function matchesAdminSetupCode(value) {
   if (!adminSetupCode) return false;
@@ -99,25 +184,33 @@ function cookieValue(req, key) {
     .find((s) => s.startsWith(key + '='));
   return pair ? pair.slice(key.length + 1) : '';
 }
-function getUser(req) {
-  const sid = cookieValue(req, 'school_session');
-  const session = sessions.get(sid);
-  if (!session || session.expires < Date.now()) {
-    if (sid) sessions.delete(sid);
+async function getUser(req) {
+  const value = cookieValue(req, 'school_session');
+  const separator = value.lastIndexOf('.');
+  if (!SESSION_SECRET || separator <= 0) return null;
+  const payload = value.slice(0, separator);
+  const provided = Buffer.from(value.slice(separator + 1));
+  const expected = Buffer.from(crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url'));
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) return null;
+  let session;
+  try {
+    session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
     return null;
   }
-  return readStore().users.find((u) => u.id === session.userId) || null;
+  if (!session.userId || !Number.isFinite(session.exp) || session.exp < Date.now()) return null;
+  return (await readStore()).users.find((user) => user.id === session.userId) || null;
 }
-function requireUser(req, res) {
-  const user = getUser(req);
+async function requireUser(req, res) {
+  const user = await getUser(req);
   if (!user) {
     json(res, 401, { error: 'Please log in to continue.' });
     return null;
   }
   return user;
 }
-function requireAdmin(req, res) {
-  const user = requireUser(req, res);
+async function requireAdmin(req, res) {
+  const user = await requireUser(req, res);
   if (!user) return null;
   if (user.role !== 'admin') {
     json(res, 403, { error: 'Administrator access is required.' });
@@ -198,14 +291,18 @@ function sendFile(res, filename) {
     res.end(content);
   });
 }
-const server = http.createServer(async (req, res) => {
+async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const route = url.pathname;
   if (route.startsWith('/api/') && req.method !== 'GET' && !validOrigin(req))
     return json(res, 403, { error: 'Request origin was not accepted.' });
+  let lockToken = null;
   try {
+    if (route.startsWith('/api/')) assertDeploymentConfig();
+    if (['POST', 'DELETE'].includes(req.method) && route.startsWith('/api/'))
+      lockToken = await acquireStoreLock();
     if (req.method === 'GET' && route === '/api/session') {
-      const user = getUser(req);
+      const user = await getUser(req);
       return user
         ? json(res, 200, { user: cleanUser(user) })
         : json(res, 401, { error: 'Not logged in.' });
@@ -228,14 +325,14 @@ const server = http.createServer(async (req, res) => {
         return json(res, 403, { error: 'This student ID is reserved for the administrator.' });
       if (adminCandidate && !matchesAdminSetupCode(body.adminSetupCode))
         return json(res, 403, {
-          error: 'Enter the one-time administrator setup code shown in the server terminal.',
+          error: 'Enter the administrator setup code configured for this deployment.',
         });
-      const store = readStore();
+      const store = await readStore();
       if (store.users.some((u) => u.studentId.toLowerCase() === studentId.toLowerCase()))
         return json(res, 409, { error: 'That student ID already has an account.' });
       const salt = crypto.randomBytes(16).toString('hex');
       const hash = await scrypt(password, salt, 64);
-      const latestStore = readStore();
+      const latestStore = await readStore();
       if (latestStore.users.some((u) => u.studentId.toLowerCase() === studentId.toLowerCase()))
         return json(res, 409, { error: 'That student ID already has an account.' });
       if (adminCandidate) {
@@ -261,16 +358,15 @@ const server = http.createServer(async (req, res) => {
         createdAt: new Date().toISOString(),
       };
       latestStore.users.push(user);
-      writeStore(latestStore);
+      await writeStore(latestStore);
       if (adminCandidate) adminSetupCode = null;
-      const sid = crypto.randomBytes(32).toString('hex');
-      sessions.set(sid, { userId: user.id, expires: Date.now() + SESSION_MS });
+      const cookie = sessionCookie(user.id);
       return json(
         res,
         201,
         { user: cleanUser(user) },
         {
-          'Set-Cookie': `school_session=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MS / 1000}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`,
+          'Set-Cookie': cookie,
         },
       );
     }
@@ -283,7 +379,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const studentId = String(body.studentId || '').trim();
       const password = String(body.password || '');
-      const user = readStore().users.find(
+      const user = (await readStore()).users.find(
         (u) => u.studentId.toLowerCase() === studentId.toLowerCase(),
       );
       const hash = user ? await scrypt(password, user.salt, 64) : Buffer.alloc(64);
@@ -294,30 +390,27 @@ const server = http.createServer(async (req, res) => {
         return json(res, 401, { error: 'Student ID or password is incorrect.' });
       }
       loginAttempts.delete(ip);
-      const sid = crypto.randomBytes(32).toString('hex');
-      sessions.set(sid, { userId: user.id, expires: now + SESSION_MS });
+      const cookie = sessionCookie(user.id);
       return json(
         res,
         200,
         { user: cleanUser(user) },
         {
-          'Set-Cookie': `school_session=${sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MS / 1000}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`,
+          'Set-Cookie': cookie,
         },
       );
     }
     if (req.method === 'POST' && route === '/api/logout') {
-      const sid = cookieValue(req, 'school_session');
-      sessions.delete(sid);
       return json(
         res,
         200,
         { ok: true },
-        { 'Set-Cookie': 'school_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' },
+        { 'Set-Cookie': clearSessionCookie() },
       );
     }
     if (req.method === 'GET' && route === '/api/admin/overview') {
-      if (!requireAdmin(req, res)) return;
-      const store = readStore();
+      if (!(await requireAdmin(req, res))) return;
+      const store = await readStore();
       return json(res, 200, {
         lostCount: store.items.filter((item) => item.type === 'lost').length,
         foundCount: store.items.filter((item) => item.type === 'found').length,
@@ -326,8 +419,8 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (req.method === 'GET' && route === '/api/admin/users') {
-      if (!requireAdmin(req, res)) return;
-      const users = readStore().users
+      if (!(await requireAdmin(req, res))) return;
+      const users = (await readStore()).users
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
         .map(({ id, name, studentId, role, createdAt }) => ({
@@ -340,14 +433,14 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { users });
     }
     if (req.method === 'DELETE' && route.startsWith('/api/admin/users/')) {
-      const admin = requireAdmin(req, res);
+      const admin = await requireAdmin(req, res);
       if (!admin) return;
       const targetId = route.slice('/api/admin/users/'.length);
       if (!/^[\da-f-]{36}$/i.test(targetId))
         return json(res, 400, { error: 'Invalid account ID.' });
       if (targetId === admin.id)
         return json(res, 403, { error: 'You cannot delete your own administrator account.' });
-      const store = readStore();
+      const store = await readStore();
       const target = store.users.find((user) => user.id === targetId);
       if (!target) return json(res, 404, { error: 'Account not found.' });
       if (target.role === 'admin')
@@ -364,31 +457,33 @@ const server = http.createServer(async (req, res) => {
           ...message,
           replies: (message.replies || []).filter((reply) => reply.fromId !== targetId),
         }));
-      writeStore(store);
+      await writeStore(store);
       for (const item of removedItems) {
-        if (typeof item.photo !== 'string' || !item.photo.startsWith('/uploads/')) continue;
-        const filename = path.basename(item.photo);
-        if (!/^[\da-f-]{36}\.(?:jpg|png|webp)$/i.test(filename)) continue;
+        if (typeof item.photo !== 'string') continue;
         try {
-          fs.unlinkSync(path.join(PHOTO_DIR, filename));
+          if (item.photo.startsWith('https://')) {
+            const { del } = require('@vercel/blob');
+            await del(item.photo);
+          } else if (item.photo.startsWith('/uploads/')) {
+            const filename = path.basename(item.photo);
+            if (/^[\da-f-]{36}\.(?:jpg|png|webp)$/i.test(filename))
+              fs.unlinkSync(path.join(PHOTO_DIR, filename));
+          }
         } catch (error) {
           if (error.code !== 'ENOENT') console.error('Could not remove deleted account photo:', error);
         }
       }
-      for (const [sid, session] of sessions) {
-        if (session.userId === targetId) sessions.delete(sid);
-      }
       return json(res, 200, { ok: true });
     }
     if (req.method === 'GET' && route === '/api/items') {
-      if (!requireUser(req, res)) return;
-      const items = readStore()
-        .items.slice()
+      if (!(await requireUser(req, res))) return;
+      const items = (await readStore()).items
+        .slice()
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       return json(res, 200, { items: withMatches(items) });
     }
     if (req.method === 'POST' && route === '/api/items') {
-      const user = requireUser(req, res);
+      const user = await requireUser(req, res);
       if (!user) return;
       const body = await readBody(req);
       const itemName = String(body.itemName || '').trim();
@@ -438,28 +533,39 @@ const server = http.createServer(async (req, res) => {
         const ext =
           photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
         const filename = crypto.randomUUID() + ext;
-        fs.writeFileSync(path.join(PHOTO_DIR, filename), photo.bytes, { flag: 'wx' });
-        item.photo = '/uploads/' + filename;
+        if (process.env.VERCEL) {
+          const { put } = require('@vercel/blob');
+          const blob = await put(`found-it/${filename}`, photo.bytes, {
+            access: 'public',
+            contentType: photo.type,
+            addRandomSuffix: false,
+            cacheControlMaxAge: 31536000,
+          });
+          item.photo = blob.url;
+        } else {
+          fs.writeFileSync(path.join(PHOTO_DIR, filename), photo.bytes, { flag: 'wx' });
+          item.photo = '/uploads/' + filename;
+        }
       }
-      const store = readStore();
+      const store = await readStore();
       store.items.push(item);
-      writeStore(store);
+      await writeStore(store);
       const results = withMatches(store.items);
       const saved = results.find((x) => x.id === item.id);
       return json(res, 201, { item: saved });
     }
     if (req.method === 'POST' && route === '/api/messages') {
-      const user = requireUser(req, res);
+      const user = await requireUser(req, res);
       if (!user) return;
       const body = await readBody(req);
-      const item = readStore().items.find((x) => x.id === body.itemId);
+      const item = (await readStore()).items.find((x) => x.id === body.itemId);
       const message = String(body.message || '').trim();
       if (!item) return json(res, 404, { error: 'Item not found.' });
       if (item.ownerId === user.id)
         return json(res, 400, { error: 'You cannot contact yourself about your own item.' });
       if (message.length < 5 || message.length > 1000)
         return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
-      const store = readStore();
+      const store = await readStore();
       const entry = {
         id: crypto.randomUUID(),
         itemId: item.id,
@@ -471,15 +577,15 @@ const server = http.createServer(async (req, res) => {
         createdAt: new Date().toISOString(),
       };
       store.messages.push(entry);
-      writeStore(store);
+      await writeStore(store);
       return json(res, 201, { ok: true });
     }
     if (req.method === 'POST' && route === '/api/messages/reply') {
-      const user = requireUser(req, res);
+      const user = await requireUser(req, res);
       if (!user) return;
       const body = await readBody(req);
       const message = String(body.message || '').trim();
-      const store = readStore();
+      const store = await readStore();
       const original = store.messages.find((m) => m.id === body.messageId);
       if (!original || (original.fromId !== user.id && original.toId !== user.id))
         return json(res, 404, { error: 'Message not found.' });
@@ -498,13 +604,13 @@ const server = http.createServer(async (req, res) => {
         createdAt: new Date().toISOString(),
       };
       store.messages.push(reply);
-      writeStore(store);
+      await writeStore(store);
       return json(res, 201, { ok: true });
     }
     if (req.method === 'GET' && route === '/api/messages') {
-      const user = requireUser(req, res);
+      const user = await requireUser(req, res);
       if (!user) return;
-      const store = readStore();
+      const store = await readStore();
       const messages = store.messages
         .filter((m) => m.toId === user.id || m.fromId === user.id)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -521,7 +627,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { messages, staffMessages, staffRequests });
     }
     if (req.method === 'POST' && route === '/api/contact/reply') {
-      const user = requireUser(req, res);
+      const user = await requireUser(req, res);
       if (!user) return;
       if (!canManageSupport(user))
         return json(res, 403, { error: 'Only school staff can reply to support requests.' });
@@ -529,7 +635,7 @@ const server = http.createServer(async (req, res) => {
       const message = String(body.message || '').trim();
       if (message.length < 5 || message.length > 1000)
         return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
-      const store = readStore();
+      const store = await readStore();
       const request = store.staffMessages.find((m) => m.id === body.requestId);
       if (!request) return json(res, 404, { error: 'Support request not found.' });
       if (!Array.isArray(request.replies)) request.replies = [];
@@ -540,17 +646,17 @@ const server = http.createServer(async (req, res) => {
         message,
         createdAt: new Date().toISOString(),
       });
-      writeStore(store);
+      await writeStore(store);
       return json(res, 201, { ok: true });
     }
     if (req.method === 'POST' && route === '/api/contact') {
-      const user = requireUser(req, res);
+      const user = await requireUser(req, res);
       if (!user) return;
       const body = await readBody(req);
       const message = String(body.message || '').trim();
       if (message.length < 5 || message.length > 1000)
         return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
-      const store = readStore();
+      const store = await readStore();
       store.staffMessages.push({
         id: crypto.randomUUID(),
         fromId: user.id,
@@ -558,7 +664,7 @@ const server = http.createServer(async (req, res) => {
         message,
         createdAt: new Date().toISOString(),
       });
-      writeStore(store);
+      await writeStore(store);
       return json(res, 201, { ok: true });
     }
     if (req.method === 'GET' && route.startsWith('/uploads/')) {
@@ -578,16 +684,15 @@ const server = http.createServer(async (req, res) => {
       });
     else res.destroy();
     if (!error.status) console.error(error);
+  } finally {
+    await releaseStoreLock(lockToken);
   }
-});
-setInterval(
-  () => {
-    const now = Date.now();
-    for (const [sid, session] of sessions) if (session.expires < now) sessions.delete(sid);
-  },
-  30 * 60 * 1000,
-).unref();
-const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
-server.listen(PORT, HOST, () =>
-  console.log(`Found It is running at http://${HOST}:${PORT}`),
-);
+}
+if (process.env.VERCEL) {
+  module.exports = handler;
+} else {
+  const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+  http.createServer(handler).listen(PORT, HOST, () =>
+    console.log(`Found It is running at http://${HOST}:${PORT}`),
+  );
+}
