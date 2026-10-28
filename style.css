@@ -1085,3 +1085,39 @@ main { padding-top: 30px; }
 
 .item-card { cursor: pointer; }
 .item-card:focus-visible { outline: 3px solid #80a991; outline-offset: 3px; }
+/* Lost-and-found cards inspired by the compact illustrated reference layout */
+.item-card { border-radius: 20px; box-shadow: 0 5px 16px rgba(20,42,35,.08); }
+.item-art { height: auto; min-height: 150px; max-height: 270px; aspect-ratio: 2.15 / 1; overflow: hidden; isolation: isolate; }
+.item-art.lost:not(.has-photo) { background: linear-gradient(128deg,#ffd29e 0%,#ffad65 100%); }
+.item-art.found:not(.has-photo) { background: linear-gradient(128deg,#b8efd6 0%,#55c99b 100%); }
+.item-art.has-photo { background: #e8eee8; }
+.item-art.has-photo::after { position: absolute; z-index: 1; inset: 35% 0 0; background: linear-gradient(180deg,transparent,rgba(24,30,28,.23)); content: ""; pointer-events: none; }
+.item-art img { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+.item-art-icon { display: grid; width: 118px; height: 118px; place-items: center; border: 1px solid rgba(255,255,255,.4); border-radius: 50%; background: rgba(255,255,255,.26); box-shadow: 0 12px 25px rgba(99,60,30,.08); font-size: 68px; }
+.item-art .badge { z-index: 2; top: 14px; left: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; border-radius: 999px; background: #e94b53; box-shadow: 0 4px 10px rgba(92,42,30,.14); color: white; font-size: 12px; }
+.item-art .badge.found { background: #13a978; }
+.item-code { position: absolute; z-index: 2; top: 14px; right: 62px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.2); border-radius: 12px; background: rgba(37,34,34,.78); color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.item-favorite { position: absolute; z-index: 3; top: 10px; right: 12px; display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid rgba(255,255,255,.24); border-radius: 50%; background: rgba(53,46,39,.6); color: #fff; cursor: pointer; font-size: 21px; transition: transform .16s ease, background .16s ease, color .16s ease; }
+.item-favorite:hover { transform: scale(1.08); }
+.item-favorite.is-saved { background: #fff8e4; color: #e5a900; }
+.item-content { display: grid; gap: 8px; padding: 17px 18px 16px; }
+.item-category { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 12px; font-weight: 650; }
+.item-content h3 { margin: 0; color: #171d31; font-size: 18px; line-height: 1.35; }
+.item-description { display: -webkit-box; min-height: 0; margin: 0; overflow: hidden; color: #66758d; font-size: 13px; line-height: 1.55; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.item-card-info { display: grid; gap: 8px; margin-top: 3px; padding: 11px 0; border-top: 1px dashed #dfe5eb; color: #66758d; font-size: 12px; }
+.item-card-info span { overflow-wrap: anywhere; }
+.item-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.item-reporter-chip { max-width: 48%; overflow: hidden; padding: 7px 10px; border-radius: 10px; background: #f0f4f8; color: #66758d; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.item-card-actions { display: flex; align-items: center; gap: 8px; }
+.item-contact-icon { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border: 1px solid #e0e7ee; border-radius: 50%; background: #f4f7fa; color: #63758c; cursor: pointer; }
+.item-details-button { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 9px 14px; border-color: #dfe6ed; border-radius: 999px; color: #172033; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.item-details-button:hover { border-color: #b7d7c4; background: #f5faf6; color: var(--green); }
+@media (max-width: 760px) {
+  .item-art { height: auto; min-height: 145px; aspect-ratio: 2.05 / 1; }
+  .item-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 560px) {
+  .item-grid { grid-template-columns: 1fr; }
+  .item-art { height: auto; min-height: 180px; aspect-ratio: 1.9 / 1; }
+  .item-content { padding: 15px; }
+}

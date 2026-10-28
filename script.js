@@ -5,6 +5,7 @@ const state = {
   reportType: 'lost',
   activeFilter: 'all',
   items: [],
+  favoriteIds: [],
   photo: null,
   previewUrl: null,
   cameraStream: null,
@@ -125,6 +126,11 @@ async function openAdminPanel() {
 }
 function enterApp(user) {
   state.user = user;
+  try {
+    state.favoriteIds = JSON.parse(localStorage.getItem(`found-it:favorites:${user.id}`) || '[]');
+  } catch {
+    state.favoriteIds = [];
+  }
   byId('auth-screen').classList.add('hidden');
   byId('app').classList.remove('hidden');
   showBoard();
@@ -211,6 +217,30 @@ function formatPostedDate(value) {
     day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   }).format(date);
 }
+function reportCode(item) {
+  const created = new Date(item.createdAt || Date.now());
+  const year = Number.isNaN(created.getTime()) ? new Date().getFullYear() : created.getFullYear();
+  const compactId = String(item.id || '').replace(/[^a-f0-9]/gi, '').slice(-6);
+  const sequence = (compactId || '000000').toUpperCase();
+  return `${item.type === 'lost' ? 'LF' : 'FD'}-${year}-${sequence}`;
+}
+function setFavoriteButton(button, itemId) {
+  const active = state.favoriteIds.includes(itemId);
+  button.classList.toggle('is-saved', active);
+  button.setAttribute('aria-pressed', String(active));
+  button.setAttribute('aria-label', active ? 'นำออกจากรายการบันทึก' : 'บันทึกประกาศนี้');
+  button.title = active ? 'บันทึกแล้ว' : 'บันทึกประกาศ';
+}
+function toggleFavorite(itemId, button) {
+  state.favoriteIds = state.favoriteIds.includes(itemId)
+    ? state.favoriteIds.filter((id) => id !== itemId)
+    : [...state.favoriteIds, itemId];
+  try {
+    localStorage.setItem(`found-it:favorites:${state.user.id}`, JSON.stringify(state.favoriteIds));
+  } catch {}
+  setFavoriteButton(button, itemId);
+  showToast(state.favoriteIds.includes(itemId) ? 'บันทึกประกาศแล้ว' : 'นำออกจากรายการบันทึกแล้ว');
+}
 function makeItemCard(item) {
   const article = document.createElement('article');
   article.className = 'item-card';
@@ -229,72 +259,85 @@ function makeItemCard(item) {
       openItemDetails(item.id);
     }
   });
+
   const art = document.createElement('div');
-  art.className = 'item-art';
-  art.textContent = categoryIcon(item.category);
+  art.className = `item-art ${item.type}${item.photo ? ' has-photo' : ''}`;
   if (item.photo) {
-    art.textContent = '';
     const image = document.createElement('img');
     image.src = item.photo;
     image.alt = item.itemName;
     image.loading = 'lazy';
     art.append(image);
+  } else {
+    const illustration = document.createElement('span');
+    illustration.className = 'item-art-icon';
+    illustration.setAttribute('aria-hidden', 'true');
+    illustration.textContent = categoryIcon(item.category);
+    art.append(illustration);
   }
   const badge = document.createElement('span');
   badge.className = `badge ${item.type}`;
-  badge.textContent = item.type === 'lost' ? 'Lost' : 'Found';
-  art.append(badge);
+  badge.textContent = item.type === 'lost' ? '🔴 ของหาย' : '🟢 เก็บได้';
+  const code = document.createElement('span');
+  code.className = 'item-code';
+  code.textContent = reportCode(item);
+  const favorite = document.createElement('button');
+  favorite.className = 'item-favorite';
+  favorite.type = 'button';
+  favorite.textContent = '★';
+  favorite.addEventListener('click', () => toggleFavorite(item.id, favorite));
+  setFavoriteButton(favorite, item.id);
+  art.append(badge, code, favorite);
+
   const body = document.createElement('div');
   body.className = 'item-content';
+  const meta = document.createElement('div');
+  meta.className = 'item-meta item-category';
+  const categoryIconNode = document.createElement('span');
+  categoryIconNode.setAttribute('aria-hidden', 'true');
+  categoryIconNode.textContent = categoryIcon(item.category);
+  const categoryLabel = document.createElement('span');
+  categoryLabel.textContent = item.category;
+  meta.append(categoryIconNode, categoryLabel);
   const title = document.createElement('h3');
   title.textContent = item.itemName;
-  const meta = document.createElement('div');
-  meta.className = 'item-meta';
-  meta.textContent = `${item.category} · ${item.location}`;
   const desc = document.createElement('p');
   desc.className = 'item-description';
-  desc.textContent =
-    item.description || `${item.color || 'ไม่ระบุสี'}`;
-  const reporter = document.createElement('p');
-  reporter.className = 'item-reporter';
-  reporter.textContent = `👤 ผู้แจ้ง: ${item.reporterName || item.ownerName || 'ไม่ระบุชื่อ'}`;
-  const contactMethod = document.createElement('p');
-  contactMethod.className = 'item-contact-method';
-  contactMethod.textContent = item.contact ? 'Contact: ' + item.contact : '';
-  const bottom = document.createElement('div');
-  bottom.className = 'item-bottom';
-  const date = document.createElement('span');
-  date.className = 'item-date';
+  desc.textContent = item.description || `สี / ลักษณะ ${item.color || 'ไม่ได้ระบุ'}`;
+  const info = document.createElement('div');
+  info.className = 'item-card-info';
+  const location = document.createElement('span');
+  location.textContent = `📍 ${item.location || 'ไม่ระบุสถานที่'}`;
   const eventDate = document.createElement('span');
-  eventDate.textContent = `${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
-  const postedDate = document.createElement('small');
-  postedDate.textContent = `ลงประกาศ ${formatPostedDate(item.createdAt)}`;
-  date.append(eventDate, postedDate);
-  const contact = document.createElement('button');
-  contact.className = 'item-contact';
-  contact.type = 'button';
-  if (item.ownerId === state.user.id) {
-    contact.textContent = 'Your report';
-    contact.disabled = true;
-  } else {
-    contact.textContent = 'Contact poster →';
+  eventDate.textContent = `📅 ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  const posted = document.createElement('span');
+  posted.textContent = `◷ ลงประกาศ ${formatPostedDate(item.createdAt)}`;
+  info.append(location, eventDate, posted);
+  const footer = document.createElement('div');
+  footer.className = 'item-card-footer';
+  const reporter = document.createElement('span');
+  reporter.className = 'item-reporter-chip';
+  reporter.textContent = `👤 ${item.reporterName || item.ownerName || 'ไม่ระบุชื่อ'}`;
+  const actions = document.createElement('div');
+  actions.className = 'item-card-actions';
+  if (item.ownerId !== state.user.id) {
+    const contact = document.createElement('button');
+    contact.className = 'item-contact-icon';
+    contact.type = 'button';
+    contact.textContent = '🔗';
+    contact.setAttribute('aria-label', 'ส่งข้อความถึงผู้แจ้ง');
+    contact.title = 'ส่งข้อความถึงผู้แจ้ง';
     contact.addEventListener('click', () => openItemContact(item));
+    actions.append(contact);
   }
   const details = document.createElement('button');
-  details.className = 'button small item-details-button';
+  details.className = 'button item-details-button';
   details.type = 'button';
-  details.textContent = `ดูรายละเอียด · ${item.commentCount || 0} ความคิดเห็น`;
+  details.innerHTML = 'ดูข้อมูล <span aria-hidden="true">→</span>';
   details.addEventListener('click', () => openItemDetails(item.id));
-  bottom.append(date, details, contact);
-  body.append(title, meta, desc, reporter);
-  if (item.contact) body.append(contactMethod);
-  if (item.possibleMatches?.length) {
-    const match = document.createElement('span');
-    match.className = 'match-pill';
-    match.textContent = `${item.possibleMatches[0].score}% possible match`;
-    body.append(match);
-  }
-  body.append(bottom);
+  actions.append(details);
+  footer.append(reporter, actions);
+  body.append(meta, title, desc, info, footer);
   article.append(art, body);
   return article;
 }
