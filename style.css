@@ -1137,3 +1137,8 @@ main { padding-top: 30px; }
 .match-preview.compact { margin: 2px 0; padding: 9px 10px; }
 .match-preview.compact .match-open { padding: 7px 9px; }
 @media (max-width: 560px) { .match-preview { align-items: stretch; flex-direction: column; } .match-open { width: 100%; } }
+
+.match-empty { display: flex; align-items: center; gap: 9px; padding: 14px; border: 1px dashed #cbd9d0; border-radius: 14px; background: #f8faf8; color: #64756a; font-size: 13px; }
+.match-empty > span:first-child { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #eaf3ed; font-size: 16px; }
+.match-empty.compact { margin: 2px 0; padding: 8px 10px; font-size: 11px; }
+.match-empty.compact > span:first-child { width: 24px; height: 24px; font-size: 13px; }

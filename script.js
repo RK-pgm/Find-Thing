@@ -311,6 +311,17 @@ function makeMatchPreview(match, compact = false) {
   card.append(content, action);
   return card;
 }
+function makeMatchEmpty(compact = false) {
+  const empty = document.createElement('div');
+  empty.className = `match-empty${compact ? ' compact' : ''}`;
+  const icon = document.createElement('span');
+  icon.textContent = '🤖';
+  icon.setAttribute('aria-hidden', 'true');
+  const text = document.createElement('span');
+  text.textContent = 'AI ยังไม่มีข้อมูลที่ใกล้เคียง';
+  empty.append(icon, text);
+  return empty;
+}
 function renderItemMatches(item, container) {
   container.replaceChildren();
   const matches = item.possibleMatches || [];
@@ -318,7 +329,8 @@ function renderItemMatches(item, container) {
     const preview = makeMatchPreview(match);
     if (preview) container.append(preview);
   });
-  container.classList.toggle('hidden', !container.childElementCount);
+  if (!container.childElementCount) container.append(makeMatchEmpty());
+  container.classList.remove('hidden');
 }
 function makeItemCard(item) {
   const article = document.createElement('article');
@@ -418,10 +430,8 @@ function makeItemCard(item) {
   footer.append(reporter, actions);
   body.append(meta, title, desc);
   const topMatch = (item.possibleMatches || []).find((match) => state.items.some((entry) => entry.id === match.itemId));
-  if (topMatch) {
-    const matchPreview = makeMatchPreview(topMatch, true);
-    if (matchPreview) body.append(matchPreview);
-  }
+  const matchPreview = topMatch ? makeMatchPreview(topMatch, true) : makeMatchEmpty(true);
+  body.append(matchPreview || makeMatchEmpty(true));
   body.append(info, footer);
   article.append(art, body);
   return article;
@@ -473,9 +483,8 @@ async function openItemDetails(itemId, replyToId = null) {
     facts.append(row);
   });
   renderItemMatches(item, byId('detail-match-list'));
-  const hasMatches = Boolean(byId('detail-match-list').childElementCount);
-  byId('detail-match-section').classList.toggle('hidden', !hasMatches);
-  byId('detail-match-note').classList.toggle('hidden', !hasMatches);
+  byId('detail-match-section').classList.remove('hidden');
+  byId('detail-match-note').classList.remove('hidden');
   byId('comment-status').textContent = '';
   byId('comment-text').value = '';
   byId('detail-dialog').showModal();
