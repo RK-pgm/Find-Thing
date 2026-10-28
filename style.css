@@ -2043,3 +2043,58 @@ button:not(:hover):not(:focus-visible), .button:not(:hover):not(:focus-visible) 
   filter: none;
   text-shadow: none;
 }
+
+/* A found-item illustration gives the school board a visual anchor. */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.16fr) minmax(250px, .84fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: clamp(22px, 4vw, 62px);
+  row-gap: 16px;
+  min-height: 370px;
+  padding: clamp(30px, 4vw, 54px) clamp(32px, 5vw, 70px);
+}
+.hero-copy { grid-column: 1; grid-row: 1; max-width: 680px; }
+.hero-visual {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  width: 100%;
+  min-height: 260px;
+  place-items: center;
+}
+.hero-illustration { display: block; width: min(100%, 390px); height: auto; overflow: visible; }
+.hero-actions {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: start;
+  justify-content: flex-start;
+  gap: 10px;
+  margin-top: 2px;
+}
+.hero-actions .button { min-width: 176px; }
+@media (max-width: 900px) {
+  .hero { grid-template-columns: minmax(0, 1.1fr) minmax(210px, .9fr); column-gap: 20px; padding-inline: 30px; }
+  .hero-visual { min-height: 220px; }
+  .hero-actions .button { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    gap: 12px;
+    padding: 24px 22px 22px;
+  }
+  .hero-copy { grid-column: 1; grid-row: 1; }
+  .hero-visual { grid-column: 1; grid-row: 2; width: min(100%, 330px); min-height: 0; justify-self: center; }
+  .hero-illustration { width: 100%; max-height: 190px; }
+  .hero-actions { grid-column: 1; grid-row: 3; display: flex; width: 100%; margin: 0; }
+  .hero-actions .button { flex: 1 1 0; min-width: 0; }
+}
+@media (max-width: 420px) {
+  .hero { padding-inline: 18px; }
+  .hero-illustration { max-height: 165px; }
+  .hero-actions { gap: 8px; }
+  .hero-actions .button { padding-inline: 8px; font-size: 12px; }
+}
