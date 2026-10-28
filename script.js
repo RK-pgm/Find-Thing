@@ -241,6 +241,85 @@ function toggleFavorite(itemId, button) {
   setFavoriteButton(button, itemId);
   showToast(state.favoriteIds.includes(itemId) ? 'บันทึกประกาศแล้ว' : 'นำออกจากรายการบันทึกแล้ว');
 }
+async function analyzePhoto(file) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+    canvas.width = 9;
+    canvas.height = 8;
+    context.drawImage(bitmap, 0, 0, 9, 8);
+    const gray = context.getImageData(0, 0, 9, 8).data;
+    let dhash = '';
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+      const left = (y * 9 + x) * 4;
+      const right = left + 4;
+      const a = gray[left] * 0.299 + gray[left + 1] * 0.587 + gray[left + 2] * 0.114;
+      const b = gray[right] * 0.299 + gray[right + 1] * 0.587 + gray[right + 2] * 0.114;
+      dhash += a > b ? '1' : '0';
+    }
+    canvas.width = 32;
+    canvas.height = 32;
+    context.drawImage(bitmap, 0, 0, 32, 32);
+    const pixels = context.getImageData(0, 0, 32, 32).data;
+    const histogram = new Array(24).fill(0);
+    for (let i = 0; i < pixels.length; i += 4) {
+      histogram[Math.min(7, pixels[i] >> 5)]++;
+      histogram[8 + Math.min(7, pixels[i + 1] >> 5)]++;
+      histogram[16 + Math.min(7, pixels[i + 2] >> 5)]++;
+    }
+    const count = pixels.length / 4;
+    bitmap.close();
+    return { version: 1, dhash, histogram: histogram.map((value) => value / count) };
+  } catch {
+    return null;
+  }
+}
+function makeMatchPreview(match, compact = false) {
+  const candidate = state.items.find((entry) => entry.id === match.itemId);
+  if (!candidate) return null;
+  const card = document.createElement('article');
+  card.className = `match-preview${compact ? ' compact' : ''}`;
+  const content = document.createElement('div');
+  content.className = 'match-preview-content';
+  const heading = document.createElement('strong');
+  heading.textContent = `${match.score}% ตรงกัน · ${candidate.itemName}`;
+  const caption = document.createElement('span');
+  caption.textContent = `${candidate.type === 'lost' ? 'ของหาย' : 'เก็บได้'} · ${candidate.category} · ${candidate.location || 'ไม่ระบุสถานที่'}`;
+  const meter = document.createElement('span');
+  meter.className = 'match-meter';
+  meter.setAttribute('role', 'img');
+  meter.setAttribute('aria-label', `คะแนนความคล้าย ${match.score} เปอร์เซ็นต์`);
+  const fill = document.createElement('span');
+  fill.style.width = `${Math.max(0, Math.min(100, match.score))}%`;
+  meter.append(fill);
+  const reasons = document.createElement('span');
+  reasons.className = 'match-reasons';
+  const labels = [...(match.reasons || [])];
+  if (match.imageScore !== null && match.imageScore !== undefined) labels.unshift(`ภาพ ${match.imageScore}%`);
+  reasons.textContent = labels.length ? `ตรงกัน: ${labels.slice(0, 4).join(' · ')}` : 'คะแนนจากข้อมูลที่มีของทั้งสองประกาศ';
+  content.append(heading, caption, meter, reasons);
+  const action = document.createElement('button');
+  action.type = 'button';
+  action.className = 'button match-open';
+  action.textContent = 'ดูประกาศที่อาจตรง';
+  action.addEventListener('click', (event) => {
+    event.stopPropagation();
+    openItemDetails(candidate.id);
+  });
+  card.append(content, action);
+  return card;
+}
+function renderItemMatches(item, container) {
+  container.replaceChildren();
+  const matches = item.possibleMatches || [];
+  matches.forEach((match) => {
+    const preview = makeMatchPreview(match);
+    if (preview) container.append(preview);
+  });
+  container.classList.toggle('hidden', !container.childElementCount);
+}
 function makeItemCard(item) {
   const article = document.createElement('article');
   article.className = 'item-card';
@@ -337,7 +416,13 @@ function makeItemCard(item) {
   details.addEventListener('click', () => openItemDetails(item.id));
   actions.append(details);
   footer.append(reporter, actions);
-  body.append(meta, title, desc, info, footer);
+  body.append(meta, title, desc);
+  const topMatch = (item.possibleMatches || []).find((match) => state.items.some((entry) => entry.id === match.itemId));
+  if (topMatch) {
+    const matchPreview = makeMatchPreview(topMatch, true);
+    if (matchPreview) body.append(matchPreview);
+  }
+  body.append(info, footer);
   article.append(art, body);
   return article;
 }
@@ -387,6 +472,10 @@ async function openItemDetails(itemId, replyToId = null) {
     row.append(name, content);
     facts.append(row);
   });
+  renderItemMatches(item, byId('detail-match-list'));
+  const hasMatches = Boolean(byId('detail-match-list').childElementCount);
+  byId('detail-match-section').classList.toggle('hidden', !hasMatches);
+  byId('detail-match-note').classList.toggle('hidden', !hasMatches);
   byId('comment-status').textContent = '';
   byId('comment-text').value = '';
   byId('detail-dialog').showModal();
@@ -650,7 +739,10 @@ async function submitItem(event) {
     location: byId('item-location').value,
     date: byId('item-date').value,
   };
-  if (photo) payload.photo = await fileAsDataUrl(photo);
+  if (photo) {
+    payload.imageFeatures = await analyzePhoto(photo);
+    payload.photo = await fileAsDataUrl(photo);
+  }
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
   try {

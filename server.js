@@ -262,37 +262,105 @@ function mimeFromData(data) {
         : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
   return valid && bytes.length <= 3 * 1024 * 1024 ? { type, bytes } : null;
 }
-function tokens(value) {
-  return (
-    String(value || '')
-      .toLocaleLowerCase()
-      .normalize('NFKC')
-      .match(/[\p{L}\p{N}]+/gu) || []
-  );
+function normalizedMatchText(value) {
+  return String(value || '').normalize('NFKC').toLocaleLowerCase().trim();
 }
-function matchScore(a, b) {
-  if (a.type === b.type) return 0;
-  const at = new Set(tokens(a.itemName + ' ' + a.description)),
-    bt = new Set(tokens(b.itemName + ' ' + b.description));
-  const union = new Set([...at, ...bt]);
+function tokens(value) {
+  return normalizedMatchText(value).match(/[\p{L}\p{N}]+/gu) || [];
+}
+function characterNgrams(value) {
+  const characters = [...normalizedMatchText(value).replace(/[^\p{L}\p{N}]/gu, '')];
+  if (!characters.length) return new Set();
+  const size = Math.min(3, characters.length);
+  const grams = new Set();
+  for (let index = 0; index <= characters.length - size; index++)
+    grams.add(characters.slice(index, index + size).join(''));
+  return grams;
+}
+function setSimilarity(left, right) {
+  if (!left.size && !right.size) return null;
+  if (!left.size || !right.size) return 0;
   let common = 0;
-  for (const t of at) if (bt.has(t)) common++;
-  let score = union.size ? common / union.size : 0;
-  if (a.category === b.category) score += 0.25;
-  if (a.color && b.color && a.color.toLowerCase() === b.color.toLowerCase()) score += 0.2;
-  if (a.location === b.location) score += 0.05;
-  return Math.min(score, 1);
+  for (const value of left) if (right.has(value)) common++;
+  return common / (left.size + right.size - common);
+}
+function textSimilarity(left, right) {
+  const a = normalizedMatchText(left);
+  const b = normalizedMatchText(right);
+  if (!a && !b) return null;
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const wordScore = setSimilarity(new Set(tokens(a)), new Set(tokens(b))) ?? 0;
+  const gramScore = setSimilarity(characterNgrams(a), characterNgrams(b)) ?? 0;
+  return wordScore * 0.35 + gramScore * 0.65;
+}
+function normalizeImageFeatures(features) {
+  if (!features || typeof features !== 'object') return null;
+  if (features.version !== 1 || !/^[01]{64}$/.test(features.dhash || '')) return null;
+  if (!Array.isArray(features.histogram) || features.histogram.length !== 24) return null;
+  const histogram = features.histogram.map(Number);
+  if (histogram.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) return null;
+  return { version: 1, dhash: features.dhash, histogram };
+}
+function imageSimilarity(left, right) {
+  const a = normalizeImageFeatures(left);
+  const b = normalizeImageFeatures(right);
+  if (!a || !b) return null;
+  let equalBits = 0;
+  for (let index = 0; index < 64; index++) if (a.dhash[index] === b.dhash[index]) equalBits++;
+  const hashScore = equalBits / 64;
+  let histogramDistance = 0;
+  for (let index = 0; index < 24; index++)
+    histogramDistance += Math.abs(a.histogram[index] - b.histogram[index]);
+  const colorScore = 1 - Math.min(1, histogramDistance / 6);
+  return hashScore * 0.55 + colorScore * 0.45;
+}
+function matchAnalysis(a, b) {
+  if (a.type === b.type) return { score: 0, imageScore: null, reasons: [] };
+  const sameCategory = normalizedMatchText(a.category) && normalizedMatchText(b.category)
+    ? Number(normalizedMatchText(a.category) === normalizedMatchText(b.category))
+    : null;
+  const sameLocation = normalizedMatchText(a.location) && normalizedMatchText(b.location)
+    ? Number(normalizedMatchText(a.location) === normalizedMatchText(b.location))
+    : null;
+  const leftDate = Date.parse(`${a.date || ''}T00:00:00Z`);
+  const rightDate = Date.parse(`${b.date || ''}T00:00:00Z`);
+  const dateScore = Number.isFinite(leftDate) && Number.isFinite(rightDate)
+    ? Math.max(0, 1 - Math.abs(leftDate - rightDate) / (45 * 86400000))
+    : null;
+  const imageScore = imageSimilarity(a.imageFeatures, b.imageFeatures);
+  const factors = [
+    { label: 'ชื่อสิ่งของคล้ายกัน', value: textSimilarity(a.itemName, b.itemName), weight: 0.25, threshold: 0.52 },
+    { label: 'หมวดหมู่ตรงกัน', value: sameCategory, weight: 0.16, threshold: 1 },
+    { label: 'สถานที่ตรงกัน', value: sameLocation, weight: 0.11, threshold: 1 },
+    { label: 'สี/ลักษณะคล้ายกัน', value: textSimilarity(a.color, b.color), weight: 0.10, threshold: 0.52 },
+    { label: 'รายละเอียดคล้ายกัน', value: textSimilarity(a.description, b.description), weight: 0.14, threshold: 0.48 },
+    { label: 'รูปภาพมีลักษณะใกล้กัน', value: imageScore, weight: 0.20, threshold: 0.58 },
+    { label: 'วันที่ใกล้กัน', value: dateScore, weight: 0.04, threshold: 0.72 },
+  ].filter((factor) => factor.value !== null);
+  const totalWeight = factors.reduce((sum, factor) => sum + factor.weight, 0);
+  const score = totalWeight
+    ? Math.round((factors.reduce((sum, factor) => sum + factor.value * factor.weight, 0) / totalWeight) * 100)
+    : 0;
+  const reasons = factors
+    .filter((factor) => factor.value >= factor.threshold)
+    .sort((left, right) => right.value * right.weight - left.value * left.weight)
+    .map((factor) => factor.label);
+  const coreLabels = new Set(['ชื่อสิ่งของคล้ายกัน', 'สี/ลักษณะคล้ายกัน', 'รายละเอียดคล้ายกัน', 'รูปภาพมีลักษณะใกล้กัน']);
+  const hasCoreSignal = factors.some((factor) => coreLabels.has(factor.label) && factor.value >= 0.3);
+  return { score: hasCoreSignal ? score : 0, imageScore: imageScore === null ? null : Math.round(imageScore * 100), reasons };
 }
 function withMatches(items) {
-  return items.map((item) => ({
-    ...item,
-    possibleMatches: items
+  return items.map((item) => {
+    const possibleMatches = items
       .filter((other) => other.id !== item.id && other.type !== item.type)
-      .map((other) => ({ itemId: other.id, score: Math.round(matchScore(item, other) * 100) }))
-      .filter((m) => m.score >= 25)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3),
-  }));
+      .map((other) => ({ itemId: other.id, ...matchAnalysis(item, other) }))
+      .filter((match) => match.score >= 28)
+      .sort((left, right) => right.score - left.score)
+      .slice(0, 3);
+    const { imageFeatures, ...publicItem } = item;
+    return { ...publicItem, possibleMatches };
+  });
 }
 function sendFile(res, filename) {
   const ext = path.extname(filename).toLowerCase();
@@ -692,6 +760,7 @@ async function handler(req, res) {
         const photo = mimeFromData(body.photo);
         if (!photo)
           return json(res, 400, { error: 'Photo must be a valid JPG, PNG, or WebP under 3 MB.' });
+        item.imageFeatures = normalizeImageFeatures(body.imageFeatures);
         const ext =
           photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
         const filename = crypto.randomUUID() + ext;
