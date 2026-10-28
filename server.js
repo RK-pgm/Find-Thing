@@ -293,7 +293,9 @@ function sendFile(res, filename) {
 }
 async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const route = url.pathname;
+  const route = url.pathname.startsWith('/api/') && url.pathname.endsWith('.js')
+    ? url.pathname.slice(0, -3)
+    : url.pathname;
   if (route.startsWith('/api/') && req.method !== 'GET' && !validOrigin(req))
     return json(res, 403, { error: 'Request origin was not accepted.' });
   let lockToken = null;
