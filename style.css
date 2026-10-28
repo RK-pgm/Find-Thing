@@ -1679,3 +1679,38 @@ main { max-width: 1240px; padding-top: 38px; }
   .item-content h3 { font-size: 13px; }
   .item-code { font-size: 7px; }
 }
+
+
+/* A gentle rain of school lost-and-found objects */
+.falling-items {
+  position: fixed;
+  z-index: 0;
+  inset: -15vh 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.falling-items > span {
+  position: absolute;
+  top: -12vh;
+  left: var(--x);
+  display: block;
+  font-size: var(--size);
+  opacity: .15;
+  filter: saturate(.82);
+  animation: falling-item var(--duration) linear var(--delay) infinite;
+  will-change: transform;
+}
+@keyframes falling-item {
+  0% { transform: translate3d(0, -8vh, 0) rotate(-18deg); }
+  45% { transform: translate3d(calc(var(--drift) * .45), 50vh, 0) rotate(95deg); }
+  100% { transform: translate3d(var(--drift), 116vh, 0) rotate(210deg); }
+}
+.topbar, main { position: relative; z-index: 1; }
+@media (max-width: 560px) {
+  .falling-items > span { opacity: .10; }
+  .falling-items > span:nth-child(3n) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .falling-items { display: none; }
+}
