@@ -1142,3 +1142,8 @@ main { padding-top: 30px; }
 .match-empty > span:first-child { display: grid; width: 30px; height: 30px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #eaf3ed; font-size: 16px; }
 .match-empty.compact { margin: 2px 0; padding: 8px 10px; font-size: 11px; }
 .match-empty.compact > span:first-child { width: 24px; height: 24px; font-size: 13px; }
+
+.detail-owner-actions { display: flex; justify-content: flex-end; }
+.danger-button { border-color: #f0c7c7; background: #fff7f7; color: #bd3434; }
+.danger-button:hover { border-color: #df7777; background: #fff0f0; color: #a32121; }
+.danger-button:disabled { opacity: .6; cursor: wait; }

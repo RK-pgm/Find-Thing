@@ -649,6 +649,37 @@ async function handler(req, res) {
       }
       return json(res, 200, { ok: true });
     }
+    if (req.method === 'DELETE' && route.startsWith('/api/items/')) {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const itemId = route.slice('/api/items/'.length);
+      if (!/^[\da-f-]{36}$/i.test(itemId))
+        return json(res, 400, { error: 'Invalid report ID.' });
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'Report not found.' });
+      if (item.ownerId !== user.id && user.role !== 'admin')
+        return json(res, 403, { error: 'Only the report owner or an administrator can delete this post.' });
+      store.items = store.items.filter((entry) => entry.id !== itemId);
+      store.comments = store.comments.filter((comment) => comment.itemId !== itemId);
+      store.messages = store.messages.filter((message) => message.itemId !== itemId);
+      await writeStore(store);
+      if (typeof item.photo === 'string') {
+        try {
+          if (item.photo.startsWith('https://')) {
+            const { del } = require('@vercel/blob');
+            await del(item.photo);
+          } else if (item.photo.startsWith('/uploads/')) {
+            const filename = path.basename(item.photo);
+            if (/^[\da-f-]{36}\.(?:jpg|png|webp)$/i.test(filename))
+              fs.unlinkSync(path.join(PHOTO_DIR, filename));
+          }
+        } catch (error) {
+          if (error.code !== 'ENOENT') console.error('Could not remove deleted report photo:', error);
+        }
+      }
+      return json(res, 200, { ok: true, itemId });
+    }
     if (req.method === 'GET' && route === '/api/items') {
       if (!(await requireUser(req, res))) return;
       const store = await readStore();

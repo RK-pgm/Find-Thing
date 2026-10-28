@@ -462,6 +462,10 @@ async function openItemDetails(itemId, replyToId = null) {
   byId('detail-title').textContent = item.itemName;
   byId('detail-meta').textContent = `${item.category} · ${item.location} · ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
   byId('detail-description').textContent = item.description || `สี / ลักษณะ: ${item.color || 'ไม่ได้ระบุ'}`;
+  const deleteButton = byId('delete-item');
+  const canDelete = state.user && (state.user.role === 'admin' || item.ownerId === state.user.id);
+  deleteButton.classList.toggle('hidden', !canDelete);
+  deleteButton.onclick = () => deleteItem(item);
   const photo = byId('detail-photo');
   photo.classList.toggle('hidden', !item.photo);
   if (item.photo) photo.src = item.photo;
@@ -490,6 +494,22 @@ async function openItemDetails(itemId, replyToId = null) {
   byId('detail-dialog').showModal();
   await loadItemComments(item.id);
   if (replyToId) setCommentReply(replyToId);
+}
+async function deleteItem(item) {
+  const confirmed = window.confirm(`ต้องการลบประกาศ “${item.itemName}” ใช่ไหม? การลบนี้ไม่สามารถย้อนกลับได้`);
+  if (!confirmed) return;
+  const button = byId('delete-item');
+  button.disabled = true;
+  try {
+    await api(`/api/items/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
+    byId('detail-dialog').close();
+    showToast('ลบประกาศแล้ว');
+    await loadItems();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    button.disabled = false;
+  }
 }
 function renderCommentThreads(comments, parentId = null, depth = 0) {
   const container = byId('comment-list');
@@ -1118,6 +1138,10 @@ function bindEvents() {
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('close-detail').addEventListener('click', () => byId('detail-dialog').close());
+  byId('delete-item').addEventListener('click', () => {
+    const item = state.items.find((entry) => entry.id === state.activeItemId);
+    if (item) deleteItem(item);
+  });
   byId('comment-form').addEventListener('submit', submitComment);
   byId('cancel-comment-reply').addEventListener('click', () => {
     state.replyToCommentId = null;
