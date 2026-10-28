@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/**/*.js": {
-      "maxDuration": 15
+      "maxDuration": 15,
+      "includeFiles": ["style.css", "script.js"]
     }
   }
 }
