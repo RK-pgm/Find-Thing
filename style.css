@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 :root {
   color-scheme: light;
   --ink: #17372f;
@@ -1714,3 +1714,26 @@ main { max-width: 1240px; padding-top: 38px; }
 @media (prefers-reduced-motion: reduce) {
   .falling-items { display: none; }
 }
+
+
+/* More visible object rain and a fresh rounded typeface */
+body { font-family: 'Outfit', 'Kanit', sans-serif; }
+button, input, select, textarea { font-family: inherit; }
+.brand, h1, h2, h3, .button, .tab, .item-content h3, .admin-stat strong { font-family: 'Outfit', 'Kanit', sans-serif; }
+.falling-items > span {
+  display: block;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, .76);
+  border-radius: 13px;
+  background: linear-gradient(145deg, rgba(255,255,255,.83), rgba(231,247,243,.74));
+  box-shadow: 0 8px 24px rgba(23, 70, 76, .13), inset 0 1px rgba(255,255,255,.95);
+  opacity: .58;
+  filter: saturate(1.08) drop-shadow(0 2px 5px rgba(27,72,81,.12));
+  backdrop-filter: blur(3px);
+}
+.falling-items > span:nth-child(2n) { transform-origin: center; }
+@media (max-width: 560px) {
+  .falling-items > span { padding: 5px; border-radius: 11px; opacity: .42; }
+  .falling-items > span:nth-child(3n) { display: block; }
+}
+@media (prefers-reduced-motion: reduce) { .falling-items { display: none; } }
