@@ -295,9 +295,13 @@ function sendFile(res, filename) {
 }
 async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const route = url.pathname.startsWith('/api/') && url.pathname.endsWith('.js')
-    ? url.pathname.slice(0, -3)
-    : url.pathname;
+  const delegatedRoute = url.searchParams.get('__vercel_route');
+  const requestedPath = delegatedRoute === null
+    ? url.pathname
+    : '/api/' + delegatedRoute.replace(/^\/+/, '');
+  const route = requestedPath.startsWith('/api/') && requestedPath.endsWith('.js')
+    ? requestedPath.slice(0, -3)
+    : requestedPath;
   if (route.startsWith('/api/') && req.method !== 'GET' && !validOrigin(req))
     return json(res, 403, { error: 'Request origin was not accepted.' });
   let lockToken = null;
