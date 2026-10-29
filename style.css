@@ -2805,3 +2805,20 @@ textarea {
   object-fit: cover;
   object-position: center center;
 }
+
+/* Reference-sized post photo frame only: wide desktop crops, centered subject. */
+.item-art,
+.item-art.has-photo {
+  aspect-ratio: 2.15 / 1;
+}
+
+.item-art.has-photo img {
+  object-position: center center;
+}
+
+@media (max-width: 560px) {
+  .item-art,
+  .item-art.has-photo {
+    aspect-ratio: 1.45 / 1;
+  }
+}
