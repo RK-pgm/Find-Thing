@@ -2629,3 +2629,90 @@ textarea {
   background: #202f46;
   color: #e7eef8;
 }
+
+/* Return the report cards to the original light green school palette. */
+.item-card {
+  background: #ffffff;
+  border-color: #dbe4dc;
+  box-shadow: 0 5px 16px rgba(20, 42, 35, 0.08);
+}
+
+.item-card:hover {
+  border-color: #b8cfc0;
+  box-shadow: 0 7px 20px rgba(23, 55, 47, 0.08);
+}
+
+.item-art.found:not(.has-photo) {
+  background: linear-gradient(128deg, #b8efd6 0%, #55c99b 100%);
+}
+
+.item-art.has-photo {
+  background: #e8eee8;
+}
+
+.item-content {
+  background: #ffffff;
+  color: #17372f;
+}
+
+.item-category {
+  color: #536c60;
+}
+
+.item-content h3 {
+  color: #17372f;
+}
+
+.item-description,
+.item-card-info {
+  color: #586d63;
+}
+
+.item-card-info {
+  border-top-color: #e7ece7;
+}
+
+.item-reporter-chip {
+  border-color: #e1e9e2;
+  background: #f4f8f4;
+  color: #425e50;
+}
+
+.item-contact-icon,
+.item-details-button {
+  border-color: #dbe4dc;
+  background: #f7faf6;
+  color: #17372f;
+}
+
+.item-contact-icon:hover,
+.item-details-button:hover {
+  border-color: #b8cfc0;
+  background: #e8f2e9;
+  color: #246b52;
+}
+
+.match-preview,
+.match-empty {
+  border-color: #dbe7dc;
+  background: #f5f9f4;
+  color: #536c60;
+}
+
+.match-preview-content strong {
+  color: #17372f;
+}
+
+.match-preview-content > span:not(.match-meter) {
+  color: #64756b;
+}
+
+.match-meter {
+  background: #e2e8e2;
+}
+
+.match-open {
+  border-color: #dbe4dc;
+  background: #ffffff;
+  color: #246b52;
+}
