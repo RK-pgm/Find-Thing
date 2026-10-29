@@ -25,7 +25,8 @@ const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || '';
 const loginAttempts = new Map();
 // Add future school communities here using a permanent ID.
 const SCHOOLS = [
-  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช' },
+  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช', latitude: 8.1638565, longitude: 99.7190381, mapDescription: 'ตำบลถ้ำใหญ่ อำเภอทุ่งสง จังหวัดนครศรีธรรมราช', mapSource: 'สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน' },
+  { id: 'hamster-hub', name: 'โรงเรียน Hamster Hub', province: 'นครศรีธรรมราช', latitude: 8.1745, longitude: 99.6955, mapDescription: 'ตำแหน่งจำลองในอำเภอทุ่งสง', fictional: true },
 ];
 let localStoreWriteQueue = Promise.resolve();
 const MIME = {

@@ -1,5 +1,9 @@
 'use strict';
 const byId = (id) => document.getElementById(id);
+const FALLBACK_SCHOOLS = [
+  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช', latitude: 8.1638565, longitude: 99.7190381, mapDescription: 'ตำบลถ้ำใหญ่ อำเภอทุ่งสง จังหวัดนครศรีธรรมราช' },
+  { id: 'hamster-hub', name: 'โรงเรียน Hamster Hub', province: 'นครศรีธรรมราช', latitude: 8.1745, longitude: 99.6955, mapDescription: 'ตำแหน่งจำลองในอำเภอทุ่งสง', fictional: true },
+];
 const state = {
   user: null,
   reportType: 'lost',
@@ -12,7 +16,7 @@ const state = {
   returnToken: null,
   activeFilter: 'all',
   items: [],
-  schools: [],
+  schools: FALLBACK_SCHOOLS,
   favoriteIds: [],
   photo: null,
   previewUrl: null,
@@ -212,6 +216,27 @@ function renderCommunityLabel() {
     ? ` ชุมชน ${selectedSchool.name} · ${selectedSchool.province}`
     : ' กระดานสาธารณะ · เลือกโรงเรียนในโปรไฟล์ได้ทุกเมื่อ'));
 }
+function renderProfileSchoolMap() {
+  const schoolId = byId('profile-school')?.value || '';
+  const school = state.schools.find((entry) => entry.id === schoolId);
+  const empty = byId('profile-school-map-empty');
+  const content = byId('profile-school-map-content');
+  if (!empty || !content) return;
+  empty.classList.toggle('hidden', Boolean(school));
+  content.classList.toggle('hidden', !school);
+  if (!school) return;
+  const latitude = Number(school.latitude);
+  const longitude = Number(school.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+  byId('profile-school-map-name').textContent = school.name;
+  byId('profile-school-map-description').textContent = `${school.mapDescription || school.province}${school.fictional ? ' · โรงเรียนสมมุติ' : ''}`;
+  const pad = 0.008;
+  const bbox = [longitude - pad, latitude - pad, longitude + pad, latitude + pad].join(',');
+  byId('profile-school-map-frame').src = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+  const mapLink = byId('profile-school-map-link');
+  mapLink.href = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
+  mapLink.textContent = school.fictional ? 'เปิดแผนที่ตำแหน่งจำลอง ↗' : 'เปิดแผนที่ขนาดใหญ่ ↗';
+}
 async function loadSchools() {
   try {
     const result = await api('/api/schools');
@@ -219,11 +244,19 @@ async function loadSchools() {
     const profileSchool = byId('profile-school');
     const selectedId = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
     profileSchool.replaceChildren(new Option('ยังไม่เลือก · เลือกภายหลังได้', ''));
-    state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}`, school.id)));
+    state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
+    renderProfileSchoolMap();
   } catch {
-    // The static option keeps the initial school selectable if this request is temporarily unavailable.
+    // Keep the local school list and map previews usable if the directory request is temporarily unavailable.
+    const profileSchool = byId('profile-school');
+    const selectedId = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
+    profileSchool.replaceChildren(new Option('ยังไม่เลือก · เลือกภายหลังได้', ''));
+    state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
+    profileSchool.value = selectedId;
+    renderCommunityLabel();
+    renderProfileSchoolMap();
   }
 }
 function exitApp() {
@@ -1011,6 +1044,7 @@ function openProfile() {
   byId('profile-student-id').value = state.user?.studentId || '';
   byId('profile-grade').value = state.user?.grade || '';
   byId('profile-school').value = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
+  renderProfileSchoolMap();
   byId('open-change-password').classList.toggle('hidden', state.user?.studentId?.toLowerCase() === 'a1010');
   byId('profile-status').textContent = '';
   byId('profile-dialog').showModal();
@@ -1859,6 +1893,7 @@ function bindEvents() {
   byId('signup-name').addEventListener('input', updateAdminSetupVisibility);
   byId('signup-id').addEventListener('input', updateAdminSetupVisibility);
   byId('admin-refresh').addEventListener('click', loadAdminData);
+  byId('profile-school').addEventListener('change', renderProfileSchoolMap);
   byId('profile-form').addEventListener('submit', saveProfile);
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());

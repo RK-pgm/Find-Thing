@@ -497,7 +497,16 @@
         <select id="profile-school" name="schoolId">
           <option value="">ยังไม่เลือก · เลือกภายหลังได้</option>
           <option value="thung-song">โรงเรียนทุ่งสง · นครศรีธรรมราช</option>
+          <option value="hamster-hub">โรงเรียน Hamster Hub · นครศรีธรรมราช · สมมุติ</option>
         </select>
+        <div id="profile-school-map" class="school-map-card" aria-live="polite">
+          <div id="profile-school-map-empty" class="school-map-empty">เลือกโรงเรียนเพื่อดูตำแหน่งบนแผนที่</div>
+          <div id="profile-school-map-content" class="hidden">
+            <div class="school-map-heading"><div><strong id="profile-school-map-name"></strong><p id="profile-school-map-description"></p></div><span aria-hidden="true">📍</span></div>
+            <iframe id="profile-school-map-frame" title="แผนที่โรงเรียนที่เลือก" loading="lazy" referrerpolicy="no-referrer" allowfullscreen></iframe>
+            <a id="profile-school-map-link" class="button school-map-link" target="_blank" rel="noopener noreferrer">เปิดแผนที่ขนาดใหญ่ ↗</a>
+          </div>
+        </div>
         <p class="form-hint">ฟีดจะแสดงโพสต์สาธารณะและโพสต์ของโรงเรียนที่เลือก เปลี่ยนได้ทุกเมื่อ</p>
         <button class="button claim-history-open" id="open-my-claims" type="button">ติดตามคำขอรับของคืน</button>
         <button class="button claim-history-open" id="open-change-password" type="button">เปลี่ยนรหัสผ่าน</button>
