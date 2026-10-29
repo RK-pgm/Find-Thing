@@ -385,7 +385,7 @@ function matchAnalysis(a, b, allowSameType = false) {
   const hasCoreSignal = factors.some((factor) => coreLabels.has(factor.label) && factor.value >= 0.3);
   return { score: hasCoreSignal ? score : 0, imageScore: imageScore === null ? null : Math.round(imageScore * 100), reasons };
 }
-function withMatches(items) {
+function withMatches(items, viewerId = null) {
   return items.map((item) => {
     const possibleMatches = ['resolved', 'expired'].includes(item.status) ? [] : items
       .filter((other) => other.id !== item.id && other.type !== item.type && !['resolved', 'expired'].includes(other.status))
@@ -394,6 +394,7 @@ function withMatches(items) {
       .sort((left, right) => right.score - left.score)
       .slice(0, 3);
     const { imageFeatures, ...publicItem } = item;
+    if (item.ownerId !== viewerId && item.contactPublic === false) delete publicItem.contact;
     return { ...publicItem, possibleMatches };
   });
 }
@@ -807,6 +808,7 @@ async function handler(req, res) {
       item.color = String(body.color || '').trim().slice(0, 40);
       item.description = String(body.description || '').trim().slice(0, 500);
       item.contact = String(body.contact || '').trim().slice(0, 100);
+      item.contactPublic = body.contactPublic === true;
       item.location = location;
       item.date = date;
       item.eventTime = /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '';
@@ -1007,7 +1009,8 @@ async function handler(req, res) {
       return json(res, 200, { ok: true });
     }
     if (req.method === 'GET' && route === '/api/items') {
-      if (!(await requireUser(req, res))) return;
+      const viewer = await requireUser(req, res);
+      if (!viewer) return;
       const store = await readStore();
       const commentCounts = new Map();
       for (const comment of store.comments)
@@ -1022,7 +1025,7 @@ async function handler(req, res) {
             commentCount: commentCounts.get(item.id) || 0,
           };
         });
-      return json(res, 200, { items: withMatches(items) });
+      return json(res, 200, { items: withMatches(items, viewer.id) });
     }
     if (req.method === 'GET' && route === '/api/notifications') {
       const user = await requireUser(req, res);
@@ -1140,6 +1143,7 @@ async function handler(req, res) {
         contact: String(body.contact || '')
           .trim()
           .slice(0, 100),
+        contactPublic: body.contactPublic === true,
         location,
         date,
         eventTime: /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '',
@@ -1216,7 +1220,7 @@ async function handler(req, res) {
       }
       store.items.push(item);
       await writeStore(store);
-      const results = withMatches(store.items);
+      const results = withMatches(store.items, user.id);
       const saved = results.find((x) => x.id === item.id);
       return json(res, 201, { item: saved, possibleMatchCount: notificationMatches.length });
     }

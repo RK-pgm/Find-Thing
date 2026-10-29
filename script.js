@@ -1240,6 +1240,7 @@ function editItem(item) {
   byId('item-time').value = item.eventTime || '';
   byId('item-expiry-days').value = String(item.expiryDays || 30);
   byId('item-contact').value = item.contact || '';
+  byId('item-contact-public').checked = item.contactPublic !== false;
   byId('item-message').textContent = 'รูปภาพเดิมจะคงอยู่';
   byId('item-date-label').textContent = item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ';
   byId('item-dialog').showModal();
@@ -1344,6 +1345,7 @@ async function submitItem(event) {
     color: byId('item-color').value.trim(),
     description: byId('item-description').value.trim(),
     contact: byId('item-contact').value.trim(),
+    contactPublic: byId('item-contact-public').checked,
     location: byId('item-location').value,
     date: byId('item-date').value,
     eventTime: byId('item-time').value,

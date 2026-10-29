@@ -540,6 +540,24 @@ label {
   letter-spacing: -0.01em;
 }
 
+.privacy-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+
+.privacy-option input {
+  width: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--emerald-600);
+  box-shadow: none;
+}
+
 input, select, textarea {
   width: 100%;
   min-height: 48px;

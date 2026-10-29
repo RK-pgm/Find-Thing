@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#f7f6ef" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=notifications-1" />
-  <script src="script.js?v=notifications-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=contact-privacy-1" />
+  <script src="script.js?v=contact-privacy-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -396,7 +396,8 @@
           maxlength="100"
           placeholder="เช่น เบอร์โทรศัพท์หรือไลน์"
         />
-        <p class="form-hint">สมาชิกที่เข้าสู่ระบบและดูประกาศนี้ได้จะเห็นข้อมูลติดต่อ</p>
+        <label class="privacy-option" for="item-contact-public"><input id="item-contact-public" name="contactPublic" type="checkbox" /><span>แสดงช่องทางติดต่อนี้ให้สมาชิกคนอื่นเห็น</span></label>
+        <p class="form-hint">หากไม่เลือก ระบบจะซ่อนข้อมูลติดต่อและให้สมาชิกส่งข้อความส่วนตัวแทน</p>
         <label for="photo-file">รูปภาพสิ่งของ <span class="optional">(ไม่บังคับ)</span></label>
         <div class="camera-box">
           <video id="camera-preview" autoplay playsinline hidden></video
@@ -574,7 +575,7 @@
           <li><strong>ติดต่อกันอย่างปลอดภัย</strong><span>ใช้กล่องข้อความในระบบเพื่อสอบถามรายละเอียด และนัดส่งคืนกับเจ้าหน้าที่หรือในจุดที่โรงเรียนกำหนด</span></li>
           <li><strong>ปิดประกาศเมื่อได้รับของคืน</strong><span>เจ้าของประกาศกด “ปิดประกาศแล้ว” เมื่อเรื่องเรียบร้อย หากยังตามหาอยู่สามารถเปิดประกาศอีกครั้งได้</span></li>
         </ol>
-        <p class="form-hint">ข้อมูลติดต่อจะแสดงแก่สมาชิกที่เข้าสู่ระบบและดูประกาศได้ โปรดหลีกเลี่ยงการโพสต์รหัสผ่าน เลขประจำตัว หรือข้อมูลส่วนตัวที่ไม่จำเป็น</p>
+        <p class="form-hint">เจ้าของประกาศเลือกได้ว่าจะเปิดเผยช่องทางติดต่อหรือใช้ข้อความส่วนตัว โปรดหลีกเลี่ยงการส่งรหัสผ่าน เลขประจำตัว หรือข้อมูลส่วนตัวที่ไม่จำเป็น</p>
       </section>
     </dialog>
     <dialog class="dialog" id="notifications-dialog" aria-labelledby="notifications-title">
