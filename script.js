@@ -18,6 +18,7 @@ const state = {
   cameraStream: null,
   notificationTimer: null,
   unreadNotifications: 0,
+  notificationOffset: 0,
   contactMode: 'staff',
   contactItemId: null,
   replyMessageId: null,
@@ -587,61 +588,71 @@ async function openNotifications() {
   const list = byId('notification-list');
   list.replaceChildren();
   byId('notifications-empty').classList.add('hidden');
+  byId('load-more-notifications').classList.add('hidden');
   try {
-    const result = await api('/api/notifications');
-    for (const notification of result.notifications) {
-      const card = document.createElement('article');
-      card.className = 'message-card';
-      const title = document.createElement('strong');
-      title.textContent = notification.type === 'claim_request'
-        ? 'มีคำขอรับของคืน'
-        : notification.type === 'claim_cancelled'
-          ? 'ยกเลิกคำขอรับของคืน'
-        : notification.type === 'claim_status'
-          ? 'อัปเดตคำขอรับของคืน'
-          : notification.type === 'return_confirmed'
-            ? 'ยืนยันการรับคืนแล้ว'
-          : notification.type === 'saved_search'
-            ? 'พบประกาศใหม่ตามคำค้นหา'
-            : 'พบประกาศที่อาจตรงกัน';
-      const body = document.createElement('p');
-      body.textContent = notification.type === 'claim_request'
-        ? `${notification.fromName} ขอรับ “${notification.itemName}”`
-        : notification.type === 'claim_cancelled'
-          ? `${notification.fromName} ยกเลิกคำขอรับ “${notification.itemName}”`
-        : notification.type === 'claim_status'
-          ? `คำขอรับ “${notification.itemName}” ${notification.status === 'approved' ? 'ได้รับการอนุมัติ โปรดนัดรับคืนและสแกน QR เมื่อได้รับของแล้ว' : 'ยังไม่ได้รับการอนุมัติ'}`
-          : notification.type === 'return_confirmed'
-            ? `ผู้รับยืนยันรับ “${notification.itemName}” คืนแล้ว`
-          : notification.type === 'saved_search'
-            ? `พบ “${notification.itemName}” ที่ตรงกับ “${notification.query || 'ตัวกรองที่บันทึกไว้'}”`
-            : `“${notification.itemName}” อาจตรงกับ “${notification.matchItemName}” (${notification.score}%)`;
-      const date = document.createElement('small');
-      date.textContent = formatPostedDate(notification.createdAt);
-      const open = document.createElement('button');
-      open.className = 'button small';
-      open.type = 'button';
-      open.textContent = 'ดูประกาศ';
-      open.addEventListener('click', () => {
-        byId('notifications-dialog').close();
-        openItemDetails(notification.targetItemId);
-      });
-      card.append(title, body, date, open);
-      list.append(card);
-    }
-    byId('notifications-empty').classList.toggle('hidden', result.notifications.length > 0);
     byId('notifications-dialog').showModal();
-    try {
-      await api('/api/notifications/read', { method: 'POST', body: JSON.stringify({}) });
-      state.unreadNotifications = 0;
-      updateNotificationButton();
-    } catch {
-      state.unreadNotifications = result.unreadCount || 0;
-      updateNotificationButton();
-    }
+    await loadNotificationPage(0, false);
   } catch (error) {
     showToast(error.message);
   }
+}
+async function loadNotificationPage(offset, append) {
+  const list = byId('notification-list');
+  const result = await api(`/api/notifications?offset=${offset}`);
+  if (!append) list.replaceChildren();
+  for (const notification of result.notifications) {
+    const card = document.createElement('article');
+    card.className = 'message-card';
+    const title = document.createElement('strong');
+    title.textContent = notification.type === 'claim_request'
+      ? 'มีคำขอรับของคืน'
+      : notification.type === 'claim_cancelled'
+        ? 'ยกเลิกคำขอรับของคืน'
+      : notification.type === 'claim_status'
+        ? 'อัปเดตคำขอรับของคืน'
+        : notification.type === 'return_confirmed'
+          ? 'ยืนยันการรับคืนแล้ว'
+        : notification.type === 'saved_search'
+          ? 'พบประกาศใหม่ตามคำค้นหา'
+          : 'พบประกาศที่อาจตรงกัน';
+    const body = document.createElement('p');
+    body.textContent = notification.type === 'claim_request'
+      ? `${notification.fromName} ขอรับ “${notification.itemName}”`
+      : notification.type === 'claim_cancelled'
+        ? `${notification.fromName} ยกเลิกคำขอรับ “${notification.itemName}”`
+      : notification.type === 'claim_status'
+        ? `คำขอรับ “${notification.itemName}” ${notification.status === 'approved' ? 'ได้รับการอนุมัติ โปรดนัดรับคืนและสแกน QR เมื่อได้รับของแล้ว' : 'ยังไม่ได้รับการอนุมัติ'}`
+        : notification.type === 'return_confirmed'
+          ? `ผู้รับยืนยันรับ “${notification.itemName}” คืนแล้ว`
+        : notification.type === 'saved_search'
+          ? `พบ “${notification.itemName}” ที่ตรงกับ “${notification.query || 'ตัวกรองที่บันทึกไว้'}”`
+          : `“${notification.itemName}” อาจตรงกับ “${notification.matchItemName}” (${notification.score}%)`;
+    const date = document.createElement('small');
+    date.textContent = formatPostedDate(notification.createdAt);
+    const open = document.createElement('button');
+    open.className = 'button small';
+    open.type = 'button';
+    open.textContent = 'ดูประกาศ';
+    open.addEventListener('click', () => {
+      byId('notifications-dialog').close();
+      openItemDetails(notification.targetItemId);
+    });
+    card.append(title, body, date, open);
+    list.append(card);
+  }
+  byId('notifications-empty').classList.toggle('hidden', list.childElementCount > 0);
+  state.notificationOffset = offset + result.notifications.length;
+  byId('load-more-notifications').classList.toggle('hidden', !result.hasMore);
+  try {
+    const readResult = await api('/api/notifications/read', {
+      method: 'POST',
+      body: JSON.stringify({ notificationIds: result.notifications.map((notification) => notification.id) }),
+    });
+    state.unreadNotifications = readResult.unreadCount;
+  } catch {
+    state.unreadNotifications = result.unreadCount || 0;
+  }
+  updateNotificationButton();
 }
 async function openItemDetails(itemId, replyToId = null) {
   let item = state.items.find((entry) => entry.id === itemId);
@@ -1863,6 +1874,17 @@ function bindEvents() {
   byId('cancel-contact').addEventListener('click', () => byId('contact-dialog').close());
   byId('close-messages').addEventListener('click', () => byId('messages-dialog').close());
   byId('close-notifications').addEventListener('click', () => byId('notifications-dialog').close());
+  byId('load-more-notifications').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await loadNotificationPage(state.notificationOffset, true);
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
   byId('close-saved-searches').addEventListener('click', () => byId('saved-searches-dialog').close());
   byId('close-help').addEventListener('click', () => byId('help-dialog').close());
   document.addEventListener('visibilitychange', () => {

@@ -1030,21 +1030,26 @@ async function handler(req, res) {
       const userNotifications = (await readStore()).notifications
         .filter((notification) => notification.userId === user.id)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      const offset = Math.max(0, Math.min(1000000, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0));
+      const page = userNotifications.slice(offset, offset + 50);
       return json(res, 200, {
-        notifications: userNotifications.slice(0, 50),
+        notifications: page,
         unreadCount: userNotifications.filter((notification) => !notification.readAt).length,
+        hasMore: offset + page.length < userNotifications.length,
       });
     }
     if (req.method === 'POST' && route === '/api/notifications/read') {
       const user = await requireUser(req, res);
       if (!user) return;
+      const body = await readBody(req);
+      const notificationIds = Array.isArray(body.notificationIds) ? new Set(body.notificationIds.slice(0, 50).map(String)) : null;
       const store = await readStore();
       const readAt = new Date().toISOString();
       store.notifications.forEach((notification) => {
-        if (notification.userId === user.id && !notification.readAt) notification.readAt = readAt;
+        if (notification.userId === user.id && !notification.readAt && (!notificationIds || notificationIds.has(notification.id))) notification.readAt = readAt;
       });
       await writeStore(store);
-      return json(res, 200, { ok: true });
+      return json(res, 200, { ok: true, unreadCount: store.notifications.filter((notification) => notification.userId === user.id && !notification.readAt).length });
     }
     if (req.method === 'GET' && route === '/api/comments') {
       if (!(await requireUser(req, res))) return;
@@ -1191,14 +1196,19 @@ async function handler(req, res) {
         store.notifications.push({ ...base, userId: user.id, targetItemId: existing.id });
         store.notifications.push({ ...base, id: crypto.randomUUID(), userId: existing.ownerId, targetItemId: item.id });
       }
+      const matchedSearchesByUser = new Map();
       for (const search of store.savedSearches) {
         if (search.userId === user.id || !savedSearchMatchesItem(search, item)) continue;
+        if (!matchedSearchesByUser.has(search.userId)) matchedSearchesByUser.set(search.userId, new Set());
+        matchedSearchesByUser.get(search.userId).add(search.query || [search.category, search.location, search.date].filter(Boolean).join(' · ') || 'ตัวกรองที่บันทึกไว้');
+      }
+      for (const [userId, queries] of matchedSearchesByUser) {
         store.notifications.push({
           id: crypto.randomUUID(),
           type: 'saved_search',
-          userId: search.userId,
+          userId,
           itemName: item.itemName,
-          query: search.query,
+          query: [...queries].join(' · '),
           targetItemId: item.id,
           createdAt,
           readAt: null,

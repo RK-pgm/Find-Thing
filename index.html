@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#f7f6ef" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=claim-cancel-1" />
-  <script src="script.js?v=claim-cancel-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=notifications-1" />
+  <script src="script.js?v=notifications-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -585,6 +585,7 @@
         <p class="subtext">เมื่อมีประกาศของหายหรือของที่พบที่อาจตรงกับรายการของคุณ จะแสดงที่นี่</p>
         <div id="notification-list" class="message-list"></div>
         <p id="notifications-empty" class="empty-message hidden">ยังไม่มีรายการแจ้งเตือน</p>
+        <button class="button hidden" id="load-more-notifications" type="button">ดูรายการเก่ากว่านี้</button>
       </section>
     </dialog>
     <dialog class="dialog" id="saved-searches-dialog" aria-labelledby="saved-searches-title"><section class="dialog-card"><button class="icon-button dialog-close" id="close-saved-searches" type="button" aria-label="ปิด">×</button><div class="eyebrow">การค้นหาของฉัน</div><h2 id="saved-searches-title">คำค้นหาที่บันทึก</h2><p class="subtext">รายการใหม่ที่ตรงกับตัวกรองเหล่านี้จะแจ้งเตือนให้คุณ</p><div id="saved-searches-list" class="message-list"></div><p id="saved-searches-empty" class="empty-message hidden">ยังไม่มีคำค้นหาที่บันทึก</p></section></dialog>
