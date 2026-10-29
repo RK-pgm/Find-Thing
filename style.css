@@ -2098,3 +2098,26 @@ button:not(:hover):not(:focus-visible), .button:not(:hover):not(:focus-visible) 
   .hero-actions { gap: 8px; }
   .hero-actions .button { padding-inline: 8px; font-size: 12px; }
 }
+
+/* Keep report metadata and actions on a shared baseline across uneven AI match cards. */
+.item-card { display: flex; flex-direction: column; }
+.item-content { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; }
+.item-description { min-height: 42px; }
+.match-preview.compact, .match-empty.compact { min-height: 108px; box-sizing: border-box; }
+.match-empty.compact {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-content: center;
+  column-gap: 9px;
+  row-gap: 5px;
+}
+.match-empty.compact > span:first-child { grid-row: 1 / span 2; }
+.match-empty-note { grid-column: 2; color: #586d63; font-size: 11px; line-height: 1.4; }
+.item-card-info { margin-top: auto; }
+.item-card-footer { min-height: 44px; }
+@media (max-width: 560px) {
+  .match-preview.compact, .match-empty.compact { min-height: 126px; }
+  .match-empty.compact { column-gap: 7px; row-gap: 4px; }
+  .match-empty-note { font-size: 10px; }
+  .item-card-footer { min-height: 36px; }
+}

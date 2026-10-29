@@ -320,6 +320,12 @@ function makeMatchEmpty(compact = false) {
   const text = document.createElement('span');
   text.textContent = 'AI ยังไม่มีข้อมูลที่ใกล้เคียง';
   empty.append(icon, text);
+  if (compact) {
+    const hint = document.createElement('span');
+    hint.className = 'match-empty-note';
+    hint.textContent = 'เพิ่มรายละเอียดและสถานที่ให้ชัด เพื่อช่วยให้จับคู่ได้แม่นขึ้น';
+    empty.append(hint);
+  }
   return empty;
 }
 function renderItemMatches(item, container) {
