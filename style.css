@@ -2828,3 +2828,8 @@ textarea {
   object-fit: cover;
   object-position: center 64%;
 }
+
+/* Lower the focal crop so the photographed item, not the empty upper area, is visible. */
+.item-art.has-photo img {
+  object-position: center 88%;
+}
