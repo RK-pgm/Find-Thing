@@ -2494,3 +2494,35 @@ textarea {
     aspect-ratio: 1.9 / 1;
   }
 }
+
+/* Final card density: four reports per desktop row, with taller image panels. */
+.item-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.item-art {
+  height: auto;
+  aspect-ratio: 1.45 / 1;
+}
+
+@media (max-width: 960px) {
+  .item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  .item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .item-art {
+    aspect-ratio: 1.9 / 1;
+  }
+}
