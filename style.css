@@ -3368,3 +3368,29 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(45, 128, 
   #item-dialog .dialog-card { padding: 24px 20px; border-radius: 22px; }
   #item-dialog .dialog-close { top: 22px; right: 22px; }
 }
+
+.hero-actions #report-lost {
+  background: #b8323f;
+  border-color: #b8323f;
+  color: #fff;
+  box-shadow: none;
+}
+
+.hero-actions #report-lost:hover {
+  background: #9f2934;
+  border-color: #9f2934;
+  box-shadow: none;
+}
+
+.hero-actions #report-found {
+  background: #246b52;
+  border-color: #246b52;
+  color: #fff;
+  box-shadow: none;
+}
+
+.hero-actions #report-found:hover {
+  background: #1d5a43;
+  border-color: #1d5a43;
+  box-shadow: none;
+}
