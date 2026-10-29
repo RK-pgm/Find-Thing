@@ -2397,3 +2397,100 @@ textarea {
     height: clamp(205px, 52vw, 260px);
   }
 }
+
+/* Match the reference: two generous report cards per row with a wide photo. */
+.item-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.item-art {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: 1.9 / 1;
+}
+
+@media (max-width: 560px) {
+  .item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px 12px 20px;
+  }
+
+  .item-art {
+    aspect-ratio: 1.45 / 1;
+  }
+
+  .item-art .badge {
+    top: 7px;
+    left: 7px;
+    gap: 4px;
+    padding: 5px 7px;
+    font-size: 9px;
+  }
+
+  .item-code {
+    top: 8px;
+    right: 39px;
+    max-width: calc(100% - 86px);
+    padding: 5px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+
+  .item-favorite {
+    top: 7px;
+    right: 7px;
+    width: 27px;
+    height: 27px;
+    font-size: 15px;
+  }
+
+  .item-content {
+    gap: 7px;
+    padding: 12px 11px 11px;
+  }
+
+  .item-content h3 {
+    font-size: 15px;
+  }
+
+  .item-description {
+    min-height: 34px;
+    font-size: 11px;
+  }
+
+  .item-card-info {
+    gap: 5px;
+    padding-top: 9px;
+    font-size: 10px;
+  }
+
+  .item-card-footer {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .item-reporter-chip {
+    max-width: 100%;
+    font-size: 10px;
+  }
+
+  .item-details-button {
+    min-height: 34px;
+    padding-inline: 9px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 360px) {
+  .item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .item-art {
+    aspect-ratio: 1.9 / 1;
+  }
+}
