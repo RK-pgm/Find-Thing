@@ -60,13 +60,8 @@ function normalizeStore(value) {
   }
   return store;
 }
-function isExpiredItem(item, now = Date.now()) {
-  if (item.status === 'expired') return true;
-  return Boolean(item.expiresAt && Number.isFinite(Date.parse(item.expiresAt)) && Date.parse(item.expiresAt) <= now && ['open', 'reviewing'].includes(item.status));
-}
-function normalizedExpiryDays(value) {
-  const days = Number(value);
-  return [30, 60, 90].includes(days) ? days : 30;
+function isExpiredItem(item) {
+  return item.status === 'expired';
 }
 function parseOptionalReward(body, type) {
   if (type !== 'lost' || body.rewardOffered !== true) return { offered: false, amount: null };
@@ -414,7 +409,7 @@ function savedSearchMatchesItem(search, item) {
   if (search.date && search.date !== item.date) return false;
   const query = normalizedMatchText(search.query);
   if (!query) return true;
-  const haystack = normalizedMatchText(`${item.itemName} ${item.category} ${item.color} ${item.location} ${item.description}`);
+  const haystack = normalizedMatchText(`${item.itemName} ${item.category} ${item.color} ${item.location} ${item.depositLocation || ''} ${item.description}`);
   return haystack.includes(query);
 }
 function removeNotificationsForItems(store, itemIds) {
@@ -685,7 +680,6 @@ async function handler(req, res) {
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
       }
-      if (status === 'open') item.expiresAt = new Date(Date.now() + normalizedExpiryDays(item.expiryDays) * 86400000).toISOString();
       await writeStore(store);
       return json(res, 200, { ok: true, itemId, status, assignedTo });
     }
@@ -712,7 +706,6 @@ async function handler(req, res) {
         item.returnTokenExpiresAt = null;
       }
       if (status === 'open') {
-        item.expiresAt = new Date(Date.now() + normalizedExpiryDays(item.expiryDays) * 86400000).toISOString();
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
       }
@@ -822,11 +815,12 @@ async function handler(req, res) {
       item.contactPublic = body.contactPublic === true;
       item.rewardOffered = reward.offered;
       item.rewardAmount = reward.amount;
+      item.depositLocation = body.type === 'found' ? String(body.depositLocation || '').trim().slice(0, 120) : '';
       item.location = location;
       item.date = date;
       item.eventTime = /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '';
-      item.expiryDays = normalizedExpiryDays(body.expiryDays);
-      item.expiresAt = new Date(Date.now() + item.expiryDays * 86400000).toISOString();
+      delete item.expiryDays;
+      delete item.expiresAt;
       item.returnTokenHash = null;
       item.returnTokenExpiresAt = null;
       item.updatedAt = new Date().toISOString();
@@ -1032,8 +1026,9 @@ async function handler(req, res) {
         .slice()
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map((item) => {
-          return {
-            ...item,
+        const { expiryDays, expiresAt, ...visibleItem } = item;
+        return {
+            ...visibleItem,
             status: isExpiredItem(item) ? 'expired' : item.status,
             commentCount: commentCounts.get(item.id) || 0,
           };
@@ -1161,11 +1156,10 @@ async function handler(req, res) {
         contactPublic: body.contactPublic === true,
         rewardOffered: reward.offered,
         rewardAmount: reward.amount,
+        depositLocation: type === 'found' ? String(body.depositLocation || '').trim().slice(0, 120) : '',
         location,
         date,
         eventTime: /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '',
-        expiryDays: normalizedExpiryDays(body.expiryDays),
-        expiresAt: new Date(Date.now() + normalizedExpiryDays(body.expiryDays) * 86400000).toISOString(),
         photo: null,
         ownerId: user.id,
         ownerName: user.name,

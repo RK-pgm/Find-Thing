@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f3f6f2" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=ux-refresh-3" />
+    <link rel="stylesheet" href="style.css?v=ux-refresh-4" />
     <script src="script.js?v=optional-reward-1" defer></script>
 </head>
 <body>
@@ -386,8 +386,11 @@
         </div>
         <label for="item-time">เวลาโดยประมาณ <span class="optional">(ไม่บังคับ)</span></label>
         <input id="item-time" name="time" type="time" />
-        <label for="item-expiry-days">ระยะเวลาแสดงประกาศ</label>
-        <select id="item-expiry-days" name="expiryDays"><option value="30">30 วัน</option><option value="60">60 วัน</option><option value="90">90 วัน</option></select>
+        <div id="found-deposit-field" hidden>
+          <label for="item-deposit-location">ฝากของไว้ที่ <span class="optional">(ไม่บังคับ)</span></label>
+          <input id="item-deposit-location" name="depositLocation" type="text" maxlength="120" placeholder="เช่น ห้องธุรการหรือห้องกิจการนักเรียน" />
+          <p class="form-hint">ระบุจุดที่เจ้าของสามารถไปรับสิ่งของคืนได้</p>
+        </div>
         <div id="reward-options" hidden>
           <label class="privacy-option" for="item-reward-offered"><input id="item-reward-offered" name="rewardOffered" type="checkbox" /><span>มีสินน้ำใจให้ผู้พบ (ไม่บังคับ)</span></label>
           <div id="reward-amount-field" hidden>
@@ -578,7 +581,7 @@
           <li><strong>หลีกเลี่ยงประกาศซ้ำ</strong><span>ก่อนส่งประกาศ ระบบจะแจ้งหากพบรายการประเภทเดียวกันที่อาจซ้ำ คุณตรวจดูก่อนแล้วเลือกว่าจะลงต่อหรือไม่</span></li>
           <li><strong>ขอรับของคืน</strong><span>ในประกาศของที่พบ ส่งคำขอพร้อมรายละเอียดเฉพาะเพื่อยืนยันความเป็นเจ้าของ เจ้าของประกาศจะพิจารณาและระบบจะแจ้งผลให้ทราบ</span></li>
           <li><strong>ยืนยันการส่งคืนด้วย QR</strong><span>หลังตรวจสอบและส่งมอบสิ่งของแล้ว เจ้าของประกาศสร้าง QR ให้ผู้รับสแกนและยืนยัน ระบบจะปิดประกาศเมื่อยืนยันสำเร็จ</span></li>
-          <li><strong>ดูรายการที่ยังไม่มีผู้รับ</strong><span>เลือกแท็บ “ยังไม่มีผู้รับ” เพื่อดูประกาศสิ่งของที่พบและยังเปิดอยู่ ประกาศจะหมดอายุตามระยะเวลาที่ผู้แจ้งเลือก</span></li>
+          <li><strong>ดูรายการที่ยังไม่มีผู้รับ</strong><span>เลือกแท็บ “ยังไม่มีผู้รับ” เพื่อดูประกาศสิ่งของที่พบและยังเปิดอยู่ หากผู้พบฝากของไว้ที่จุดใด จะเห็นจุดรับคืนในรายละเอียดประกาศ</span></li>
           <li><strong>รายงานประกาศที่มีปัญหา</strong><span>ใช้ปุ่มรายงานประกาศเพื่อแจ้งข้อมูลไม่ถูกต้อง เนื้อหาไม่เหมาะสม หรือข้อมูลส่วนตัวให้ผู้ดูแลตรวจสอบ</span></li>
           <li><strong>ติดต่อกันอย่างปลอดภัย</strong><span>ใช้กล่องข้อความในระบบเพื่อสอบถามรายละเอียด และนัดส่งคืนกับเจ้าหน้าที่หรือในจุดที่โรงเรียนกำหนด</span></li>
           <li><strong>ปิดประกาศเมื่อได้รับของคืน</strong><span>เจ้าของประกาศกด “ปิดประกาศแล้ว” เมื่อเรื่องเรียบร้อย หากยังตามหาอยู่สามารถเปิดประกาศอีกครั้งได้</span></li>

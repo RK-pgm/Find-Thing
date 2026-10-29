@@ -26,6 +26,7 @@ Project-specific rules for Find-Thing. These rules protect the student task flow
 - Avoid broad end-of-file overrides for a one-dialog change. Scope form exceptions to `#item-dialog` and verify effects on the board and other dialogs.
 - Keep the shared spacing and button hierarchy consistent; primary action, secondary action, and utility action must read differently.
 - Preserve progressive disclosure for reward amount, filters, and other optional details.
+- Show the optional pickup/deposit location only for found-item notices; do not add an automatic notice-duration field.
 - Use color together with text, icon, border, or selection state; do not communicate status with color alone.
 - Keep full-size images readable with `object-fit: contain` unless the user explicitly requests a crop.
 

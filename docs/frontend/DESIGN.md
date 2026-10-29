@@ -27,6 +27,8 @@ Keep the existing semantic HTML, CSS, and vanilla JavaScript foundation. Do not 
 - Keep the item photo fully visible in previews (`object-fit: contain`); students use details in the whole image to identify belongings.
 - The report dialog keeps its earlier, roomier appearance at the user's request. Scope its styling to `#item-dialog` so global dialog polish does not change it accidentally.
 - The optional finder reward appears only for lost-item notices; entering an amount stays optional.
+- Found-item notices can include an optional place where the finder left the item for pickup.
+- Notices no longer expire automatically after a selected number of days.
 - Public contact details are opt-in. Private messages remain the default contact path.
 - Keep motion restrained, honor reduced-motion preferences, and preserve visible keyboard focus.
 - On narrow screens, put report actions and search first, keep navigation reachable, and retain touch targets of at least 44px where practical.

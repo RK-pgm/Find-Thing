@@ -3371,26 +3371,44 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(45, 128, 
 
 .hero-actions #report-lost {
   background: #b8323f;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.15) 0.8px, transparent 0.8px);
+  background-size: 10px 10px;
   border-color: #b8323f;
   color: #fff;
-  box-shadow: none;
+  box-shadow: 0 3px 0 #852832, 0 9px 18px rgba(133, 40, 50, 0.26);
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
 .hero-actions #report-lost:hover {
   background: #9f2934;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.17) 0.8px, transparent 0.8px);
+  background-size: 10px 10px;
   border-color: #9f2934;
-  box-shadow: none;
+  box-shadow: 0 4px 0 #76212a, 0 12px 22px rgba(133, 40, 50, 0.32);
+  transform: translateY(-2px);
 }
 
 .hero-actions #report-found {
   background: #246b52;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 0.8px, transparent 0.8px);
+  background-size: 10px 10px;
   border-color: #246b52;
   color: #fff;
-  box-shadow: none;
+  box-shadow: 0 3px 0 #174638, 0 9px 18px rgba(23, 70, 56, 0.25);
+  transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
 }
 
 .hero-actions #report-found:hover {
   background: #1d5a43;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.18) 0.8px, transparent 0.8px);
+  background-size: 10px 10px;
   border-color: #1d5a43;
-  box-shadow: none;
+  box-shadow: 0 4px 0 #123e30, 0 12px 22px rgba(23, 70, 56, 0.31);
+  transform: translateY(-2px);
+}
+
+.hero-actions #report-lost:active,
+.hero-actions #report-found:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(20, 40, 30, 0.5);
 }

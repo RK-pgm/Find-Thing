@@ -521,10 +521,10 @@ function makeItemCard(item) {
     reward.textContent = item.rewardAmount ? `💛 สินน้ำใจ ฿${Number(item.rewardAmount).toLocaleString('th-TH')}` : '💛 มีสินน้ำใจ (สอบถามรายละเอียด)';
     info.append(reward);
   }
-  if (item.expiresAt) {
-    const expiry = document.createElement('span');
-    expiry.textContent = `⌛ หมดเขต ${formatDate(item.expiresAt.slice(0, 10))}`;
-    info.append(expiry);
+  if (item.type === 'found' && item.depositLocation) {
+    const deposit = document.createElement('span');
+    deposit.textContent = `📦 ฝากของไว้ที่ ${item.depositLocation}`;
+    info.append(deposit);
   }
   const footer = document.createElement('div');
   footer.className = 'item-card-footer';
@@ -708,8 +708,8 @@ async function openItemDetails(itemId, replyToId = null) {
     ['ผู้แจ้ง', item.reporterName || item.ownerName || 'ไม่ระบุ'],
     ['ลงประกาศ', formatPostedDate(item.createdAt)],
     ['สถานะ', item.status === 'resolved' ? 'ปิดประกาศแล้ว' : item.status === 'expired' ? 'หมดอายุ' : item.type === 'found' && item.status === 'open' ? 'ยังไม่มีผู้รับ' : 'ยังเปิดรับข้อมูล'],
-    ...(item.expiresAt ? [['หมดเขต', formatDate(item.expiresAt.slice(0, 10))]] : []),
   ];
+  if (item.type === 'found' && item.depositLocation) rows.push(['ฝากของไว้ที่', item.depositLocation]);
   if (item.type === 'lost' && item.rewardOffered) {
     rows.push(['สินน้ำใจ', item.rewardAmount ? `฿${Number(item.rewardAmount).toLocaleString('th-TH')}` : 'เจ้าของยินดีให้ (สอบถามรายละเอียด)']);
   }
@@ -1123,7 +1123,7 @@ function renderItems() {
       (!location || item.location === location) &&
       (!date || item.date === date) &&
       (!query ||
-        `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${item.description}`
+        `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${item.depositLocation || ''} ${item.description}`
           .toLocaleLowerCase()
           .includes(query)),
   );
@@ -1217,6 +1217,7 @@ function openReport(type) {
   state.editingItemId = null;
   state.photo = null;
   byId('item-form').reset();
+  byId('found-deposit-field').hidden = type !== 'found';
   byId('reward-options').hidden = type !== 'lost';
   byId('reward-amount-field').hidden = true;
   byId('item-reward-amount').disabled = true;
@@ -1231,7 +1232,6 @@ function openReport(type) {
     .slice(0, 10);
   byId('item-date').max = byId('item-date').value;
   byId('item-time').value = '';
-  byId('item-expiry-days').value = '30';
   clearPhoto();
   byId('item-dialog').showModal();
 }
@@ -1240,6 +1240,7 @@ function editItem(item) {
   state.reportType = item.type;
   state.photo = null;
   byId('item-form').reset();
+  byId('found-deposit-field').hidden = item.type !== 'found';
   byId('reward-options').hidden = item.type !== 'lost';
   byId('item-reward-offered').checked = item.rewardOffered === true;
   byId('item-reward-amount').value = item.rewardAmount || '';
@@ -1253,9 +1254,9 @@ function editItem(item) {
   byId('item-color').value = item.color || '';
   byId('item-description').value = item.description || '';
   byId('item-location').value = item.location;
+  byId('item-deposit-location').value = item.depositLocation || '';
   byId('item-date').value = item.date;
   byId('item-time').value = item.eventTime || '';
-  byId('item-expiry-days').value = String(item.expiryDays || 30);
   byId('item-contact').value = item.contact || '';
   byId('item-contact-public').checked = item.contactPublic !== false;
   byId('item-message').textContent = 'รูปภาพเดิมจะคงอยู่';
@@ -1366,9 +1367,9 @@ async function submitItem(event) {
     rewardOffered: state.reportType === 'lost' && byId('item-reward-offered').checked,
     rewardAmount: byId('item-reward-offered').checked ? byId('item-reward-amount').value : '',
     location: byId('item-location').value,
+    depositLocation: state.reportType === 'found' ? byId('item-deposit-location').value.trim() : '',
     date: byId('item-date').value,
     eventTime: byId('item-time').value,
-    expiryDays: Number(byId('item-expiry-days').value),
   };
   if (photo) {
     payload.imageFeatures = await analyzePhoto(photo);
