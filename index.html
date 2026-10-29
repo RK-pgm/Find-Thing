@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f3f6f2" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=ux-refresh-4" />
+    <link rel="stylesheet" href="style.css?v=ux-refresh-6" />
     <script src="script.js?v=optional-reward-1" defer></script>
 </head>
 <body>
@@ -221,12 +221,12 @@
               <option value="Other">อื่น ๆ</option>
             </select>
             <label class="date-filter">วันที่ <input id="date-filter" type="date" aria-label="กรองตามวันที่หายหรือพบ" /></label>
-            <button class="button small" id="my-items-filter" type="button" aria-pressed="false">ประกาศของฉัน</button>
+            <button class="button small filter-tool filter-mine" id="my-items-filter" type="button" aria-pressed="false"><span class="filter-icon" aria-hidden="true">▣</span>ประกาศของฉัน</button>
             <input id="image-search-file" type="file" accept="image/jpeg,image/png,image/webp" hidden />
-            <button class="button small" id="image-search-button" type="button">ค้นหาด้วยรูป</button>
-            <button class="button small hidden" id="clear-image-search" type="button">ล้างผลค้นหารูป</button>
-            <button class="button small" id="save-search-button" type="button">รับแจ้งเตือนเมื่อพบ</button>
-            <button class="button small" id="manage-saved-searches" type="button">คำค้นหาที่บันทึก</button>
+            <button class="button small filter-tool filter-image" id="image-search-button" type="button"><span class="filter-icon" aria-hidden="true">⌕</span>ค้นหาด้วยรูป</button>
+            <button class="button small filter-tool filter-clear hidden" id="clear-image-search" type="button"><span class="filter-icon" aria-hidden="true">×</span>ล้างผลค้นหารูป</button>
+            <button class="button small filter-tool filter-alert" id="save-search-button" type="button"><span class="filter-icon" aria-hidden="true">🔔</span>รับแจ้งเตือนเมื่อพบ</button>
+            <button class="button small filter-tool filter-manage" id="manage-saved-searches" type="button"><span class="filter-icon" aria-hidden="true">≡</span>คำค้นหาที่บันทึก</button>
           </div>
           <p id="image-search-status" class="form-hint hidden" aria-live="polite"></p>
           <p class="form-hint">ค้นหาด้วยรูปจะเปรียบเทียบลักษณะภาพในเบราว์เซอร์ และส่งเฉพาะข้อมูลสำหรับจับคู่ภาพ</p>

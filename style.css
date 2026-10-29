@@ -3412,3 +3412,124 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(45, 128, 
   transform: translateY(2px);
   box-shadow: 0 1px 0 rgba(20, 40, 30, 0.5);
 }
+
+/* Give board tools clear visual roles instead of repeating identical small buttons. */
+.filters .filter-tool {
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 42px;
+  padding-inline: 10px;
+  border-width: 1px;
+  border-radius: 10px;
+  box-shadow: none;
+  font-weight: 650;
+  text-align: left;
+}
+
+.filters .filter-tool:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 9px rgba(24, 58, 49, 0.09);
+}
+
+.filter-icon {
+  display: inline-grid;
+  flex: 0 0 22px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 15px;
+  line-height: 1;
+}
+
+#my-items-filter {
+  border-color: #d4ded6;
+  background: #f3f6f3;
+  color: #39574a;
+}
+
+#my-items-filter.primary,
+#my-items-filter.primary:hover {
+  border-color: #1e5a44;
+  background: #1e5a44;
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 4px 10px rgba(30, 90, 68, 0.22);
+}
+
+#my-items-filter.primary .filter-icon { background: rgba(255, 255, 255, 0.18); }
+
+#image-search-button {
+  border-color: #c7dce2;
+  background: #edf5f7;
+  color: #28596a;
+}
+
+#image-search-button .filter-icon { color: #24677c; }
+
+#clear-image-search {
+  border-color: #edc9c6;
+  background: #fff1ef;
+  color: #a53d42;
+}
+
+#clear-image-search .filter-icon { background: #fbe1de; color: #a53d42; }
+
+#save-search-button {
+  border-color: #ecd9a9;
+  background: #fff7e4;
+  color: #755416;
+}
+
+#save-search-button .filter-icon { color: #8a6416; }
+
+#manage-saved-searches {
+  border-color: #d3e0d6;
+  background: #edf4ee;
+  color: #315c46;
+}
+
+#manage-saved-searches .filter-icon { color: #246b52; }
+
+.item-details-button {
+  border-color: #246b52;
+  background: #246b52;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(36, 107, 82, 0.2);
+}
+
+.item-details-button:hover {
+  border-color: #1d5a43;
+  background: #1d5a43;
+  color: #fff;
+  box-shadow: 0 5px 11px rgba(36, 107, 82, 0.25);
+}
+
+.detail-owner-actions #report-item {
+  border-color: #ebc8c5;
+  background: #fff4f2;
+  color: #a53d42;
+}
+
+.detail-owner-actions #report-item:hover {
+  border-color: #d99c97;
+  background: #fde9e6;
+  color: #8d3038;
+}
+
+.button.small.danger {
+  border-color: #edc9c6;
+  background: #fff1ef;
+  color: #a53d42;
+}
+
+.button.small.danger:hover {
+  border-color: #d99c97;
+  background: #fde3e0;
+  color: #8d3038;
+}
+
+@media (max-width: 600px) {
+  .filters .filter-tool { justify-content: flex-start; gap: 6px; padding-inline: 7px; font-size: 11px; }
+  .filter-icon { flex-basis: 20px; width: 20px; height: 20px; }
+}
