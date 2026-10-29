@@ -12,6 +12,7 @@ const state = {
   returnToken: null,
   activeFilter: 'all',
   items: [],
+  schools: [],
   favoriteIds: [],
   photo: null,
   previewUrl: null,
@@ -183,6 +184,7 @@ async function openAdminPanel() {
 }
 function enterApp(user) {
   state.user = user;
+  loadSchools();
   try {
     state.favoriteIds = JSON.parse(localStorage.getItem(`found-it:favorites:${user.id}`) || '[]');
   } catch {
@@ -192,12 +194,37 @@ function enterApp(user) {
   byId('app').classList.remove('hidden');
   showBoard();
   renderNav();
+  renderCommunityLabel();
   refreshNotificationCount();
   clearInterval(state.notificationTimer);
   state.notificationTimer = setInterval(refreshNotificationCount, 60000);
   if (user.role === 'admin') openAdminPanel();
   else loadItems();
   if (state.pendingReturnToken) prepareReturnConfirmation();
+}
+function renderCommunityLabel() {
+  const label = byId('community-label');
+  if (!label) return;
+  label.replaceChildren();
+  const dot = document.createElement('i');
+  const selectedSchool = state.schools.find((school) => school.id === state.user?.schoolId);
+  label.append(dot, document.createTextNode(selectedSchool
+    ? ` ชุมชน ${selectedSchool.name} · ${selectedSchool.province}`
+    : ' กระดานสาธารณะ · เลือกโรงเรียนในโปรไฟล์ได้ทุกเมื่อ'));
+}
+async function loadSchools() {
+  try {
+    const result = await api('/api/schools');
+    state.schools = result.schools || [];
+    const profileSchool = byId('profile-school');
+    const selectedId = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
+    profileSchool.replaceChildren(new Option('ยังไม่เลือก · เลือกภายหลังได้', ''));
+    state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}`, school.id)));
+    profileSchool.value = selectedId;
+    renderCommunityLabel();
+  } catch {
+    // The static option keeps the initial school selectable if this request is temporarily unavailable.
+  }
 }
 function exitApp() {
   clearInterval(state.notificationTimer);
@@ -515,6 +542,15 @@ function makeItemCard(item) {
   const posted = document.createElement('span');
   posted.textContent = `◷ ลงประกาศ ${formatPostedDate(item.createdAt)}`;
   info.append(location, eventDate, posted);
+  if (item.schoolName) {
+    const school = document.createElement('span');
+    school.textContent = `🏫 ${item.schoolName}${item.visibility === 'public' ? ' · สาธารณะ' : ''}`;
+    info.append(school);
+  } else if (item.visibility === 'public') {
+    const publicLabel = document.createElement('span');
+    publicLabel.textContent = '🌐 สาธารณะ';
+    info.append(publicLabel);
+  }
   if (item.type === 'lost' && item.rewardOffered) {
     const reward = document.createElement('span');
     reward.className = 'reward-note';
@@ -709,6 +745,8 @@ async function openItemDetails(itemId, replyToId = null) {
     ['ลงประกาศ', formatPostedDate(item.createdAt)],
     ['สถานะ', item.status === 'resolved' ? 'ปิดประกาศแล้ว' : item.status === 'expired' ? 'หมดอายุ' : item.type === 'found' && item.status === 'open' ? 'ยังไม่มีผู้รับ' : 'ยังเปิดรับข้อมูล'],
   ];
+  if (item.schoolName) rows.push(['โรงเรียนของโพสต์', item.schoolName]);
+  rows.push(['การมองเห็น', item.visibility === 'school' ? 'สมาชิกโรงเรียนนี้' : 'สาธารณะ']);
   if (item.type === 'found' && item.depositLocation) rows.push(['ฝากของไว้ที่', item.depositLocation]);
   if (item.type === 'lost' && item.rewardOffered) {
     rows.push(['สินน้ำใจ', item.rewardAmount ? `฿${Number(item.rewardAmount).toLocaleString('th-TH')}` : 'เจ้าของยินดีให้ (สอบถามรายละเอียด)']);
@@ -972,7 +1010,7 @@ function openProfile() {
   byId('profile-name').value = state.user?.name || '';
   byId('profile-student-id').value = state.user?.studentId || '';
   byId('profile-grade').value = state.user?.grade || '';
-  byId('profile-school').value = state.user?.school || '';
+  byId('profile-school').value = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
   byId('open-change-password').classList.toggle('hidden', state.user?.studentId?.toLowerCase() === 'a1010');
   byId('profile-status').textContent = '';
   byId('profile-dialog').showModal();
@@ -1094,13 +1132,19 @@ async function saveProfile(event) {
       body: JSON.stringify({
         name: byId('profile-name').value.trim(),
         grade: byId('profile-grade').value.trim(),
-        school: byId('profile-school').value.trim(),
+        schoolId: byId('profile-school').value,
       }),
     });
     state.user = result.user;
+    state.items = [];
+    renderCommunityLabel();
     byId('profile-dialog').close();
     renderNav();
+    renderItems();
+    updateStats();
     showToast('บันทึกโปรไฟล์แล้ว');
+    await loadItems();
+    refreshNotificationCount();
   } catch (error) {
     byId('profile-status').textContent = error.message;
   } finally {
@@ -1217,6 +1261,13 @@ function openReport(type) {
   state.editingItemId = null;
   state.photo = null;
   byId('item-form').reset();
+  const schoolAudience = byId('item-audience').querySelector('option[value="school"]');
+  schoolAudience.disabled = !state.user?.schoolId;
+  byId('item-audience').disabled = false;
+  byId('item-audience').value = state.user?.schoolId ? 'school' : 'public';
+  byId('item-audience-hint').textContent = state.user?.schoolId
+    ? 'โพสต์ชุมชนจะผูกกับโรงเรียนในโปรไฟล์ ณ เวลาที่ลงประกาศ'
+    : 'ยังไม่ได้เลือกโรงเรียน โพสต์นี้จะเป็นสาธารณะ; เลือกโรงเรียนได้จากโปรไฟล์';
   byId('found-deposit-field').hidden = type !== 'found';
   byId('reward-options').hidden = type !== 'lost';
   byId('reward-amount-field').hidden = true;
@@ -1240,6 +1291,9 @@ function editItem(item) {
   state.reportType = item.type;
   state.photo = null;
   byId('item-form').reset();
+  byId('item-audience').value = item.visibility || 'public';
+  byId('item-audience').disabled = true;
+  byId('item-audience-hint').textContent = `โพสต์นี้ผูกกับ ${item.schoolName || 'กระดานสาธารณะ'} ตั้งแต่วันที่ลงประกาศ`;
   byId('found-deposit-field').hidden = item.type !== 'found';
   byId('reward-options').hidden = item.type !== 'lost';
   byId('item-reward-offered').checked = item.rewardOffered === true;
@@ -1357,6 +1411,7 @@ async function submitItem(event) {
   }
   const payload = {
     type: state.reportType,
+    visibility: byId('item-audience').value,
     reporterName: byId('item-reporter').value.trim(),
     itemName: byId('item-name').value.trim(),
     category: byId('item-category').value,
@@ -1383,6 +1438,7 @@ async function submitItem(event) {
         method: 'POST',
         body: JSON.stringify({
           type: payload.type,
+          visibility: payload.visibility,
           itemName: payload.itemName,
           category: payload.category,
           color: payload.color,

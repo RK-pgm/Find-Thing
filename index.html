@@ -192,7 +192,7 @@
               <h2 id="board-title">ประกาศล่าสุด</h2>
               <p>ค้นหาตามชื่อ หมวดหมู่ หรือสถานที่ที่พบ</p>
             </div>
-            <span class="live-label"><i></i> กระดานของโรงเรียน</span>
+            <span class="live-label" id="community-label"><i></i> กระดานสาธารณะ · เลือกโรงเรียนในโปรไฟล์</span>
           </div>
           <div class="filters">
             <label class="search-box"
@@ -331,6 +331,12 @@
         <label for="item-reporter">ชื่อผู้แจ้ง</label
         ><input id="item-reporter" name="reporterName" required maxlength="80" placeholder="ชื่อ–นามสกุลผู้แจ้ง" />
         <p class="form-hint">ระบบเติมชื่อจากบัญชีที่เข้าสู่ระบบให้อัตโนมัติ แก้ไขได้ก่อนส่ง และชื่อนี้จะแสดงบนประกาศ</p>
+        <label for="item-audience">โพสต์ไปที่</label>
+        <select id="item-audience" name="visibility" aria-describedby="item-audience-hint">
+          <option value="school">ชุมชนโรงเรียนของฉัน</option>
+          <option value="public">สาธารณะ · ทุกโรงเรียนมองเห็น</option>
+        </select>
+        <p class="form-hint" id="item-audience-hint">โพสต์จะผูกกับโรงเรียนในโปรไฟล์ ณ เวลาที่ลงประกาศ</p>
         <label for="item-name">ชื่อสิ่งของ</label
         ><input
           id="item-name"
@@ -487,8 +493,12 @@
         <input id="profile-student-id" name="studentId" readonly />
         <label for="profile-grade">ชั้น / ห้อง</label>
         <input id="profile-grade" name="grade" maxlength="40" placeholder="เช่น ม.3/2" />
-        <label for="profile-school">โรงเรียน</label>
-        <input id="profile-school" name="school" maxlength="100" placeholder="ชื่อโรงเรียน" />
+        <label for="profile-school">โรงเรียนที่สังกัด</label>
+        <select id="profile-school" name="schoolId">
+          <option value="">ยังไม่เลือก · เลือกภายหลังได้</option>
+          <option value="thung-song">โรงเรียนทุ่งสง · นครศรีธรรมราช</option>
+        </select>
+        <p class="form-hint">ฟีดจะแสดงโพสต์สาธารณะและโพสต์ของโรงเรียนที่เลือก เปลี่ยนได้ทุกเมื่อ</p>
         <button class="button claim-history-open" id="open-my-claims" type="button">ติดตามคำขอรับของคืน</button>
         <button class="button claim-history-open" id="open-change-password" type="button">เปลี่ยนรหัสผ่าน</button>
         <p id="profile-status" class="form-message" aria-live="polite"></p>

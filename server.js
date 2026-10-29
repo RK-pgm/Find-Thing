@@ -23,6 +23,10 @@ const ADMIN_STUDENT_ID = 'T36699';
 const ADMIN_LOGIN_ID = process.env.ADMIN_LOGIN_ID || 'A1010';
 const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || '';
 const loginAttempts = new Map();
+// Add future school communities here using a permanent ID.
+const SCHOOLS = [
+  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช' },
+];
 let localStoreWriteQueue = Promise.resolve();
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -247,7 +251,8 @@ async function getUser(req) {
   if (!session.userId || !Number.isFinite(session.exp) || session.exp < Date.now()) return null;
   const account = (await readStore()).users.find((user) => user.id === session.userId);
   if (!account || (session.sessionVersion || 0) !== (account.sessionVersion || 0)) return null;
-  return account;
+  const legacySchool = SCHOOLS.find((school) => school.name === account.school);
+  return account.schoolId || !legacySchool ? account : { ...account, schoolId: legacySchool.id };
 }
 async function requireUser(req, res) {
   const user = await getUser(req);
@@ -276,8 +281,26 @@ function cleanUser(user) {
     studentId: user.studentId || '',
     grade: user.grade || '',
     school: user.school || '',
+    schoolId: user.schoolId || SCHOOLS.find((school) => school.name === user.school)?.id || '',
     role: user.role || 'student',
   };
+}
+function canViewItem(user, item) {
+  if (!item.visibility) return true;
+  if (item.visibility === 'public') return true;
+  if (item.visibility === 'school')
+    return user?.role === 'admin' || (!!user?.schoolId && item.schoolId === user.schoolId);
+  return false;
+}
+function visibleItemsFor(user, items) {
+  return user?.role === 'admin' ? items : items.filter((item) => canViewItem(user, item));
+}
+function canViewNotification(user, notification, items) {
+  const relatedIds = [notification.targetItemId, notification.sourceItemId, notification.matchItemId].filter(Boolean);
+  return relatedIds.every((id) => {
+    const item = items.find((entry) => entry.id === id);
+    return !!item && canViewItem(user, item);
+  });
 }
 function validOrigin(req) {
   const origin = req.headers.origin;
@@ -452,6 +475,8 @@ async function handler(req, res) {
     if (route.startsWith('/api/')) assertDeploymentConfig();
     if (['POST', 'PUT', 'DELETE'].includes(req.method) && route.startsWith('/api/'))
       lockToken = await acquireStoreLock();
+    if (req.method === 'GET' && route === '/api/schools')
+      return json(res, 200, { schools: SCHOOLS });
     if (req.method === 'GET' && route === '/api/session') {
       const user = await getUser(req);
       return user
@@ -464,17 +489,23 @@ async function handler(req, res) {
       const body = await readBody(req);
       const name = String(body.name || '').trim();
       const grade = String(body.grade || '').trim();
-      const school = String(body.school || '').trim();
+      const legacySchool = String(body.school || '').trim();
+      const requestedSchoolId = Object.hasOwn(body, 'schoolId')
+        ? String(body.schoolId || '').trim()
+        : (SCHOOLS.find((entry) => entry.name === legacySchool)?.id || '');
       if (name.length < 2 || name.length > 80)
         return json(res, 400, { error: 'ชื่อต้องมีความยาว 2–80 ตัวอักษร' });
       if (grade.length > 40) return json(res, 400, { error: 'ชั้นเรียนต้องมีความยาวไม่เกิน 40 ตัวอักษร' });
-      if (school.length > 100) return json(res, 400, { error: 'ชื่อโรงเรียนต้องมีความยาวไม่เกิน 100 ตัวอักษร' });
+      const selectedSchool = SCHOOLS.find((entry) => entry.id === requestedSchoolId);
+      if (requestedSchoolId && !selectedSchool)
+        return json(res, 400, { error: 'กรุณาเลือกโรงเรียนจากรายการที่มี' });
       const store = await readStore();
       const account = store.users.find((entry) => entry.id === user.id);
       if (!account) return json(res, 404, { error: 'ไม่พบบัญชีผู้ใช้' });
       account.name = name;
       account.grade = grade;
-      account.school = school;
+      account.schoolId = selectedSchool?.id || '';
+      account.school = selectedSchool?.name || '';
       store.items.forEach((item) => {
         if (item.ownerId === user.id) item.ownerName = name;
       });
@@ -696,6 +727,7 @@ async function handler(req, res) {
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
       if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (!canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId !== user.id && user.role !== 'admin')
         return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่เปลี่ยนสถานะได้' });
       item.status = status;
@@ -788,6 +820,7 @@ async function handler(req, res) {
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
       if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (!canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId !== user.id && user.role !== 'admin')
         return json(res, 403, { error: 'แก้ไขได้เฉพาะประกาศของตนเอง' });
       const itemName = String(body.itemName || '').trim();
@@ -895,6 +928,7 @@ async function handler(req, res) {
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
       if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (!canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId !== user.id && user.role !== 'admin') return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่สร้าง QR ได้' });
       if (item.status !== 'open' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ไม่ได้เปิดรับการยืนยันรับคืนแล้ว' });
       const token = crypto.randomBytes(32).toString('base64url');
@@ -908,12 +942,13 @@ async function handler(req, res) {
       return json(res, 200, { qrCode, itemName: item.itemName, expiresAt: item.returnTokenExpiresAt });
     }
     if (req.method === 'POST' && route === '/api/return-preview') {
-      if (!(await requireUser(req, res))) return;
+      const viewer = await requireUser(req, res);
+      if (!viewer) return;
       const body = await readBody(req);
       const token = String(body.token || '');
       const store = await readStore();
       const item = store.items.find((entry) => tokenMatchesHash(token, entry.returnTokenHash));
-      if (!item || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
+      if (!item || !canViewItem(viewer, item) || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
         return json(res, 404, { error: 'QR หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอ QR ใหม่จากผู้แจ้ง' });
       return json(res, 200, { itemId: item.id, itemName: item.itemName, type: item.type });
     }
@@ -923,7 +958,7 @@ async function handler(req, res) {
       const body = await readBody(req);
       const store = await readStore();
       const item = store.items.find((entry) => tokenMatchesHash(String(body.token || ''), entry.returnTokenHash));
-      if (!item || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
+      if (!item || !canViewItem(user, item) || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
         return json(res, 404, { error: 'QR หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอ QR ใหม่จากผู้แจ้ง' });
       if (item.ownerId === user.id) return json(res, 403, { error: 'ให้ผู้รับสิ่งของเป็นผู้สแกน QR เพื่อยืนยัน' });
       item.status = 'resolved';
@@ -941,7 +976,8 @@ async function handler(req, res) {
       return json(res, 200, { ok: true, itemId: item.id, itemName: item.itemName });
     }
     if (req.method === 'POST' && route === '/api/items/check') {
-      if (!(await requireUser(req, res))) return;
+      const viewer = await requireUser(req, res);
+      if (!viewer) return;
       const body = await readBody(req);
       const draft = {
         type: body.type,
@@ -954,7 +990,7 @@ async function handler(req, res) {
         imageFeatures: normalizeImageFeatures(body.imageFeatures),
       };
       if (!['lost', 'found'].includes(draft.type)) return json(res, 400, { error: 'กรุณาเลือกประเภทประกาศ' });
-      const duplicates = (await readStore()).items
+      const duplicates = visibleItemsFor(viewer, (await readStore()).items)
         .filter((item) => item.type === draft.type && !['resolved', 'expired'].includes(item.status) && !isExpiredItem(item))
         .map((item) => ({ itemId: item.id, itemName: item.itemName, ...matchAnalysis(draft, item, true) }))
         .filter((match) => match.score >= 52)
@@ -963,11 +999,12 @@ async function handler(req, res) {
       return json(res, 200, { duplicates });
     }
     if (req.method === 'POST' && route === '/api/image-search') {
-      if (!(await requireUser(req, res))) return;
+      const viewer = await requireUser(req, res);
+      if (!viewer) return;
       const body = await readBody(req);
       const imageFeatures = normalizeImageFeatures(body.imageFeatures);
       if (!imageFeatures) return json(res, 400, { error: 'อ่านข้อมูลจากรูปภาพไม่สำเร็จ กรุณาเลือกรูปใหม่' });
-      const matches = (await readStore()).items
+      const matches = visibleItemsFor(viewer, (await readStore()).items)
         .filter((item) => item.status !== 'resolved' && item.imageFeatures)
         .map((item) => ({ itemId: item.id, score: imageSimilarity(imageFeatures, item.imageFeatures) }))
         .filter((match) => match.score !== null && match.score >= 0.35)
@@ -1019,10 +1056,12 @@ async function handler(req, res) {
       const viewer = await requireUser(req, res);
       if (!viewer) return;
       const store = await readStore();
+      const visibleItems = visibleItemsFor(viewer, store.items);
+      const visibleIds = new Set(visibleItems.map((item) => item.id));
       const commentCounts = new Map();
       for (const comment of store.comments)
-        commentCounts.set(comment.itemId, (commentCounts.get(comment.itemId) || 0) + 1);
-      const items = store.items
+        if (visibleIds.has(comment.itemId)) commentCounts.set(comment.itemId, (commentCounts.get(comment.itemId) || 0) + 1);
+      const items = visibleItems
         .slice()
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map((item) => {
@@ -1038,8 +1077,9 @@ async function handler(req, res) {
     if (req.method === 'GET' && route === '/api/notifications') {
       const user = await requireUser(req, res);
       if (!user) return;
-      const userNotifications = (await readStore()).notifications
-        .filter((notification) => notification.userId === user.id)
+      const store = await readStore();
+      const userNotifications = store.notifications
+        .filter((notification) => notification.userId === user.id && canViewNotification(user, notification, store.items))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const offset = Math.max(0, Math.min(1000000, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0));
       const page = userNotifications.slice(offset, offset + 50);
@@ -1057,17 +1097,19 @@ async function handler(req, res) {
       const store = await readStore();
       const readAt = new Date().toISOString();
       store.notifications.forEach((notification) => {
-        if (notification.userId === user.id && !notification.readAt && (!notificationIds || notificationIds.has(notification.id))) notification.readAt = readAt;
+        if (notification.userId === user.id && canViewNotification(user, notification, store.items) && !notification.readAt && (!notificationIds || notificationIds.has(notification.id))) notification.readAt = readAt;
       });
       await writeStore(store);
-      return json(res, 200, { ok: true, unreadCount: store.notifications.filter((notification) => notification.userId === user.id && !notification.readAt).length });
+      const unreadCount = store.notifications.filter((notification) => notification.userId === user.id && canViewNotification(user, notification, store.items) && !notification.readAt).length;
+      return json(res, 200, { ok: true, unreadCount });
     }
     if (req.method === 'GET' && route === '/api/comments') {
-      if (!(await requireUser(req, res))) return;
+      const user = await requireUser(req, res);
+      if (!user) return;
       const itemId = String(url.searchParams.get('itemId') || '');
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item)
+      if (!item || !canViewItem(user, item))
         return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       const comments = store.comments
         .filter((comment) => comment.itemId === itemId)
@@ -1082,7 +1124,7 @@ async function handler(req, res) {
       const text = String(body.text || '').trim();
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.status === 'resolved' || isExpiredItem(item))
         return json(res, 409, { error: 'ประกาศนี้ปิดแล้วและไม่รับความคิดเห็นใหม่' });
       if (text.length < 1 || text.length > 1000)
@@ -1112,6 +1154,7 @@ async function handler(req, res) {
       const itemName = String(body.itemName || '').trim();
       const reporterName = String(body.reporterName || '').trim();
       const type = body.type;
+      const visibility = body.visibility == null ? 'public' : String(body.visibility);
       const reward = parseOptionalReward(body, type);
       const category = String(body.category || '');
       const location = String(body.location || '');
@@ -1122,6 +1165,10 @@ async function handler(req, res) {
         return json(res, 400, { error: 'กรุณากรอกชื่อผู้แจ้งความยาว 2–80 ตัวอักษร' });
       if (!['lost', 'found'].includes(type))
         return json(res, 400, { error: 'กรุณาเลือกประเภทประกาศของหายหรือของที่พบ' });
+      if (!['public', 'school'].includes(visibility))
+        return json(res, 400, { error: 'กรุณาเลือกว่าจะเผยแพร่สาธารณะหรือเฉพาะโรงเรียน' });
+      if (visibility === 'school' && !user.schoolId)
+        return json(res, 400, { error: 'กรุณาเลือกโรงเรียนในโปรไฟล์ก่อนลงประกาศในชุมชนโรงเรียน' });
       if (!reward) return json(res, 400, { error: 'จำนวนสินน้ำใจต้องเป็นจำนวนเต็มตั้งแต่ 1 ถึง 1,000,000 บาท' });
       if (
         !['School supplies', 'Stationery', 'Clothing', 'Personal items', 'Bags', 'Phones', 'Electronics', 'Other'].includes(
@@ -1163,6 +1210,9 @@ async function handler(req, res) {
         photo: null,
         ownerId: user.id,
         ownerName: user.name,
+        schoolId: user.schoolId || '',
+        schoolName: SCHOOLS.find((entry) => entry.id === user.schoolId)?.name || '',
+        visibility,
         status: 'open',
         assignedTo: '',
         createdAt: new Date().toISOString(),
@@ -1190,11 +1240,15 @@ async function handler(req, res) {
         }
       }
       const store = await readStore();
-      const matches = store.items
+      const matches = visibleItemsFor(user, store.items)
         .filter((existing) => existing.type !== type && !['resolved', 'expired'].includes(existing.status) && !isExpiredItem(existing))
         .map((existing) => ({ existing, score: matchAnalysis(item, existing).score }))
         .filter((match) => match.score >= 40);
-      const notificationMatches = matches.filter(({ existing }) => existing.ownerId !== user.id);
+      const notificationMatches = matches.filter(({ existing }) => {
+        if (existing.ownerId === user.id) return false;
+        const recipient = store.users.find((entry) => entry.id === existing.ownerId);
+        return !!recipient && canViewItem(recipient, item) && canViewItem(recipient, existing);
+      });
       const createdAt = item.createdAt;
       for (const { existing, score } of notificationMatches) {
         const base = {
@@ -1213,7 +1267,8 @@ async function handler(req, res) {
       }
       const matchedSearchesByUser = new Map();
       for (const search of store.savedSearches) {
-        if (search.userId === user.id || !savedSearchMatchesItem(search, item)) continue;
+        const searchUser = store.users.find((entry) => entry.id === search.userId);
+        if (search.userId === user.id || !searchUser || !canViewItem(searchUser, item) || !savedSearchMatchesItem(search, item)) continue;
         if (!matchedSearchesByUser.has(search.userId)) matchedSearchesByUser.set(search.userId, new Set());
         matchedSearchesByUser.get(search.userId).add(search.query || [search.category, search.location, search.date].filter(Boolean).join(' · ') || 'ตัวกรองที่บันทึกไว้');
       }
@@ -1231,7 +1286,7 @@ async function handler(req, res) {
       }
       store.items.push(item);
       await writeStore(store);
-      const results = withMatches(store.items, user.id);
+      const results = withMatches(visibleItemsFor(user, store.items), user.id);
       const saved = results.find((x) => x.id === item.id);
       return json(res, 201, { item: saved, possibleMatchCount: notificationMatches.length });
     }
@@ -1243,7 +1298,7 @@ async function handler(req, res) {
       const proof = String(body.proof || '').trim();
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item || item.type !== 'found') return json(res, 404, { error: 'ไม่พบประกาศสิ่งของที่เก็บได้' });
+      if (!item || !canViewItem(user, item) || item.type !== 'found') return json(res, 404, { error: 'ไม่พบประกาศสิ่งของที่เก็บได้' });
       if (item.ownerId === user.id) return json(res, 400, { error: 'ไม่สามารถขอรับของจากประกาศของตนเองได้' });
       if (item.status === 'resolved' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ปิดแล้วหรือหมดอายุ' });
       if (proof.length < 10 || proof.length > 1000) return json(res, 400, { error: 'กรุณาระบุรายละเอียดเพื่อยืนยันความเป็นเจ้าของอย่างน้อย 10 ตัวอักษร' });
@@ -1265,7 +1320,7 @@ async function handler(req, res) {
       if (claim.fromId !== user.id) return json(res, 403, { error: 'ยกเลิกได้เฉพาะคำขอของตนเอง' });
       if (claim.status !== 'pending') return json(res, 409, { error: 'ยกเลิกได้เฉพาะคำขอที่ยังรอพิจารณา' });
       const item = store.items.find((entry) => entry.id === claim.itemId);
-      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้แล้ว' });
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้แล้ว' });
       claim.status = 'cancelled';
       claim.updatedAt = new Date().toISOString();
       store.notifications = store.notifications.filter((notification) =>
@@ -1290,9 +1345,12 @@ async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       const itemId = String(url.searchParams.get('itemId') || '');
-      const claims = (await readStore()).claims.filter((claim) =>
-        (claim.fromId === user.id || claim.ownerId === user.id || user.role === 'admin') && (!itemId || claim.itemId === itemId),
-      ).map((claim) => ({ ...claim, proof: claim.ownerId === user.id || claim.fromId === user.id ? claim.proof : undefined }));
+      const store = await readStore();
+      const claims = store.claims.filter((claim) => {
+        if (!(claim.fromId === user.id || claim.ownerId === user.id || user.role === 'admin') || (itemId && claim.itemId !== itemId)) return false;
+        const item = store.items.find((entry) => entry.id === claim.itemId);
+        return !!item && canViewItem(user, item);
+      }).map((claim) => ({ ...claim, proof: claim.ownerId === user.id || claim.fromId === user.id ? claim.proof : undefined }));
       return json(res, 200, { claims });
     }
     if (req.method === 'POST' && route === '/api/claims/status') {
@@ -1306,7 +1364,8 @@ async function handler(req, res) {
       if (!['approved', 'rejected'].includes(body.status)) return json(res, 400, { error: 'สถานะคำขอไม่ถูกต้อง' });
       if (claim.status !== 'pending') return json(res, 409, { error: 'คำขอนี้ได้รับการพิจารณาแล้ว' });
       const item = store.items.find((entry) => entry.id === claim.itemId);
-      if (!item || item.status === 'resolved' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ปิดแล้วหรือหมดอายุ' });
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status === 'resolved' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ปิดแล้วหรือหมดอายุ' });
       claim.status = body.status;
       claim.updatedAt = new Date().toISOString();
       store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: claim.status, targetItemId: claim.itemId, createdAt: claim.updatedAt, readAt: null });
@@ -1325,7 +1384,7 @@ async function handler(req, res) {
       const details = String(body.details || '').trim().slice(0, 500);
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId === user.id) return json(res, 400, { error: 'ไม่สามารถรายงานประกาศของตนเองได้' });
       if (!['inaccurate', 'inappropriate', 'privacy', 'other'].includes(reason)) return json(res, 400, { error: 'กรุณาเลือกเหตุผลในการรายงาน' });
       if (store.itemReports.some((report) => report.itemId === itemId && report.fromId === user.id && report.status === 'open'))
@@ -1360,7 +1419,7 @@ async function handler(req, res) {
       const body = await readBody(req);
       const item = (await readStore()).items.find((x) => x.id === body.itemId);
       const message = String(body.message || '').trim();
-      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.status === 'resolved' || isExpiredItem(item))
         return json(res, 409, { error: 'ประกาศนี้ปิดแล้วและไม่รับข้อความใหม่' });
       if (item.ownerId === user.id)
@@ -1392,6 +1451,7 @@ async function handler(req, res) {
       if (!original || (original.fromId !== user.id && original.toId !== user.id))
         return json(res, 404, { error: 'ไม่พบข้อความนี้' });
       const item = store.items.find((entry) => entry.id === original.itemId);
+      if (original.itemId && (!item || !canViewItem(user, item))) return json(res, 404, { error: 'ไม่พบข้อความนี้' });
       if (item && (item.status === 'resolved' || isExpiredItem(item)))
         return json(res, 409, { error: 'ประกาศนี้ปิดแล้วและไม่รับข้อความใหม่' });
       if (message.length < 5 || message.length > 1000)
@@ -1417,10 +1477,19 @@ async function handler(req, res) {
       if (!user) return;
       const store = await readStore();
       const messages = store.messages
-        .filter((m) => m.toId === user.id || m.fromId === user.id)
+        .filter((m) => {
+          if (m.toId !== user.id && m.fromId !== user.id) return false;
+          if (!m.itemId) return true;
+          const item = store.items.find((entry) => entry.id === m.itemId);
+          return !!item && canViewItem(user, item);
+        })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const commentNotifications = store.comments
-        .filter((comment) => comment.toId === user.id && comment.fromId !== user.id)
+        .filter((comment) => {
+          if (comment.toId !== user.id || comment.fromId === user.id) return false;
+          const item = store.items.find((entry) => entry.id === comment.itemId);
+          return !!item && canViewItem(user, item);
+        })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       const staffMessages =
         canManageSupport(user)
