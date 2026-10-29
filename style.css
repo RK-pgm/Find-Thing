@@ -1639,6 +1639,37 @@ textarea {
   color: var(--ink-primary);
 }
 
+.claim-history-open {
+  align-self: flex-start;
+  margin-top: 14px;
+}
+
+.claim-history-card {
+  display: grid;
+  gap: 8px;
+}
+
+.claim-history-status {
+  color: var(--ink-secondary);
+  font-weight: 700;
+}
+
+.claim-history-status.pending {
+  color: #9a6700;
+}
+
+.claim-history-status.approved {
+  color: var(--emerald-700);
+}
+
+.claim-history-status.fulfilled {
+  color: var(--ink-muted);
+}
+
+.claim-history-status.rejected {
+  color: #b42318;
+}
+
 .help-steps {
   display: grid;
   gap: 16px;

@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#f7f6ef" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=photo-contain-1" />
-  <script src="script.js?v=thai-school-2" defer></script>
+    <link rel="stylesheet" href="style.css?v=claims-history-1" />
+  <script src="script.js?v=claims-history-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -477,9 +477,21 @@
         <input id="profile-grade" name="grade" maxlength="40" placeholder="เช่น ม.3/2" />
         <label for="profile-school">โรงเรียน</label>
         <input id="profile-school" name="school" maxlength="100" placeholder="ชื่อโรงเรียน" />
+        <button class="button claim-history-open" id="open-my-claims" type="button">ติดตามคำขอรับของคืน</button>
         <p id="profile-status" class="form-message" aria-live="polite"></p>
         <div class="dialog-actions"><button class="button" id="cancel-profile" type="button">ยกเลิก</button><button class="button primary" type="submit">บันทึกโปรไฟล์</button></div>
       </form>
+    </dialog>
+    <dialog class="dialog" id="my-claims-dialog" aria-labelledby="my-claims-title">
+      <section class="dialog-card">
+        <button class="icon-button dialog-close" id="close-my-claims" type="button" aria-label="ปิด">×</button>
+        <div class="eyebrow">คำขอของฉัน</div>
+        <h2 id="my-claims-title">ติดตามคำขอรับของคืน</h2>
+        <p class="subtext">ดูผลพิจารณาและกลับไปยังประกาศที่ส่งคำขอไว้</p>
+        <div id="my-claims-list" class="message-list"></div>
+        <p id="my-claims-empty" class="empty-message hidden">ยังไม่มีคำขอรับของคืน</p>
+        <p id="my-claims-error" class="form-message" aria-live="polite"></p>
+      </section>
     </dialog>
     <dialog class="dialog" id="contact-dialog" aria-labelledby="contact-title">
       <form id="contact-form" class="dialog-card">

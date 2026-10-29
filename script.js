@@ -933,6 +933,58 @@ function openProfile() {
   byId('profile-status').textContent = '';
   byId('profile-dialog').showModal();
 }
+async function openMyClaims() {
+  const list = byId('my-claims-list');
+  list.replaceChildren();
+  byId('my-claims-empty').classList.add('hidden');
+  byId('my-claims-error').textContent = '';
+  try {
+    const result = await api('/api/claims');
+    const claims = result.claims
+      .filter((claim) => claim.fromId === state.user.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    for (const claim of claims) {
+      const item = state.items.find((entry) => entry.id === claim.itemId);
+      const card = document.createElement('article');
+      card.className = 'message-card claim-history-card';
+      const heading = document.createElement('strong');
+      heading.textContent = claim.itemName;
+      const status = document.createElement('span');
+      status.className = `claim-history-status ${claim.status}`;
+      status.textContent = claim.status === 'pending'
+        ? 'รอเจ้าของประกาศพิจารณา'
+        : claim.status === 'approved'
+          ? 'ยืนยันเจ้าของแล้ว · รอนัดรับคืน'
+          : claim.status === 'fulfilled'
+            ? 'ยืนยันรับคืนแล้ว'
+            : 'ไม่อนุมัติคำขอ';
+      const meta = document.createElement('small');
+      const itemState = item?.status === 'expired' ? ' · ประกาศหมดอายุ' : item?.status === 'resolved' ? ' · ประกาศปิดแล้ว' : '';
+      meta.textContent = `ส่งคำขอ ${formatPostedDate(claim.createdAt)}${itemState}`;
+      const proof = document.createElement('p');
+      proof.textContent = claim.proof;
+      card.append(heading, status, meta, proof);
+      if (item) {
+        const open = document.createElement('button');
+        open.className = 'button small';
+        open.type = 'button';
+        open.textContent = 'เปิดประกาศ';
+        open.addEventListener('click', () => {
+          byId('my-claims-dialog').close();
+          byId('profile-dialog').close();
+          openItemDetails(item.id);
+        });
+        card.append(open);
+      }
+      list.append(card);
+    }
+    byId('my-claims-empty').classList.toggle('hidden', claims.length > 0);
+    byId('my-claims-dialog').showModal();
+  } catch (error) {
+    byId('my-claims-error').textContent = error.message;
+    byId('my-claims-dialog').showModal();
+  }
+}
 async function saveProfile(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -1644,6 +1696,8 @@ function bindEvents() {
   byId('profile-form').addEventListener('submit', saveProfile);
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
+  byId('open-my-claims').addEventListener('click', openMyClaims);
+  byId('close-my-claims').addEventListener('click', () => byId('my-claims-dialog').close());
   byId('close-detail').addEventListener('click', () => byId('detail-dialog').close());
   byId('close-return-qr').addEventListener('click', () => byId('return-qr-dialog').close());
   byId('cancel-return-confirm').addEventListener('click', () => {
