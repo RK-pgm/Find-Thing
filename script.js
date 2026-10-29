@@ -272,6 +272,7 @@ async function loadSchools() {
     profileSchool.value = selectedId;
     renderCommunityLabel();
     renderProfileSchoolMap();
+    renderLocationFilterOptions();
   } catch {
     // Keep the local school list and map previews usable if the directory request is temporarily unavailable.
     const profileSchool = byId('profile-school');
@@ -281,6 +282,7 @@ async function loadSchools() {
     profileSchool.value = selectedId;
     renderCommunityLabel();
     renderProfileSchoolMap();
+    renderLocationFilterOptions();
   }
 }
 function exitApp() {
@@ -378,6 +380,42 @@ function locationLabel(location) {
 function itemLocationLabel(item) { return item.placeName || locationLabel(item.location); }
 function placesForSchool(schoolId) { return state.schools.find((school) => school.id === schoolId)?.mapPlaces || []; }
 function findMapPlace(placeId, schoolId = state.user?.schoolId) { return placesForSchool(schoolId).find((place) => place.id === placeId); }
+function renderLocationFilterOptions() {
+  const filter = byId('location-filter');
+  const previous = filter.value;
+  const places = placesForSchool(state.user?.schoolId);
+  filter.replaceChildren(new Option('ทุกสถานที่', ''));
+  if (places.length) {
+    const group = document.createElement('optgroup');
+    group.label = 'ตามบริเวณในผังโรงเรียน';
+    places.forEach((place) => group.append(new Option(place.name, `place:${place.id}`)));
+    filter.append(group);
+  }
+  const legacyGroup = document.createElement('optgroup');
+  legacyGroup.label = places.length ? 'หมวดสถานที่เดิม' : 'สถานที่';
+  [
+    ['Classroom', 'ห้องเรียน'],
+    ['Library', 'ห้องสมุด'],
+    ['Cafeteria', 'โรงอาหาร'],
+    ['Sports area', 'สนามกีฬา'],
+    ['Other', 'อื่น ๆ'],
+  ].forEach(([value, label]) => legacyGroup.append(new Option(label, value)));
+  filter.append(legacyGroup);
+  if ([...filter.options].some((option) => option.value === previous)) filter.value = previous;
+  else filter.value = '';
+}
+function handleLocationFilterChange() {
+  const value = byId('location-filter').value;
+  state.mapPlaceFilterId = value.startsWith('place:') ? value.slice(6) : '';
+  if (state.mapPlaceFilterId) {
+    const place = findMapPlace(state.mapPlaceFilterId);
+    byId('map-location-status-text').textContent = `กำลังค้นหา: ${place?.name || 'บริเวณที่เลือก'} · ประกาศเดิมที่ระบุเพียงหมวดสถานที่อาจแสดงร่วมด้วย`;
+    byId('map-location-status').classList.remove('hidden');
+  } else {
+    byId('map-location-status').classList.add('hidden');
+  }
+  renderItems();
+}
 function renderCampusMap() {
   const school = state.schools.find((entry) => entry.id === state.mapSchoolId);
   const places = school?.mapPlaces || [];
@@ -457,7 +495,7 @@ function applyCampusMapSelection() {
     byId('item-map-place-hint').textContent = `สถานที่หลัก: ${locationLabel(place.legacyLocation)} · ค้นหาโพสต์นี้ได้จากแผนที่`;
   } else {
     state.mapPlaceFilterId = place.id;
-    byId('location-filter').value = '';
+    byId('location-filter').value = `place:${place.id}`;
     state.activeFilter = byId('map-search-type').value;
     document.querySelectorAll('.tabs [data-filter]').forEach((tab) => {
       const active = tab.dataset.filter === state.activeFilter;
@@ -472,6 +510,7 @@ function applyCampusMapSelection() {
 }
 function clearCampusMapFilter() {
   state.mapPlaceFilterId = '';
+  if (byId('location-filter').value.startsWith('place:')) byId('location-filter').value = '';
   byId('map-location-status').classList.add('hidden');
   renderItems();
 }
@@ -1296,7 +1335,9 @@ async function saveProfile(event) {
     });
     state.user = result.user;
     state.mapPlaceFilterId = '';
+    if (byId('location-filter').value.startsWith('place:')) byId('location-filter').value = '';
     byId('map-location-status').classList.add('hidden');
+    renderLocationFilterOptions();
     state.items = [];
     renderCommunityLabel();
     byId('profile-dialog').close();
@@ -1317,9 +1358,11 @@ function renderItems() {
   list.replaceChildren();
   const query = byId('search-input').value.trim().toLocaleLowerCase();
   const category = byId('category-filter').value;
-  const location = byId('location-filter').value;
+  const locationValue = byId('location-filter').value;
+  const selectedPlaceId = locationValue.startsWith('place:') ? locationValue.slice(6) : '';
+  const location = selectedPlaceId ? '' : locationValue;
   const date = byId('date-filter').value;
-  const mapPlace = findMapPlace(state.mapPlaceFilterId);
+  const mapPlace = findMapPlace(selectedPlaceId || state.mapPlaceFilterId);
   const items = state.items.filter(
     (item) =>
       (state.activeFilter === 'all' || item.type === state.activeFilter || (state.activeFilter === 'unclaimed' && item.type === 'found' && item.status === 'open')) &&
@@ -1369,7 +1412,8 @@ async function saveCurrentSearch() {
       body: JSON.stringify({
         query: byId('search-input').value.trim(),
         category: byId('category-filter').value,
-        location: byId('location-filter').value,
+        location: byId('location-filter').value.startsWith('place:') ? '' : byId('location-filter').value,
+        placeId: byId('location-filter').value.startsWith('place:') ? byId('location-filter').value.slice(6) : '',
         date: byId('date-filter').value,
         type: state.activeFilter,
       }),
@@ -1386,7 +1430,7 @@ async function openSavedSearches() {
       const row = document.createElement('article');
       row.className = 'message-card';
       const description = document.createElement('p');
-      description.textContent = [search.query, search.category && categoryDisplayName(search.category), search.location && locationLabel(search.location), search.date, search.type !== 'all' && (search.type === 'lost' ? 'ของหาย' : 'เก็บได้')].filter(Boolean).join(' · ');
+      description.textContent = [search.query, search.category && categoryDisplayName(search.category), search.placeName || (search.location && locationLabel(search.location)), search.date, search.type !== 'all' && (search.type === 'lost' ? 'ของหาย' : 'เก็บได้')].filter(Boolean).join(' · ');
       const remove = document.createElement('button');
       remove.className = 'button small danger';
       remove.type = 'button';
@@ -2103,7 +2147,7 @@ function bindEvents() {
   byId('save-search-button').addEventListener('click', saveCurrentSearch);
   byId('manage-saved-searches').addEventListener('click', openSavedSearches);
   byId('category-filter').addEventListener('change', renderItems);
-  byId('location-filter').addEventListener('change', renderItems);
+  byId('location-filter').addEventListener('change', handleLocationFilterChange);
   byId('map-search-open').addEventListener('click', () => openCampusMap('search'));
   byId('item-map-place-open').addEventListener('click', () => openCampusMap('post'));
   byId('campus-map-overlay').addEventListener('click', (event) => { const area = event.target.closest('[data-place-id]'); if (area) chooseCampusPlace(area.dataset.placeId); });
@@ -2157,6 +2201,7 @@ function bindEvents() {
   window.addEventListener('pagehide', stopCamera);
 }
 bindEvents();
+renderLocationFilterOptions();
 start();
 
 

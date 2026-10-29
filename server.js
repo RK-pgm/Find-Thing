@@ -475,7 +475,12 @@ function withMatches(items, viewerId = null) {
 function savedSearchMatchesItem(search, item) {
   if (search.type && search.type !== 'all' && search.type !== item.type) return false;
   if (search.category && search.category !== item.category) return false;
-  if (search.location && search.location !== item.location) return false;
+  if (search.placeId) {
+    const place = SCHOOLS.find((school) => school.id === search.schoolId)?.mapPlaces?.find((entry) => entry.id === search.placeId);
+    const exactMatch = item.schoolId === search.schoolId && item.placeId === search.placeId;
+    const legacyMatch = place && place.legacyLocation !== 'Other' && item.schoolId === search.schoolId && !item.placeId && item.location === place.legacyLocation;
+    if (!exactMatch && !legacyMatch) return false;
+  } else if (search.location && search.location !== item.location) return false;
   if (search.date && search.date !== item.date) return false;
   const query = normalizedMatchText(search.query);
   if (!query) return true;
@@ -1075,18 +1080,24 @@ async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       const body = await readBody(req);
+      const requestedPlaceId = String(body.placeId || '').trim();
+      const selectedPlace = requestedPlaceId ? SCHOOLS.find((school) => school.id === user.schoolId)?.mapPlaces?.find((place) => place.id === requestedPlaceId) : null;
+      if (requestedPlaceId && !selectedPlace) return json(res, 400, { error: 'จุดที่บันทึกค้นหาไม่ตรงกับโรงเรียนในโปรไฟล์' });
       const search = {
         userId: user.id,
         query: String(body.query || '').trim().slice(0, 100),
         category: String(body.category || ''),
         location: String(body.location || ''),
+        placeId: selectedPlace?.id || '',
+        placeName: selectedPlace?.name || '',
+        schoolId: selectedPlace ? user.schoolId : '',
         date: String(body.date || ''),
         type: ['all', 'lost', 'found'].includes(body.type) ? body.type : 'all',
       };
-      if (!search.query && !search.category && !search.location && !search.date && search.type === 'all')
+      if (!search.query && !search.category && !search.location && !search.placeId && !search.date && search.type === 'all')
         return json(res, 400, { error: 'กรุณาระบุคำค้นหาหรือเลือกตัวกรองอย่างน้อยหนึ่งรายการ' });
       const store = await readStore();
-      if (store.savedSearches.some((entry) => entry.userId === user.id && entry.query === search.query && entry.category === search.category && entry.location === search.location && entry.date === search.date && entry.type === search.type))
+      if (store.savedSearches.some((entry) => entry.userId === user.id && entry.query === search.query && entry.category === search.category && entry.location === search.location && entry.placeId === search.placeId && entry.schoolId === search.schoolId && entry.date === search.date && entry.type === search.type))
         return json(res, 409, { error: 'บันทึกการค้นหานี้ไว้แล้ว' });
       const savedSearch = { id: crypto.randomUUID(), ...search, createdAt: new Date().toISOString() };
       store.savedSearches.push(savedSearch);
@@ -1325,9 +1336,9 @@ async function handler(req, res) {
       const matchedSearchesByUser = new Map();
       for (const search of store.savedSearches) {
         const searchUser = store.users.find((entry) => entry.id === search.userId);
-        if (search.userId === user.id || !searchUser || !canViewItem(searchUser, item) || !savedSearchMatchesItem(search, item)) continue;
+        if (search.userId === user.id || !searchUser || (search.placeId && search.schoolId !== searchUser.schoolId) || !canViewItem(searchUser, item) || !savedSearchMatchesItem(search, item)) continue;
         if (!matchedSearchesByUser.has(search.userId)) matchedSearchesByUser.set(search.userId, new Set());
-        matchedSearchesByUser.get(search.userId).add(search.query || [search.category, search.location, search.date].filter(Boolean).join(' · ') || 'ตัวกรองที่บันทึกไว้');
+        matchedSearchesByUser.get(search.userId).add(search.query || [search.category, search.placeName || search.location, search.date].filter(Boolean).join(' · ') || 'ตัวกรองที่บันทึกไว้');
       }
       for (const [userId, queries] of matchedSearchesByUser) {
         store.notifications.push({
