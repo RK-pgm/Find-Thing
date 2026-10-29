@@ -247,6 +247,8 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .nav a {
@@ -914,6 +916,8 @@ textarea {
 
 .filters {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
   padding: 20px 32px 14px;
   background: #fbfcfd;
@@ -921,7 +925,7 @@ textarea {
 }
 
 .search-box {
-  flex: 1;
+  flex: 1 1 280px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -961,6 +965,39 @@ textarea {
   color: var(--ink-secondary);
   font-weight: 600;
   font-size: 13.5px;
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 165px;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.date-filter input {
+  min-width: 0;
+  width: 130px;
+  height: 48px;
+  padding: 0 10px;
+}
+
+.detail-owner-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.return-qr-image {
+  display: block;
+  width: min(300px, 100%);
+  aspect-ratio: 1;
+  margin: 18px auto;
+  padding: 10px;
+  background: white;
+  border: 1px solid var(--border-hairline);
+  border-radius: 14px;
 }
 
 .tabs {
@@ -1135,6 +1172,13 @@ textarea {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.95));
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.badge.resolved {
+  top: 52px;
+  background: rgba(51, 65, 85, 0.92);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 .item-code {
@@ -1593,6 +1637,28 @@ textarea {
   letter-spacing: -0.03em;
   margin: 8px 0 6px;
   color: var(--ink-primary);
+}
+
+.help-steps {
+  display: grid;
+  gap: 16px;
+  margin: 22px 0;
+  padding-inline-start: 24px;
+}
+
+.help-steps li {
+  padding-inline-start: 4px;
+}
+
+.help-steps li strong,
+.help-steps li span {
+  display: block;
+}
+
+.help-steps li span {
+  margin-top: 4px;
+  color: var(--ink-secondary);
+  line-height: 1.65;
 }
 
 .two-col {
@@ -2132,6 +2198,22 @@ textarea {
    Responsive Layout & Mobile Adaptation
    -------------------------------------------------------------------------- */
 @media (max-width: 960px) {
+  .topbar {
+    height: auto;
+    min-height: 80px;
+    padding-block: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .nav {
+    gap: 6px;
+  }
+
+  .nav .button {
+    padding-inline: 10px;
+  }
+
   .hero {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
@@ -2178,8 +2260,11 @@ textarea {
 
 @media (max-width: 768px) {
   .topbar {
-    height: 70px;
-    padding: 0 20px;
+    min-height: 70px;
+    height: auto;
+    padding: 10px 16px;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .brand {
@@ -2198,6 +2283,16 @@ textarea {
 
   .nav a {
     display: none;
+  }
+
+  .nav {
+    gap: 5px;
+  }
+
+  .nav .button {
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 11px;
   }
 
   main {
@@ -2223,6 +2318,11 @@ textarea {
   }
 
   .filters select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .date-filter {
     flex: 1;
     min-width: 0;
   }

@@ -3,18 +3,33 @@ const byId = (id) => document.getElementById(id);
 const state = {
   user: null,
   reportType: 'lost',
+  editingItemId: null,
+  showingMyItems: false,
+  reportingItemId: null,
+  imageSearchIds: null,
+  imageSearchScores: new Map(),
+  pendingReturnToken: new URLSearchParams(window.location.hash.slice(1)).get('returnToken') || new URLSearchParams(window.location.search).get('returnToken'),
+  returnToken: null,
   activeFilter: 'all',
   items: [],
   favoriteIds: [],
   photo: null,
   previewUrl: null,
   cameraStream: null,
+  notificationTimer: null,
+  unreadNotifications: 0,
   contactMode: 'staff',
   contactItemId: null,
   replyMessageId: null,
   activeItemId: null,
   replyToCommentId: null,
 };
+if (state.pendingReturnToken) {
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('returnToken');
+  cleanUrl.hash = '';
+  window.history.replaceState({}, '', cleanUrl.pathname + cleanUrl.search);
+}
 const ADMIN_NAME = 'AdminRK';
 const ADMIN_STUDENT_ID = 'T36699';
 async function api(path, options = {}) {
@@ -26,16 +41,38 @@ async function api(path, options = {}) {
   const endpoint = pathname.startsWith('/api/') && !pathname.endsWith('.js')
     ? `${pathname}.js${query}`
     : path;
-  const response = await fetch(endpoint, {
-    credentials: 'same-origin',
-    ...options,
-    headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(options.headers || {}),
-    },
-  });
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      credentials: 'same-origin',
+      ...options,
+      headers: {
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error) {
+    if (window.location.protocol === 'file:') {
+      throw new Error('กรุณาเปิดเว็บผ่านเซิร์ฟเวอร์ก่อน: รัน start-server.ps1 ในโฟลเดอร์ Find-Thing แล้วเข้า http://127.0.0.1:3000');
+    }
+    throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบว่าเว็บยังทำงานอยู่ แล้วลองใหม่อีกครั้ง');
+  }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+  if (!response.ok) {
+    const message = data.error || '';
+    const hasThai = /[\u0E00-\u0E7F]/u.test(message);
+    const localized = {
+      400: 'ข้อมูลที่กรอกไม่ถูกต้อง กรุณาตรวจสอบแล้วลองอีกครั้ง',
+      401: 'เข้าสู่ระบบไม่สำเร็จหรือเซสชันหมดอายุ กรุณาตรวจสอบข้อมูลและเข้าสู่ระบบใหม่',
+      403: 'คุณไม่มีสิทธิ์ดำเนินการนี้',
+      404: 'ไม่พบข้อมูลที่ต้องการ อาจถูกลบไปแล้ว',
+      409: 'ทำรายการไม่ได้ เนื่องจากข้อมูลหรือสถานะเปลี่ยนแปลง กรุณารีเฟรชแล้วลองอีกครั้ง',
+      413: 'ข้อมูลที่ส่งมีขนาดใหญ่เกินไป',
+      429: 'ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่',
+      503: 'ระบบขัดข้องหรือยังตั้งค่าไม่ครบ กรุณาลองใหม่ภายหลังหรือติดต่อผู้ดูแลระบบ',
+    }[response.status];
+    throw new Error(hasThai ? message : localized || 'ระบบขัดข้อง กรุณาลองอีกครั้ง');
+  }
   return data;
 }
 function setMessage(id, text, kind = 'error') {
@@ -74,13 +111,18 @@ function renderNav() {
   if (!state.user) {
     const signup = document.createElement('button');
     signup.className = 'button';
-    signup.textContent = 'Create account';
+    signup.textContent = 'สมัครสมาชิก';
     signup.addEventListener('click', () => setAuthView('signup-form'));
     const login = document.createElement('button');
     login.className = 'button primary';
-    login.textContent = 'Log in';
+    login.textContent = 'เข้าสู่ระบบ';
     login.addEventListener('click', () => setAuthView('login-form'));
-    nav.append(signup, login);
+    const help = document.createElement('button');
+    help.className = 'button';
+    help.type = 'button';
+    help.textContent = 'วิธีใช้งาน';
+    help.addEventListener('click', openHelp);
+    nav.append(signup, login, help);
     return;
   }
   const board = document.createElement('button');
@@ -88,16 +130,27 @@ function renderNav() {
   board.type = 'button';
     board.textContent = 'หน้าประกาศ';
   board.addEventListener('click', showBoard);
+  const help = document.createElement('button');
+  help.className = 'button';
+  help.type = 'button';
+  help.textContent = 'วิธีใช้งาน';
+  help.addEventListener('click', openHelp);
   const inbox = document.createElement('button');
   inbox.className = 'button';
   inbox.textContent = canManageSupport() ? 'กล่องข้อความเจ้าหน้าที่' : 'กล่องข้อความ';
   inbox.addEventListener('click', openInbox);
+  const notifications = document.createElement('button');
+  notifications.className = 'button';
+  notifications.id = 'notifications-button';
+  notifications.type = 'button';
+  notifications.addEventListener('click', openNotifications);
+  updateNotificationButton(notifications);
   const profile = document.createElement('button');
   profile.className = 'button';
   profile.type = 'button';
   profile.textContent = 'โปรไฟล์';
   profile.addEventListener('click', openProfile);
-  nav.append(board, inbox, profile);
+  nav.append(board, help, inbox, notifications, profile);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
     adminPanel.className = 'button';
@@ -113,6 +166,9 @@ function renderNav() {
 }
 function canManageSupport() {
   return ['staff', 'admin'].includes(state.user?.role);
+}
+function openHelp() {
+  byId('help-dialog').showModal();
 }
 function showBoard() {
   byId('app').classList.remove('admin-mode');
@@ -135,10 +191,16 @@ function enterApp(user) {
   byId('app').classList.remove('hidden');
   showBoard();
   renderNav();
+  refreshNotificationCount();
+  clearInterval(state.notificationTimer);
+  state.notificationTimer = setInterval(refreshNotificationCount, 60000);
   if (user.role === 'admin') openAdminPanel();
   else loadItems();
+  if (state.pendingReturnToken) prepareReturnConfirmation();
 }
 function exitApp() {
+  clearInterval(state.notificationTimer);
+  state.notificationTimer = null;
   state.user = null;
   byId('app').classList.add('hidden');
   byId('auth-screen').classList.remove('hidden');
@@ -197,18 +259,42 @@ function categoryIcon(category) {
   return (
     {
       'School supplies': '📘',
+      Stationery: '✏️',
       Clothing: '🧥',
       'Personal items': '🎒',
+      Bags: '🎒',
+      Phones: '📱',
       Electronics: '🎧',
       Other: '🔎',
     }[category] || '🔎'
   );
 }
+function categoryDisplayName(category) {
+  return ({
+    'School supplies': 'อุปกรณ์การเรียน',
+    Stationery: 'เครื่องเขียน',
+    Clothing: 'เสื้อผ้า',
+    'Personal items': 'ของใช้ส่วนตัว',
+    Bags: 'กระเป๋า',
+    Phones: 'โทรศัพท์',
+    Electronics: 'อุปกรณ์อิเล็กทรอนิกส์',
+    Other: 'อื่น ๆ',
+  })[category] || category || 'ไม่ระบุหมวดหมู่';
+}
+function locationLabel(location) {
+  return ({
+    Classroom: 'ห้องเรียน',
+    Library: 'ห้องสมุด',
+    Cafeteria: 'โรงอาหาร',
+    'Sports area': 'สนามกีฬา',
+    Other: 'อื่น ๆ',
+  })[location] || location || 'ไม่ระบุสถานที่';
+}
 function formatDate(value) {
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())
     ? value
-    : new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(date);
+    : new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short' }).format(date);
 }
 function formatPostedDate(value) {
   const date = new Date(value);
@@ -222,7 +308,7 @@ function reportCode(item) {
   const year = Number.isNaN(created.getTime()) ? new Date().getFullYear() : created.getFullYear();
   const compactId = String(item.id || '').replace(/[^a-f0-9]/gi, '').slice(-6);
   const sequence = (compactId || '000000').toUpperCase();
-  return `${item.type === 'lost' ? 'LF' : 'FD'}-${year}-${sequence}`;
+  return `${item.type === 'lost' ? 'หาย' : 'พบ'}-${year}-${sequence}`;
 }
 function setFavoriteButton(button, itemId) {
   const active = state.favoriteIds.includes(itemId);
@@ -286,7 +372,7 @@ function makeMatchPreview(match, compact = false) {
   const heading = document.createElement('strong');
   heading.textContent = `${match.score}% ตรงกัน · ${candidate.itemName}`;
   const caption = document.createElement('span');
-  caption.textContent = `${candidate.type === 'lost' ? 'ของหาย' : 'เก็บได้'} · ${candidate.category} · ${candidate.location || 'ไม่ระบุสถานที่'}`;
+  caption.textContent = `${candidate.type === 'lost' ? 'ของหาย' : 'เก็บได้'} · ${categoryDisplayName(candidate.category)} · ${locationLabel(candidate.location)}`;
   const meter = document.createElement('span');
   meter.className = 'match-meter';
   meter.setAttribute('role', 'img');
@@ -318,7 +404,7 @@ function makeMatchEmpty(compact = false) {
   icon.textContent = '🤖';
   icon.setAttribute('aria-hidden', 'true');
   const text = document.createElement('span');
-  text.textContent = 'AI ยังไม่มีข้อมูลที่ใกล้เคียง';
+  text.textContent = 'ยังไม่พบประกาศที่มีข้อมูลใกล้เคียง';
   empty.append(icon, text);
   if (compact) {
     const hint = document.createElement('span');
@@ -375,9 +461,26 @@ function makeItemCard(item) {
   const badge = document.createElement('span');
   badge.className = `badge ${item.type}`;
   badge.textContent = item.type === 'lost' ? '🔴 ของหาย' : '🟢 เก็บได้';
+  if (item.status === 'resolved') {
+    const resolvedBadge = document.createElement('span');
+    resolvedBadge.className = 'badge resolved';
+    resolvedBadge.textContent = 'ปิดประกาศแล้ว';
+    art.append(resolvedBadge);
+  } else if (item.status === 'expired') {
+    const expiredBadge = document.createElement('span');
+    expiredBadge.className = 'badge resolved';
+    expiredBadge.textContent = 'หมดอายุ';
+    art.append(expiredBadge);
+  } else if (item.type === 'found' && item.status === 'open') {
+    const unclaimedBadge = document.createElement('span');
+    unclaimedBadge.className = 'badge resolved';
+    unclaimedBadge.textContent = 'ยังไม่มีผู้รับ';
+    art.append(unclaimedBadge);
+  }
   const code = document.createElement('span');
   code.className = 'item-code';
   code.textContent = reportCode(item);
+  const imageScore = state.imageSearchScores.get(item.id);
   const favorite = document.createElement('button');
   favorite.className = 'item-favorite';
   favorite.type = 'button';
@@ -394,7 +497,7 @@ function makeItemCard(item) {
   categoryIconNode.setAttribute('aria-hidden', 'true');
   categoryIconNode.textContent = categoryIcon(item.category);
   const categoryLabel = document.createElement('span');
-  categoryLabel.textContent = item.category;
+  categoryLabel.textContent = categoryDisplayName(item.category);
   meta.append(categoryIconNode, categoryLabel);
   const title = document.createElement('h3');
   title.textContent = item.itemName;
@@ -404,12 +507,18 @@ function makeItemCard(item) {
   const info = document.createElement('div');
   info.className = 'item-card-info';
   const location = document.createElement('span');
-  location.textContent = `📍 ${item.location || 'ไม่ระบุสถานที่'}`;
+  location.textContent = `📍 ${locationLabel(item.location)}`;
   const eventDate = document.createElement('span');
   eventDate.textContent = `📅 ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  if (item.eventTime) eventDate.textContent += ` · ${item.eventTime} น.`;
   const posted = document.createElement('span');
   posted.textContent = `◷ ลงประกาศ ${formatPostedDate(item.createdAt)}`;
   info.append(location, eventDate, posted);
+  if (item.expiresAt) {
+    const expiry = document.createElement('span');
+    expiry.textContent = `⌛ หมดเขต ${formatDate(item.expiresAt.slice(0, 10))}`;
+    info.append(expiry);
+  }
   const footer = document.createElement('div');
   footer.className = 'item-card-footer';
   const reporter = document.createElement('span');
@@ -417,7 +526,7 @@ function makeItemCard(item) {
   reporter.textContent = `👤 ${item.reporterName || item.ownerName || 'ไม่ระบุชื่อ'}`;
   const actions = document.createElement('div');
   actions.className = 'item-card-actions';
-  if (item.ownerId !== state.user.id) {
+  if (item.ownerId !== state.user.id && item.status === 'open') {
     const contact = document.createElement('button');
     contact.className = 'item-contact-icon';
     contact.type = 'button';
@@ -435,6 +544,12 @@ function makeItemCard(item) {
   actions.append(details);
   footer.append(reporter, actions);
   body.append(meta, title, desc);
+  if (imageScore !== undefined) {
+    const imageMatch = document.createElement('span');
+    imageMatch.className = 'form-hint';
+    imageMatch.textContent = `ภาพคล้ายกัน ${imageScore}%`;
+    body.append(imageMatch);
+  }
   const topMatch = (item.possibleMatches || []).find((match) => state.items.some((entry) => entry.id === match.itemId));
   const matchPreview = topMatch ? makeMatchPreview(topMatch, true) : makeMatchEmpty(true);
   body.append(matchPreview || makeMatchEmpty(true));
@@ -448,6 +563,78 @@ async function loadItems() {
     state.items = result.items;
     renderItems();
     updateStats();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+function updateNotificationButton(button = byId('notifications-button')) {
+  if (!button) return;
+  const count = state.unreadNotifications;
+  button.textContent = count ? `แจ้งเตือน (${count})` : 'แจ้งเตือน';
+  button.setAttribute('aria-label', count ? `แจ้งเตือน มีรายการใหม่ ${count} รายการ` : 'แจ้งเตือน');
+}
+async function refreshNotificationCount() {
+  if (!state.user) return;
+  try {
+    const result = await api('/api/notifications');
+    state.unreadNotifications = result.unreadCount || 0;
+    updateNotificationButton();
+  } catch {
+    // Keep the board usable when notifications are temporarily unavailable.
+  }
+}
+async function openNotifications() {
+  const list = byId('notification-list');
+  list.replaceChildren();
+  byId('notifications-empty').classList.add('hidden');
+  try {
+    const result = await api('/api/notifications');
+    for (const notification of result.notifications) {
+      const card = document.createElement('article');
+      card.className = 'message-card';
+      const title = document.createElement('strong');
+      title.textContent = notification.type === 'claim_request'
+        ? 'มีคำขอรับของคืน'
+        : notification.type === 'claim_status'
+          ? 'อัปเดตคำขอรับของคืน'
+          : notification.type === 'return_confirmed'
+            ? 'ยืนยันการรับคืนแล้ว'
+          : notification.type === 'saved_search'
+            ? 'พบประกาศใหม่ตามคำค้นหา'
+            : 'พบประกาศที่อาจตรงกัน';
+      const body = document.createElement('p');
+      body.textContent = notification.type === 'claim_request'
+        ? `${notification.fromName} ขอรับ “${notification.itemName}”`
+        : notification.type === 'claim_status'
+          ? `คำขอรับ “${notification.itemName}” ${notification.status === 'approved' ? 'ได้รับการอนุมัติ โปรดนัดรับคืนและสแกน QR เมื่อได้รับของแล้ว' : 'ยังไม่ได้รับการอนุมัติ'}`
+          : notification.type === 'return_confirmed'
+            ? `ผู้รับยืนยันรับ “${notification.itemName}” คืนแล้ว`
+          : notification.type === 'saved_search'
+            ? `พบ “${notification.itemName}” ที่ตรงกับ “${notification.query || 'ตัวกรองที่บันทึกไว้'}”`
+            : `“${notification.itemName}” อาจตรงกับ “${notification.matchItemName}” (${notification.score}%)`;
+      const date = document.createElement('small');
+      date.textContent = formatPostedDate(notification.createdAt);
+      const open = document.createElement('button');
+      open.className = 'button small';
+      open.type = 'button';
+      open.textContent = 'ดูประกาศ';
+      open.addEventListener('click', () => {
+        byId('notifications-dialog').close();
+        openItemDetails(notification.targetItemId);
+      });
+      card.append(title, body, date, open);
+      list.append(card);
+    }
+    byId('notifications-empty').classList.toggle('hidden', result.notifications.length > 0);
+    byId('notifications-dialog').showModal();
+    try {
+      await api('/api/notifications/read', { method: 'POST', body: JSON.stringify({}) });
+      state.unreadNotifications = 0;
+      updateNotificationButton();
+    } catch {
+      state.unreadNotifications = result.unreadCount || 0;
+      updateNotificationButton();
+    }
   } catch (error) {
     showToast(error.message);
   }
@@ -466,12 +653,31 @@ async function openItemDetails(itemId, replyToId = null) {
   byId('cancel-comment-reply').hidden = true;
   byId('detail-kind').textContent = item.type === 'lost' ? 'ประกาศของหาย' : 'ประกาศของที่พบ';
   byId('detail-title').textContent = item.itemName;
-  byId('detail-meta').textContent = `${item.category} · ${item.location} · ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  byId('detail-meta').textContent = `${categoryDisplayName(item.category)} · ${locationLabel(item.location)} · ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  if (item.eventTime) byId('detail-meta').textContent += ` · เวลาประมาณ ${item.eventTime} น.`;
   byId('detail-description').textContent = item.description || `สี / ลักษณะ: ${item.color || 'ไม่ได้ระบุ'}`;
   const deleteButton = byId('delete-item');
   const canDelete = state.user && (state.user.role === 'admin' || item.ownerId === state.user.id);
   deleteButton.classList.toggle('hidden', !canDelete);
   deleteButton.onclick = () => deleteItem(item);
+  const statusButton = byId('resolve-item');
+  statusButton.classList.toggle('hidden', !canDelete);
+  statusButton.textContent = ['resolved', 'expired'].includes(item.status) ? 'เปิดประกาศอีกครั้ง' : 'ปิดประกาศแล้ว (ได้ของคืน)';
+  statusButton.onclick = () => updateItemStatus(item, ['resolved', 'expired'].includes(item.status) ? 'open' : 'resolved');
+  const returnQrButton = byId('return-qr-button');
+  returnQrButton.classList.toggle('hidden', !canDelete || item.status !== 'open');
+  returnQrButton.onclick = () => createReturnQr(item);
+  const editButton = byId('edit-item');
+  editButton.classList.toggle('hidden', !canDelete || item.status === 'resolved');
+  const claimButton = byId('claim-item');
+  claimButton.classList.toggle('hidden', item.type !== 'found' || item.ownerId === state.user.id || item.status !== 'open');
+  const claimSection = byId('claim-section');
+  claimSection.classList.toggle('hidden', item.type !== 'found');
+  byId('claim-form').classList.toggle('hidden', item.ownerId === state.user.id || item.status !== 'open');
+  byId('claim-status').textContent = '';
+  byId('claim-proof').value = '';
+  byId('report-item').classList.toggle('hidden', item.ownerId === state.user.id);
+  loadClaimsForItem(item);
   const photo = byId('detail-photo');
   photo.classList.toggle('hidden', !item.photo);
   if (item.photo) photo.src = item.photo;
@@ -480,6 +686,8 @@ async function openItemDetails(itemId, replyToId = null) {
   const rows = [
     ['ผู้แจ้ง', item.reporterName || item.ownerName || 'ไม่ระบุ'],
     ['ลงประกาศ', formatPostedDate(item.createdAt)],
+    ['สถานะ', item.status === 'resolved' ? 'ปิดประกาศแล้ว' : item.status === 'expired' ? 'หมดอายุ' : item.type === 'found' && item.status === 'open' ? 'ยังไม่มีผู้รับ' : 'ยังเปิดรับข้อมูล'],
+    ...(item.expiresAt ? [['หมดเขต', formatDate(item.expiresAt.slice(0, 10))]] : []),
   ];
   if (item.contact) rows.push(['ช่องทางติดต่อ', item.contact]);
   rows.forEach(([label, value]) => {
@@ -497,9 +705,116 @@ async function openItemDetails(itemId, replyToId = null) {
   byId('detail-match-note').classList.remove('hidden');
   byId('comment-status').textContent = '';
   byId('comment-text').value = '';
+  const commentClosed = ['resolved', 'expired'].includes(item.status);
+  byId('comment-text').disabled = commentClosed;
+  byId('comment-form').querySelector('button[type="submit"]').disabled = commentClosed;
+  if (commentClosed) byId('comment-status').textContent = item.status === 'expired' ? 'ประกาศนี้หมดอายุแล้ว' : 'ประกาศนี้ปิดแล้ว ไม่รับความคิดเห็นใหม่';
   byId('detail-dialog').showModal();
   await loadItemComments(item.id);
   if (replyToId) setCommentReply(replyToId);
+}
+async function loadClaimsForItem(item) {
+  const list = byId('claim-list');
+  list.replaceChildren();
+  if (item.type !== 'found') return;
+  try {
+    const result = await api(`/api/claims?itemId=${encodeURIComponent(item.id)}`);
+    const canReview = item.ownerId === state.user.id || state.user.role === 'admin';
+    const claims = canReview ? result.claims : result.claims.filter((claim) => claim.fromId === state.user.id);
+    for (const claim of claims) {
+      const card = document.createElement('article');
+      card.className = 'message-card';
+      const title = document.createElement('strong');
+      title.textContent = `${claim.fromName} · ${claim.status === 'pending' ? 'รอพิจารณา' : claim.status === 'approved' ? 'อนุมัติคำขอ · รอรับคืน' : claim.status === 'fulfilled' ? 'ยืนยันรับคืนแล้ว' : 'ไม่อนุมัติ'}`;
+      const proof = document.createElement('p');
+      proof.textContent = claim.proof;
+      card.append(title, proof);
+      if (canReview && claim.status === 'pending') {
+        for (const [status, label] of [['approved', 'ยืนยันเจ้าของ'], ['rejected', 'ไม่อนุมัติ']]) {
+          const button = document.createElement('button');
+          button.className = 'button small';
+          button.type = 'button';
+          button.textContent = label;
+          button.addEventListener('click', async () => {
+            try {
+              await api('/api/claims/status', { method: 'POST', body: JSON.stringify({ claimId: claim.id, status }) });
+              await loadClaimsForItem(item);
+              await loadItems();
+              showToast(status === 'approved' ? 'อนุมัติคำขอแล้ว ให้นัดรับคืนและสร้าง QR ยืนยัน' : 'ปฏิเสธคำขอแล้ว');
+            } catch (error) { byId('claim-status').textContent = error.message; }
+          });
+          card.append(button);
+        }
+      }
+      list.append(card);
+    }
+  } catch (error) { byId('claim-status').textContent = error.message; }
+}
+async function submitClaim(event) {
+  event.preventDefault();
+  const item = state.items.find((entry) => entry.id === state.activeItemId);
+  if (!item) return;
+  try {
+    await api('/api/claims', { method: 'POST', body: JSON.stringify({ itemId: item.id, proof: byId('claim-proof').value.trim() }) });
+    byId('claim-proof').value = '';
+    byId('claim-status').textContent = 'ส่งคำขอแล้ว ติดตามผลได้ในประกาศนี้';
+    await loadClaimsForItem(item);
+  } catch (error) { byId('claim-status').textContent = error.message; }
+}
+function openItemReport() {
+  state.reportingItemId = state.activeItemId;
+  byId('item-report-form').reset();
+  byId('item-report-status').textContent = '';
+  byId('detail-dialog').close();
+  byId('item-report-dialog').showModal();
+}
+async function createReturnQr(item) {
+  const button = byId('return-qr-button');
+  button.disabled = true;
+  try {
+    const result = await api(`/api/items/${encodeURIComponent(item.id)}/return-qr`, { method: 'POST', body: '{}' });
+    byId('return-qr-item-name').textContent = item.itemName;
+    byId('return-qr-image').src = result.qrCode;
+    byId('detail-dialog').close();
+    byId('return-qr-dialog').showModal();
+  } catch (error) { showToast(error.message); }
+  finally { button.disabled = false; }
+}
+async function prepareReturnConfirmation() {
+  const token = state.pendingReturnToken;
+  if (!token || !state.user) return;
+  try {
+    const result = await api('/api/return-preview', { method: 'POST', body: JSON.stringify({ token }) });
+    state.returnToken = token;
+    byId('return-confirm-item').textContent = `รายการ: ${result.itemName}`;
+    byId('return-confirm-status').textContent = '';
+    byId('return-confirm-dialog').showModal();
+  } catch (error) {
+    state.pendingReturnToken = null;
+    showToast(error.message);
+  }
+}
+async function confirmReturnedItem() {
+  const button = byId('confirm-return');
+  button.disabled = true;
+  try {
+    const result = await api('/api/return-confirm', { method: 'POST', body: JSON.stringify({ token: state.returnToken }) });
+    state.returnToken = null;
+    state.pendingReturnToken = null;
+    byId('return-confirm-dialog').close();
+    showToast(`ยืนยันรับ “${result.itemName}” แล้ว`);
+    await loadItems();
+    refreshNotificationCount();
+  } catch (error) { byId('return-confirm-status').textContent = error.message; }
+  finally { button.disabled = false; }
+}
+async function submitItemReport(event) {
+  event.preventDefault();
+  try {
+    await api('/api/item-reports', { method: 'POST', body: JSON.stringify({ itemId: state.reportingItemId, reason: byId('item-report-reason').value, details: byId('item-report-details').value.trim() }) });
+    byId('item-report-dialog').close();
+    showToast('ส่งรายงานให้ผู้ดูแลแล้ว');
+  } catch (error) { byId('item-report-status').textContent = error.message; }
 }
 async function deleteItem(item) {
   const confirmed = window.confirm(`ต้องการลบประกาศ “${item.itemName}” ใช่ไหม? การลบนี้ไม่สามารถย้อนกลับได้`);
@@ -510,6 +825,23 @@ async function deleteItem(item) {
     await api(`/api/items/${encodeURIComponent(item.id)}`, { method: 'DELETE' });
     byId('detail-dialog').close();
     showToast('ลบประกาศแล้ว');
+    await loadItems();
+  } catch (error) {
+    showToast(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+async function updateItemStatus(item, status) {
+  const button = byId('resolve-item');
+  button.disabled = true;
+  try {
+    await api('/api/items/status', {
+      method: 'POST',
+      body: JSON.stringify({ itemId: item.id, status }),
+    });
+    byId('detail-dialog').close();
+    showToast(status === 'resolved' ? 'ปิดประกาศแล้ว' : 'เปิดประกาศอีกครั้งแล้ว');
     await loadItems();
   } catch (error) {
     showToast(error.message);
@@ -533,12 +865,16 @@ function renderCommentThreads(comments, parentId = null, depth = 0) {
     head.append(name, date);
     const text = document.createElement('p');
     text.textContent = comment.text;
-    const reply = document.createElement('button');
-    reply.className = 'text-button comment-reply-button';
-    reply.type = 'button';
-    reply.textContent = 'ตอบกลับ';
-    reply.addEventListener('click', () => setCommentReply(comment.id));
-    card.append(head, text, reply);
+    card.append(head, text);
+    const activeItem = state.items.find((item) => item.id === state.activeItemId);
+    if (activeItem?.status !== 'resolved') {
+      const reply = document.createElement('button');
+      reply.className = 'text-button comment-reply-button';
+      reply.type = 'button';
+      reply.textContent = 'ตอบกลับ';
+      reply.addEventListener('click', () => setCommentReply(comment.id));
+      card.append(reply);
+    }
     container.append(card);
     renderCommentThreads(comments, comment.id, depth + 1);
   });
@@ -628,18 +964,89 @@ function renderItems() {
   const query = byId('search-input').value.trim().toLocaleLowerCase();
   const category = byId('category-filter').value;
   const location = byId('location-filter').value;
+  const date = byId('date-filter').value;
   const items = state.items.filter(
     (item) =>
-      (state.activeFilter === 'all' || item.type === state.activeFilter) &&
+      (state.activeFilter === 'all' || item.type === state.activeFilter || (state.activeFilter === 'unclaimed' && item.type === 'found' && item.status === 'open')) &&
+      (!state.showingMyItems || item.ownerId === state.user.id) &&
+      (!state.imageSearchIds || state.imageSearchIds.includes(item.id)) &&
       (!category || item.category === category) &&
       (!location || item.location === location) &&
+      (!date || item.date === date) &&
       (!query ||
-        `${item.itemName} ${item.category} ${item.color} ${item.location} ${item.description}`
+        `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${item.description}`
           .toLocaleLowerCase()
           .includes(query)),
   );
   items.forEach((item) => list.append(makeItemCard(item)));
   byId('empty-state').classList.toggle('hidden', items.length > 0);
+}
+async function searchByImage(file) {
+  const status = byId('image-search-status');
+  status.classList.remove('hidden');
+  status.textContent = 'กำลังเปรียบเทียบภาพกับประกาศที่มีรูป...';
+  try {
+    const imageFeatures = await analyzePhoto(file);
+    if (!imageFeatures) throw new Error('อ่านรูปภาพไม่สำเร็จ กรุณาเลือกรูปใหม่');
+    const result = await api('/api/image-search', { method: 'POST', body: JSON.stringify({ imageFeatures }) });
+    state.imageSearchIds = result.matches.map((match) => match.itemId);
+    state.imageSearchScores = new Map(result.matches.map((match) => [match.itemId, match.score]));
+    byId('clear-image-search').classList.remove('hidden');
+    status.textContent = result.matches.length
+      ? `พบประกาศที่ภาพใกล้เคียง ${result.matches.length} รายการ (คะแนนภาพเป็นเพียงตัวช่วย)`
+      : 'ยังไม่พบประกาศที่มีภาพใกล้เคียง';
+    renderItems();
+  } catch (error) { status.textContent = error.message; }
+}
+function clearImageSearch() {
+  state.imageSearchIds = null;
+  state.imageSearchScores.clear();
+  byId('image-search-file').value = '';
+  byId('image-search-status').classList.add('hidden');
+  byId('clear-image-search').classList.add('hidden');
+  renderItems();
+}
+async function saveCurrentSearch() {
+  try {
+    await api('/api/saved-searches', {
+      method: 'POST',
+      body: JSON.stringify({
+        query: byId('search-input').value.trim(),
+        category: byId('category-filter').value,
+        location: byId('location-filter').value,
+        date: byId('date-filter').value,
+        type: state.activeFilter,
+      }),
+    });
+    showToast('บันทึกการค้นหาแล้ว จะแจ้งเตือนเมื่อมีประกาศใหม่ที่ตรงกัน');
+  } catch (error) { showToast(error.message); }
+}
+async function openSavedSearches() {
+  const list = byId('saved-searches-list');
+  list.replaceChildren();
+  try {
+    const result = await api('/api/saved-searches');
+    for (const search of result.savedSearches) {
+      const row = document.createElement('article');
+      row.className = 'message-card';
+      const description = document.createElement('p');
+      description.textContent = [search.query, search.category && categoryDisplayName(search.category), search.location && locationLabel(search.location), search.date, search.type !== 'all' && (search.type === 'lost' ? 'ของหาย' : 'เก็บได้')].filter(Boolean).join(' · ');
+      const remove = document.createElement('button');
+      remove.className = 'button small danger';
+      remove.type = 'button';
+      remove.textContent = 'ลบการแจ้งเตือนนี้';
+      remove.addEventListener('click', async () => {
+        try {
+          await api(`/api/saved-searches/${encodeURIComponent(search.id)}`, { method: 'DELETE' });
+          await openSavedSearches();
+        } catch (error) { showToast(error.message); }
+      });
+      row.append(description, remove);
+      list.append(row);
+    }
+    byId('saved-searches-empty').classList.toggle('hidden', result.savedSearches.length > 0);
+    if (!byId('saved-searches-dialog').open) byId('saved-searches-dialog').showModal();
+  } catch (error) { showToast(error.message); }
 }
 function updateStats() {
   byId('lost-count').textContent = state.items.filter((x) => x.type === 'lost').length;
@@ -649,6 +1056,7 @@ function updateStats() {
     all: state.items.length,
     lost: state.items.filter((x) => x.type === 'lost').length,
     found: state.items.filter((x) => x.type === 'found').length,
+    unclaimed: state.items.filter((x) => x.type === 'found' && x.status === 'open').length,
   };
   for (const [filter, count] of Object.entries(tabCounts)) {
     const node = document.querySelector(`[data-filter="${filter}"] .tab-count`);
@@ -657,18 +1065,43 @@ function updateStats() {
 }
 function openReport(type) {
   state.reportType = type;
+  state.editingItemId = null;
   state.photo = null;
   byId('item-form').reset();
   byId('item-message').textContent = '';
-  byId('dialog-kind').textContent = type === 'lost' ? 'LOST ITEM' : 'FOUND ITEM';
-  byId('dialog-title').textContent = type === 'lost' ? 'Report a lost item' : 'Report a found item';
+  byId('item-reporter').value = state.user?.name || '';
+  byId('dialog-kind').textContent = type === 'lost' ? 'แจ้งของหาย' : 'แจ้งเก็บของได้';
+  byId('dialog-title').textContent = type === 'lost' ? 'แจ้งของหาย' : 'แจ้งสิ่งของที่พบ';
   byId('item-date-label').textContent = type === 'lost' ? 'วันที่หาย' : 'วันที่พบ';
   const today = new Date();
   byId('item-date').value = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 10);
   byId('item-date').max = byId('item-date').value;
+  byId('item-time').value = '';
+  byId('item-expiry-days').value = '30';
   clearPhoto();
+  byId('item-dialog').showModal();
+}
+function editItem(item) {
+  state.editingItemId = item.id;
+  state.reportType = item.type;
+  state.photo = null;
+  byId('item-form').reset();
+  byId('dialog-kind').textContent = 'แก้ไขประกาศ';
+  byId('dialog-title').textContent = `แก้ไข “${item.itemName}”`;
+  byId('item-reporter').value = item.reporterName || state.user.name;
+  byId('item-name').value = item.itemName;
+  byId('item-category').value = item.category;
+  byId('item-color').value = item.color || '';
+  byId('item-description').value = item.description || '';
+  byId('item-location').value = item.location;
+  byId('item-date').value = item.date;
+  byId('item-time').value = item.eventTime || '';
+  byId('item-expiry-days').value = String(item.expiryDays || 30);
+  byId('item-contact').value = item.contact || '';
+  byId('item-message').textContent = 'รูปภาพเดิมจะคงอยู่';
+  byId('item-date-label').textContent = item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ';
   byId('item-dialog').showModal();
 }
 function clearPhoto() {
@@ -679,7 +1112,7 @@ function clearPhoto() {
   byId('photo-preview').removeAttribute('src');
   byId('photo-preview').hidden = true;
   byId('photo-file').value = '';
-  byId('camera-status').textContent = 'Avoid including faces or personal information in the photo.';
+  byId('camera-status').textContent = 'หลีกเลี่ยงการติดใบหน้าหรือข้อมูลส่วนตัวของนักเรียนในภาพ';
 }
 function stopCamera() {
   if (state.cameraStream) {
@@ -694,7 +1127,7 @@ function stopCamera() {
 }
 async function startCamera() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    byId('camera-status').textContent = 'Live camera is unavailable here. Choose a photo instead.';
+    byId('camera-status').textContent = 'ไม่สามารถเปิดกล้องได้ในขณะนี้ กรุณาเลือกรูปภาพแทน';
     byId('photo-file').click();
     return;
   }
@@ -708,10 +1141,10 @@ async function startCamera() {
     video.hidden = false;
     byId('camera-capture').hidden = false;
     byId('camera-stop').hidden = false;
-    byId('camera-status').textContent = 'Place the item in view, then take a photo.';
+    byId('camera-status').textContent = 'วางสิ่งของให้อยู่ในกรอบ แล้วกดถ่ายภาพ';
   } catch {
     byId('camera-status').textContent =
-      'Camera access was denied or unavailable. Choose a photo instead.';
+      'ไม่ได้รับอนุญาตให้ใช้กล้อง หรือกล้องไม่พร้อมใช้งาน กรุณาเลือกรูปภาพแทน';
   }
 }
 function setPhoto(blob) {
@@ -731,11 +1164,11 @@ function capturePhoto() {
   canvas.toBlob(
     (blob) => {
       if (!blob) {
-        byId('camera-status').textContent = 'Could not capture this photo. Please try again.';
+        byId('camera-status').textContent = 'ถ่ายภาพไม่สำเร็จ กรุณาลองอีกครั้ง';
         return;
       }
       setPhoto(blob);
-      byId('camera-status').textContent = 'Photo ready to attach.';
+      byId('camera-status').textContent = 'เลือกรูปภาพเรียบร้อยแล้ว';
       stopCamera();
     },
     'image/jpeg',
@@ -746,7 +1179,7 @@ function fileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Could not read the selected photo.'));
+    reader.onerror = () => reject(new Error('อ่านรูปภาพไม่สำเร็จ กรุณาเลือกรูปใหม่'));
     reader.readAsDataURL(file);
   });
 }
@@ -756,11 +1189,11 @@ async function submitItem(event) {
   if (!form.reportValidity()) return;
   const photo = state.photo;
   if (photo && photo.size > 3 * 1024 * 1024) {
-    byId('item-message').textContent = 'Photo must be 3 MB or smaller.';
+    byId('item-message').textContent = 'รูปภาพต้องมีขนาดไม่เกิน 3 MB';
     return;
   }
   if (photo && !['image/jpeg', 'image/png', 'image/webp'].includes(photo.type)) {
-    byId('item-message').textContent = 'Choose a JPG, PNG, or WebP photo.';
+    byId('item-message').textContent = 'กรุณาเลือกรูปแบบ JPG, PNG หรือ WebP';
     return;
   }
   const payload = {
@@ -773,6 +1206,8 @@ async function submitItem(event) {
     contact: byId('item-contact').value.trim(),
     location: byId('item-location').value,
     date: byId('item-date').value,
+    eventTime: byId('item-time').value,
+    expiryDays: Number(byId('item-expiry-days').value),
   };
   if (photo) {
     payload.imageFeatures = await analyzePhoto(photo);
@@ -781,10 +1216,35 @@ async function submitItem(event) {
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
-    await api('/api/items', { method: 'POST', body: JSON.stringify(payload) });
+    if (!state.editingItemId) {
+      const check = await api('/api/items/check', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: payload.type,
+          itemName: payload.itemName,
+          category: payload.category,
+          color: payload.color,
+          description: payload.description,
+          location: payload.location,
+          date: payload.date,
+          imageFeatures: payload.imageFeatures,
+        }),
+      });
+      if (check.duplicates.length) {
+        const candidates = check.duplicates.map((item) => `• ${item.itemName} (${item.score}% คล้าย)`).join('\n');
+        if (!window.confirm(`พบประกาศประเภทเดียวกันที่อาจซ้ำ:\n${candidates}\n\nต้องการลงประกาศต่อหรือไม่?`)) return;
+      }
+    }
+    const result = state.editingItemId
+      ? await api(`/api/items/${encodeURIComponent(state.editingItemId)}`, { method: 'PUT', body: JSON.stringify(payload) })
+      : await api('/api/items', { method: 'POST', body: JSON.stringify(payload) });
     byId('item-dialog').close();
-    showToast('Item posted. Checking for possible matches…');
+    showToast(state.editingItemId ? 'แก้ไขประกาศแล้ว' : result.possibleMatchCount
+      ? `ลงประกาศแล้ว พบรายการที่อาจตรงกัน ${result.possibleMatchCount} รายการ`
+      : 'ลงประกาศแล้ว กำลังตรวจหารายการที่อาจตรงกัน');
+    state.editingItemId = null;
     await loadItems();
+    refreshNotificationCount();
   } catch (error) {
     byId('item-message').textContent = error.message;
   } finally {
@@ -795,8 +1255,8 @@ function openItemContact(item) {
   state.contactMode = 'item';
   state.contactItemId = item.id;
   state.replyMessageId = null;
-  byId('contact-title').textContent = 'Contact the item poster';
-  byId('contact-intro').textContent = `Send a private message about “${item.itemName}”.`;
+  byId('contact-title').textContent = 'ส่งข้อความถึงผู้แจ้ง';
+  byId('contact-intro').textContent = `ส่งข้อความส่วนตัวเกี่ยวกับ “${item.itemName}”`;
   byId('contact-message').value = '';
   byId('contact-status').textContent = '';
   byId('contact-dialog').showModal();
@@ -805,8 +1265,8 @@ function openStaffContact() {
   state.contactMode = 'staff';
   state.contactItemId = null;
   state.replyMessageId = null;
-  byId('contact-title').textContent = 'Contact school staff';
-  byId('contact-intro').textContent = 'Send a message to the school lost and found team.';
+  byId('contact-title').textContent = 'ติดต่อเจ้าหน้าที่';
+  byId('contact-intro').textContent = 'ส่งข้อความถึงเจ้าหน้าที่เพื่อขอความช่วยเหลือ';
   byId('contact-message').value = '';
   byId('contact-status').textContent = '';
   byId('contact-dialog').showModal();
@@ -814,8 +1274,8 @@ function openStaffContact() {
 function openReply(message) {
   state.contactMode = 'reply';
   state.replyMessageId = message.id;
-  byId('contact-title').textContent = 'Reply about this item';
-  byId('contact-intro').textContent = `Reply to ${message.fromName} about “${message.itemName}”.`;
+  byId('contact-title').textContent = 'ตอบกลับข้อความเกี่ยวกับสิ่งของ';
+  byId('contact-intro').textContent = `ตอบกลับ ${message.fromName} เกี่ยวกับ “${message.itemName}”`;
   byId('contact-message').value = '';
   byId('contact-status').textContent = '';
   byId('messages-dialog').close();
@@ -824,8 +1284,8 @@ function openReply(message) {
 function openStaffReply(request) {
   state.contactMode = 'staffReply';
   state.staffRequestId = request.id;
-  byId('contact-title').textContent = 'Reply to school support request';
-  byId('contact-intro').textContent = 'Reply to ' + request.fromName + '.';
+  byId('contact-title').textContent = 'ตอบกลับคำขอความช่วยเหลือ';
+  byId('contact-intro').textContent = `ตอบกลับ ${request.fromName}`;
   byId('contact-message').value = '';
   byId('contact-status').textContent = '';
   byId('messages-dialog').close();
@@ -859,10 +1319,10 @@ async function submitContact(event) {
     byId('contact-dialog').close();
     showToast(
       state.contactMode === 'staff'
-        ? 'Message sent to the school support queue.'
+        ? 'ส่งข้อความถึงเจ้าหน้าที่แล้ว'
         : state.contactMode === 'staffReply'
-          ? 'Reply sent to the student.'
-          : 'Message sent. Replies will appear in Messages.',
+          ? 'ส่งข้อความตอบกลับนักเรียนแล้ว'
+          : 'ส่งข้อความแล้ว คุณจะเห็นข้อความตอบกลับในกล่องข้อความ',
     );
   } catch (error) {
     byId('contact-status').textContent = error.message;
@@ -875,20 +1335,20 @@ function addMessageCard(container, message, own) {
   card.className = 'message-card';
   const title = document.createElement('strong');
   title.textContent = own
-    ? `You sent a message to ${message.toName || 'the item poster'}`
-    : `From ${message.fromName}`;
+    ? `คุณส่งข้อความถึง ${message.toName || 'ผู้แจ้ง'}`
+    : `ข้อความจาก ${message.fromName}`;
   const item = document.createElement('span');
   item.textContent = message.itemName;
   const body = document.createElement('p');
   body.textContent = message.message;
   const date = document.createElement('small');
-  date.textContent = new Date(message.createdAt).toLocaleString();
+    date.textContent = formatPostedDate(message.createdAt);
   card.append(title, item, body, date);
   if (!own) {
     const reply = document.createElement('button');
     reply.className = 'button small';
     reply.type = 'button';
-    reply.textContent = 'Reply';
+    reply.textContent = 'ตอบกลับ';
     reply.addEventListener('click', () => openReply(message));
     card.append(reply);
   }
@@ -931,15 +1391,15 @@ async function openInbox() {
         const card = document.createElement('article');
         card.className = 'message-card staff-message';
         const title = document.createElement('strong');
-        title.textContent = `School support request · ${request.fromName}`;
+        title.textContent = `คำขอความช่วยเหลือจาก ${request.fromName}`;
         const body = document.createElement('p');
         body.textContent = request.message;
         const date = document.createElement('small');
-        date.textContent = new Date(request.createdAt).toLocaleString();
+        date.textContent = formatPostedDate(request.createdAt);
         const reply = document.createElement('button');
         reply.className = 'button small';
         reply.type = 'button';
-        reply.textContent = 'Reply';
+        reply.textContent = 'ตอบกลับ';
         reply.addEventListener('click', () => openStaffReply(request));
         card.append(title, body, date, reply);
         list.append(card);
@@ -950,16 +1410,16 @@ async function openInbox() {
         const card = document.createElement('article');
         card.className = 'message-card';
         const title = document.createElement('strong');
-        title.textContent = 'Your message to school support';
+        title.textContent = 'ข้อความที่คุณส่งถึงเจ้าหน้าที่';
         const body = document.createElement('p');
         body.textContent = request.message;
         const date = document.createElement('small');
-        date.textContent = new Date(request.createdAt).toLocaleString();
+        date.textContent = formatPostedDate(request.createdAt);
         card.append(title, body, date);
         (request.replies || []).forEach((reply) => {
           const response = document.createElement('p');
           response.className = 'support-reply';
-          response.textContent = `Reply from ${reply.fromName}: ${reply.message}`;
+          response.textContent = `เจ้าหน้าที่ ${reply.fromName} ตอบกลับ: ${reply.message}`;
           card.append(response);
         });
         list.append(card);
@@ -987,7 +1447,7 @@ function renderAdminUsers(users) {
   if (!users.length) {
     const empty = document.createElement('p');
     empty.className = 'admin-empty';
-    empty.textContent = 'No accounts yet.';
+    empty.textContent = 'ยังไม่มีบัญชีสมาชิก';
     list.append(empty);
     return;
   }
@@ -999,16 +1459,54 @@ function renderAdminUsers(users) {
     const name = document.createElement('strong');
     name.textContent = user.name;
     const meta = document.createElement('span');
-    meta.textContent = `${user.studentId} · ${user.role}`;
+    const roleName = ({ student: 'นักเรียน', staff: 'เจ้าหน้าที่', admin: 'ผู้ดูแลระบบ' })[user.role] || 'สมาชิก';
+    meta.textContent = `${user.studentId} · ${roleName}`;
     details.append(name, meta);
     const protectedAccount = user.id === state.user.id || user.role === 'admin';
     const action = document.createElement('button');
     action.className = protectedAccount ? 'button small' : 'button small danger';
     action.type = 'button';
-    action.textContent = protectedAccount ? 'Protected' : 'Delete account';
+    action.textContent = protectedAccount ? 'บัญชีที่ป้องกันไว้' : 'ลบบัญชี';
     action.disabled = protectedAccount;
     if (!protectedAccount) action.addEventListener('click', () => deleteAdminUser(user));
     row.append(details, action);
+    list.append(row);
+  }
+}
+function renderAdminItemReports(reports) {
+  const list = byId('admin-item-report-list');
+  list.replaceChildren();
+  if (!reports.length) {
+    const empty = document.createElement('p');
+    empty.className = 'admin-empty';
+    empty.textContent = 'ยังไม่มีรายงานประกาศ';
+    list.append(empty);
+    return;
+  }
+  for (const report of reports) {
+    const row = document.createElement('article');
+    row.className = 'admin-user-row';
+    const details = document.createElement('div');
+    details.className = 'admin-user-details';
+    const title = document.createElement('strong');
+    title.textContent = `${report.itemName} · ${({ inaccurate: 'ข้อมูลไม่ถูกต้อง', inappropriate: 'เนื้อหาไม่เหมาะสม', privacy: 'ข้อมูลส่วนตัว', other: 'อื่น ๆ' })[report.reason] || 'รายงาน'}`;
+    const meta = document.createElement('span');
+    meta.textContent = `${report.fromName} · ${report.details || 'ไม่มีรายละเอียดเพิ่ม'} · ${report.status === 'reviewed' ? 'ตรวจแล้ว' : 'รอตรวจ'}`;
+    details.append(title, meta);
+    row.append(details);
+    if (report.status !== 'reviewed') {
+      const done = document.createElement('button');
+      done.className = 'button small';
+      done.type = 'button';
+      done.textContent = 'ทำเครื่องหมายว่าตรวจแล้ว';
+      done.addEventListener('click', async () => {
+        try {
+          await api('/api/admin/item-reports/status', { method: 'POST', body: JSON.stringify({ reportId: report.id }) });
+          await loadAdminData();
+        } catch (error) { setMessage('admin-message', error.message); }
+      });
+      row.append(done);
+    }
     list.append(row);
   }
 }
@@ -1030,13 +1528,14 @@ function renderAdminReports(items) {
     ['open', 'เปิดรับแจ้ง'],
     ['reviewing', 'กำลังติดตาม'],
     ['resolved', 'ปิดงาน / คืนแล้ว'],
+    ['expired', 'หมดอายุ'],
   ];
   for (const item of items) {
     const row = document.createElement('tr');
     const code = document.createElement('td');
     const codeText = document.createElement('strong');
     codeText.className = 'admin-table-id';
-    codeText.textContent = `${item.type === 'lost' ? 'LF' : 'FF'}-${item.id.slice(0, 8).toUpperCase()}`;
+    codeText.textContent = `${item.type === 'lost' ? 'หาย' : 'พบ'}-${item.id.slice(0, 8).toUpperCase()}`;
     const type = document.createElement('small');
     type.textContent = item.type === 'lost' ? 'ของหาย' : 'เก็บได้';
     code.append(codeText, document.createElement('br'), type);
@@ -1050,7 +1549,7 @@ function renderAdminReports(items) {
     name.append(title, date);
     nameCell.append(name);
     const location = document.createElement('td');
-    location.textContent = item.location || '—';
+    location.textContent = locationLabel(item.location);
     const reporter = document.createElement('td');
     reporter.textContent = item.reporterName || item.ownerName || 'ไม่ระบุ';
     const statusCell = document.createElement('td');
@@ -1100,10 +1599,11 @@ async function loadAdminData() {
   setMessage('admin-message', '');
   setMessage('admin-report-message', '');
   try {
-    const [overview, accounts, reports] = await Promise.all([
+    const [overview, accounts, reports, itemReports] = await Promise.all([
       api('/api/admin/overview'),
       api('/api/admin/users'),
       api('/api/items'),
+      api('/api/admin/item-reports'),
     ]);
     byId('admin-lost-count').textContent = overview.lostCount;
     byId('admin-found-count').textContent = overview.foundCount;
@@ -1111,18 +1611,19 @@ async function loadAdminData() {
     byId('admin-support-count').textContent = overview.supportCount;
     renderAdminUsers(accounts.users);
     renderAdminReports(reports.items);
+    renderAdminItemReports(itemReports.reports);
   } catch (error) {
     setMessage('admin-message', error.message);
   }
 }
 async function deleteAdminUser(user) {
   const confirmed = window.confirm(
-    `Delete ${user.name}'s account? This also removes their reports, photos, and messages.`,
+    `ต้องการลบบัญชี ${user.name} ใช่หรือไม่? ระบบจะลบประกาศ รูปภาพ และข้อความที่เกี่ยวข้องด้วย`,
   );
   if (!confirmed) return;
   try {
     await api('/api/admin/users/delete', { method: 'POST', body: JSON.stringify({ userId: user.id }) });
-    showToast('Account deleted.');
+    showToast('ลบบัญชีเรียบร้อยแล้ว');
     await loadAdminData();
     await loadItems();
   } catch (error) {
@@ -1144,10 +1645,28 @@ function bindEvents() {
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('close-detail').addEventListener('click', () => byId('detail-dialog').close());
-  byId('delete-item').addEventListener('click', () => {
-    const item = state.items.find((entry) => entry.id === state.activeItemId);
-    if (item) deleteItem(item);
+  byId('close-return-qr').addEventListener('click', () => byId('return-qr-dialog').close());
+  byId('cancel-return-confirm').addEventListener('click', () => {
+    state.pendingReturnToken = null;
+    state.returnToken = null;
+    byId('return-confirm-dialog').close();
   });
+  byId('confirm-return').addEventListener('click', confirmReturnedItem);
+  byId('edit-item').addEventListener('click', () => {
+    const item = state.items.find((entry) => entry.id === state.activeItemId);
+    if (!item) return;
+    byId('detail-dialog').close();
+    editItem(item);
+  });
+  byId('claim-item').addEventListener('click', () => {
+    byId('claim-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    byId('claim-proof').focus();
+  });
+  byId('claim-form').addEventListener('submit', submitClaim);
+  byId('report-item').addEventListener('click', openItemReport);
+  byId('item-report-form').addEventListener('submit', submitItemReport);
+  byId('close-item-report').addEventListener('click', () => byId('item-report-dialog').close());
+  byId('cancel-item-report').addEventListener('click', () => byId('item-report-dialog').close());
   byId('comment-form').addEventListener('submit', submitComment);
   byId('cancel-comment-reply').addEventListener('click', () => {
     state.replyToCommentId = null;
@@ -1170,11 +1689,27 @@ function bindEvents() {
     const file = event.target.files[0];
     if (!file) return;
     setPhoto(file);
-    byId('camera-status').textContent = 'Photo selected and ready to attach.';
+    byId('camera-status').textContent = 'เลือกรูปภาพเรียบร้อยแล้ว';
   });
   byId('search-input').addEventListener('input', renderItems);
+  byId('image-search-button').addEventListener('click', () => byId('image-search-file').click());
+  byId('image-search-file').addEventListener('change', (event) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (file) searchByImage(file);
+  });
+  byId('clear-image-search').addEventListener('click', clearImageSearch);
+  byId('save-search-button').addEventListener('click', saveCurrentSearch);
+  byId('manage-saved-searches').addEventListener('click', openSavedSearches);
   byId('category-filter').addEventListener('change', renderItems);
   byId('location-filter').addEventListener('change', renderItems);
+  byId('date-filter').addEventListener('change', renderItems);
+  byId('my-items-filter').addEventListener('click', (event) => {
+    state.showingMyItems = !state.showingMyItems;
+    event.currentTarget.setAttribute('aria-pressed', String(state.showingMyItems));
+    event.currentTarget.classList.toggle('primary', state.showingMyItems);
+    renderItems();
+  });
   document.querySelectorAll('.tab').forEach((tab) =>
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach((other) => {
@@ -1192,6 +1727,12 @@ function bindEvents() {
   byId('close-contact').addEventListener('click', () => byId('contact-dialog').close());
   byId('cancel-contact').addEventListener('click', () => byId('contact-dialog').close());
   byId('close-messages').addEventListener('click', () => byId('messages-dialog').close());
+  byId('close-notifications').addEventListener('click', () => byId('notifications-dialog').close());
+  byId('close-saved-searches').addEventListener('click', () => byId('saved-searches-dialog').close());
+  byId('close-help').addEventListener('click', () => byId('help-dialog').close());
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshNotificationCount();
+  });
   window.addEventListener('pagehide', stopCamera);
 }
 bindEvents();

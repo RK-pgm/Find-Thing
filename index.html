@@ -4,11 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f6ef" />
-    <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน" />
-    <meta name="description" content="A school community lost and found board." />
-    <title>Found It — ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css" />
-  <script src="script.js" defer></script>
+    <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
+    <title>ศูนย์ติดตามของหายในโรงเรียน</title>
+    <link rel="stylesheet" href="style.css?v=thai-school-2" />
+  <script src="script.js?v=thai-school-2" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -30,16 +29,16 @@
       <span style="--x:89%;--delay:-12s;--duration:19s;--size:22px;--drift:34px">🖍️</span>
     </div>
     <header class="topbar">
-      <a class="brand" href="#home" aria-label="Found It home"
-        ><span class="brand-mark" aria-hidden="true">🏫</span><span>ศูนย์ติดตามของหายในโรงเรียน <small class="brand-caption">School Lost &amp; Found Hub</small></span></a
+      <a class="brand" href="#home" aria-label="หน้าหลักศูนย์ติดตามของหาย"
+        ><span class="brand-mark" aria-hidden="true">🏫</span><span>ศูนย์ติดตามของหายในโรงเรียน <small class="brand-caption">ระบบแจ้งของหายและของที่พบ</small></span></a
       >
-      <nav class="nav" id="nav" aria-label="Main navigation"></nav>
+      <nav class="nav" id="nav" aria-label="เมนูหลัก"></nav>
   </header>
 
     <main>
       <section class="auth-screen" id="auth-screen" aria-labelledby="welcome-title">
         <div class="auth-card">
-          <div class="eyebrow">SCHOOL COMMUNITY</div>
+          <div class="eyebrow">ชุมชนโรงเรียน</div>
           <div id="auth-choice" class="auth-view active">
             <h1 id="welcome-title">ของหายก็มีโอกาสได้คืน<br /><span>เริ่มตามหาได้ที่นี่</span></h1>
             <p class="subtext">ศูนย์ติดตามของหายในโรงเรียน ค้นหา แจ้ง และช่วยกันส่งคืนอย่างปลอดภัย</p>
@@ -84,21 +83,21 @@
               placeholder="อย่างน้อย 8 ตัวอักษร"
             />
             <div id="admin-setup-field" class="admin-setup-field hidden">
-              <label for="admin-setup-code">Administrator setup code</label>
+              <label for="admin-setup-code">รหัสตั้งค่าบัญชีผู้ดูแล</label>
               <input
                 id="admin-setup-code"
                 name="adminSetupCode"
                 type="password"
                 autocomplete="one-time-code"
-                placeholder="Code shown in the server terminal"
+                placeholder="กรอกรหัสที่แสดงในหน้าต่างเซิร์ฟเวอร์"
               />
-              <p class="form-hint">Only needed for the administrator account.</p>
+              <p class="form-hint">กรอกเฉพาะเมื่อตั้งค่าบัญชีผู้ดูแลครั้งแรก</p>
   </div>
             <p class="form-message" id="signup-message" aria-live="polite"></p>
-            <button class="button primary full" type="submit">Sign up</button>
+            <button class="button primary full" type="submit">สมัครสมาชิก</button>
             <p class="switch-copy">
-              Already have an account?
-              <button class="text-button" id="to-login" type="button">Log in</button>
+              มีบัญชีอยู่แล้ว?
+              <button class="text-button" id="to-login" type="button">เข้าสู่ระบบ</button>
             </p>
           </form>
           <form id="login-form" class="auth-view" novalidate>
@@ -122,9 +121,9 @@
               required
             />
             <p class="form-message" id="login-message" aria-live="polite"></p>
-            <button class="button primary full" type="submit">Log in</button>
+            <button class="button primary full" type="submit">เข้าสู่ระบบ</button>
             <p class="switch-copy">
-              New here?
+              ยังไม่มีบัญชี?
               <button class="text-button" id="to-signup" type="button">สร้างบัญชี</button>
             </p>
     </form>
@@ -134,7 +133,7 @@
         <div id="app" class="hidden">
           <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
-              <div class="eyebrow">SCHOOL LOST &amp; FOUND · COMMUNITY CARE</div>
+              <div class="eyebrow">ศูนย์ของหายและของที่พบ · ร่วมใจช่วยกัน</div>
               <h1 id="hero-title">ของหายก็มีโอกาสได้คืน<br /><span>เริ่มตามหาได้ที่นี่</span></h1>
               <p>แจ้งของหาย แจ้งสิ่งของที่พบ และช่วยกันส่งคืนเจ้าของอย่างปลอดภัย</p>
             </div>
@@ -148,7 +147,7 @@
                   <rect x="80" y="57" width="159" height="188" rx="16" fill="#fffdf7" />
                   <rect x="80" y="57" width="25" height="188" rx="13" fill="#e8c675" />
                   <rect x="93" y="57" width="12" height="188" fill="#e8c675" />
-                  <text x="124" y="91" fill="#246b52" font-size="13" font-weight="700" letter-spacing="1.6">FOUND IT</text>
+                  <text x="124" y="91" fill="#246b52" font-size="13" font-weight="700" letter-spacing="1.6">ของหาย</text>
                   <path d="M124 111h83M124 127h68" stroke="#d8e2d7" stroke-width="5" stroke-linecap="round" />
                   <rect x="122" y="145" width="94" height="58" rx="10" fill="#edf4ee" />
                   <path d="m139 174 10 10 22-25" fill="none" stroke="#32815f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
@@ -205,25 +204,38 @@
                 aria-label="ค้นหาสิ่งของ" /></label
             ><select id="category-filter" aria-label="กรองตามหมวดหมู่">
               <option value="">ทุกหมวดหมู่</option>
-              <option>School supplies</option>
-              <option>Clothing</option>
-              <option>Personal items</option>
-              <option>Electronics</option>
-              <option>Other</option></select
+              <option value="School supplies">อุปกรณ์การเรียน</option>
+              <option value="Stationery">เครื่องเขียน</option>
+              <option value="Clothing">เสื้อผ้า</option>
+              <option value="Personal items">ของใช้ส่วนตัว</option>
+              <option value="Bags">กระเป๋า</option>
+              <option value="Phones">โทรศัพท์</option>
+              <option value="Electronics">อุปกรณ์อิเล็กทรอนิกส์</option>
+              <option value="Other">อื่น ๆ</option></select
             ><select id="location-filter" aria-label="กรองตามสถานที่">
               <option value="">ทุกสถานที่</option>
-              <option>Classroom</option>
-              <option>Library</option>
-              <option>Cafeteria</option>
-              <option>Sports area</option>
-              <option>Other</option>
+              <option value="Classroom">ห้องเรียน</option>
+              <option value="Library">ห้องสมุด</option>
+              <option value="Cafeteria">โรงอาหาร</option>
+              <option value="Sports area">สนามกีฬา</option>
+              <option value="Other">อื่น ๆ</option>
             </select>
+            <label class="date-filter">วันที่ <input id="date-filter" type="date" aria-label="กรองตามวันที่หายหรือพบ" /></label>
+            <button class="button small" id="my-items-filter" type="button" aria-pressed="false">ประกาศของฉัน</button>
+            <input id="image-search-file" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+            <button class="button small" id="image-search-button" type="button">ค้นหาด้วยรูป</button>
+            <button class="button small hidden" id="clear-image-search" type="button">ล้างผลค้นหารูป</button>
+            <button class="button small" id="save-search-button" type="button">รับแจ้งเตือนเมื่อพบ</button>
+            <button class="button small" id="manage-saved-searches" type="button">คำค้นหาที่บันทึก</button>
           </div>
+          <p id="image-search-status" class="form-hint hidden" aria-live="polite"></p>
+          <p class="form-hint">ค้นหาด้วยรูปจะเปรียบเทียบลักษณะภาพในเบราว์เซอร์ และส่งเฉพาะข้อมูลสำหรับจับคู่ภาพ</p>
           <div class="tabs" role="tablist" aria-label="กรองประเภทประกาศ">
             <button class="tab active" data-filter="all" role="tab" aria-selected="true">
               ทั้งหมด <span class="tab-count">0</span></button
             ><button class="tab" data-filter="lost" role="tab" aria-selected="false">ของหาย <span class="tab-count">0</span></button
-            ><button class="tab" data-filter="found" role="tab" aria-selected="false">เก็บได้ <span class="tab-count">0</span></button>
+            ><button class="tab" data-filter="found" role="tab" aria-selected="false">เก็บได้ <span class="tab-count">0</span></button
+            ><button class="tab" data-filter="unclaimed" role="tab" aria-selected="false">ยังไม่มีผู้รับ <span class="tab-count">0</span></button>
           </div>
           <div id="item-list" class="item-grid" aria-live="polite"></div>
           <div id="empty-state" class="empty-state hidden">
@@ -256,7 +268,7 @@
               กล่องข้อความเจ้าหน้าที่
             </button>
           </div>
-          <div class="admin-summary" aria-label="School summary">
+          <div class="admin-summary" aria-label="สรุปข้อมูลโรงเรียน">
             <article class="admin-stat">
               <span>ประกาศของหาย</span>
               <strong id="admin-lost-count">0</strong>
@@ -303,44 +315,48 @@
             <p id="admin-message" class="form-message" aria-live="polite"></p>
             <div id="admin-user-list" class="admin-user-list" aria-live="polite"></div>
           </section>
+          <section class="admin-card" aria-labelledby="admin-item-reports-title"><div class="admin-card-heading"><div><h2 id="admin-item-reports-title">รายงานประกาศจากนักเรียน</h2><p>ตรวจสอบประกาศที่ถูกรายงานว่าไม่ถูกต้องหรือไม่เหมาะสม</p></div></div><div id="admin-item-report-list" class="admin-user-list" aria-live="polite"></div></section>
         </section>
       </div>
   </main>
 
     <dialog class="dialog" id="item-dialog" aria-labelledby="dialog-title">
       <form id="item-form" class="dialog-card">
-        <button class="icon-button dialog-close" id="close-dialog" type="button" aria-label="Close">
+        <button class="icon-button dialog-close" id="close-dialog" type="button" aria-label="ปิดหน้าต่าง">
           ×
         </button>
-        <div class="eyebrow" id="dialog-kind">NEW REPORT</div>
-        <h2 id="dialog-title">Report an item</h2>
-        <p class="subtext">Add useful details so the community can recognize it.</p>
+        <div class="eyebrow" id="dialog-kind">แจ้งรายการใหม่</div>
+        <h2 id="dialog-title">แจ้งข้อมูลสิ่งของ</h2>
+        <p class="subtext">กรอกรายละเอียดให้ครบถ้วน เพื่อช่วยให้เจ้าของหรือผู้พบเห็นระบุสิ่งของได้ง่ายขึ้น</p>
         <label for="item-reporter">ชื่อผู้แจ้ง</label
         ><input id="item-reporter" name="reporterName" required maxlength="80" placeholder="ชื่อ–นามสกุลผู้แจ้ง" />
-        <p class="form-hint">ชื่อนี้จะแสดงบนประกาศเพื่อให้เจ้าหน้าที่ติดตามได้</p>
+        <p class="form-hint">ระบบเติมชื่อจากบัญชีที่เข้าสู่ระบบให้อัตโนมัติ แก้ไขได้ก่อนส่ง และชื่อนี้จะแสดงบนประกาศ</p>
         <label for="item-name">ชื่อสิ่งของ</label
         ><input
           id="item-name"
           name="itemName"
           required
           maxlength="90"
-          placeholder="e.g. Blue water bottle"
+          placeholder="เช่น กระบอกน้ำสีฟ้า"
         />
         <div class="two-col">
           <div>
             <label for="item-category">หมวดหมู่</label
             ><select id="item-category" name="category" required>
-              <option value="">Choose a category</option>
-              <option>School supplies</option>
-              <option>Clothing</option>
-              <option>Personal items</option>
-              <option>Electronics</option>
-              <option>Other</option>
+              <option value="">เลือกหมวดหมู่</option>
+              <option value="School supplies">อุปกรณ์การเรียน</option>
+              <option value="Stationery">เครื่องเขียน</option>
+              <option value="Clothing">เสื้อผ้า</option>
+              <option value="Personal items">ของใช้ส่วนตัว</option>
+              <option value="Bags">กระเป๋า</option>
+              <option value="Phones">โทรศัพท์</option>
+              <option value="Electronics">อุปกรณ์อิเล็กทรอนิกส์</option>
+              <option value="Other">อื่น ๆ</option>
             </select>
           </div>
           <div>
             <label for="item-color">สีหลัก</label
-            ><input id="item-color" name="color" maxlength="40" placeholder="e.g. Blue" />
+            ><input id="item-color" name="color" maxlength="40" placeholder="เช่น สีฟ้า" />
           </div>
         </div>
         <label for="item-description">รายละเอียด</label
@@ -349,18 +365,18 @@
           name="description"
           rows="3"
           maxlength="500"
-          placeholder="Visible details that help identify it"
+          placeholder="ระบุลักษณะเด่น ตำหนิ หรือสิ่งที่ช่วยยืนยันความเป็นเจ้าของ"
         ></textarea>
         <div class="two-col">
           <div>
             <label for="item-location">สถานที่</label
             ><select id="item-location" name="location" required>
-              <option value="">Choose a location</option>
-              <option>Classroom</option>
-              <option>Library</option>
-              <option>Cafeteria</option>
-              <option>Sports area</option>
-              <option>Other</option>
+              <option value="">เลือกสถานที่</option>
+              <option value="Classroom">ห้องเรียน</option>
+              <option value="Library">ห้องสมุด</option>
+              <option value="Cafeteria">โรงอาหาร</option>
+              <option value="Sports area">สนามกีฬา</option>
+              <option value="Other">อื่น ๆ</option>
             </select>
           </div>
           <div>
@@ -368,26 +384,30 @@
             ><input id="item-date" name="date" type="date" required />
           </div>
         </div>
-        <label for="item-contact">Contact method <span class="optional">(optional)</span></label>
+        <label for="item-time">เวลาโดยประมาณ <span class="optional">(ไม่บังคับ)</span></label>
+        <input id="item-time" name="time" type="time" />
+        <label for="item-expiry-days">ระยะเวลาแสดงประกาศ</label>
+        <select id="item-expiry-days" name="expiryDays"><option value="30">30 วัน</option><option value="60">60 วัน</option><option value="90">90 วัน</option></select>
+        <label for="item-contact">ช่องทางติดต่อ <span class="optional">(ไม่บังคับ)</span></label>
         <input
           id="item-contact"
           name="contact"
           type="text"
           maxlength="100"
-          placeholder="e.g. Phone number or LINE ID"
+          placeholder="เช่น เบอร์โทรศัพท์หรือไลน์"
         />
-        <p class="form-hint">Visible to signed-in students who can view this report.</p>
-        <label>Item photo <span class="optional">(optional)</span></label>
+        <p class="form-hint">สมาชิกที่เข้าสู่ระบบและดูประกาศนี้ได้จะเห็นข้อมูลติดต่อ</p>
+        <label for="photo-file">รูปภาพสิ่งของ <span class="optional">(ไม่บังคับ)</span></label>
         <div class="camera-box">
           <video id="camera-preview" autoplay playsinline hidden></video
-          ><img id="photo-preview" alt="Selected item photo" hidden />
+          ><img id="photo-preview" alt="ตัวอย่างรูปภาพสิ่งของ" hidden />
           <div class="camera-actions">
-            <button class="button small" id="camera-open" type="button">Open camera</button
+            <button class="button small" id="camera-open" type="button">เปิดกล้อง</button
             ><button class="button small" id="camera-capture" type="button" hidden>
-              Take photo</button
-            ><button class="button small" id="photo-pick" type="button">Choose photo</button
+              ถ่ายภาพ</button
+            ><button class="button small" id="photo-pick" type="button">เลือกรูปภาพ</button
             ><button class="button small" id="camera-stop" type="button" hidden>
-              Close camera
+              ปิดกล้อง
             </button>
           </div>
           <input
@@ -397,14 +417,12 @@
             capture="environment"
             hidden
           />
-          <p id="camera-status" class="camera-status" aria-live="polite">
-            Avoid including faces or personal information in the photo.
-          </p>
+          <p id="camera-status" class="camera-status" aria-live="polite">หลีกเลี่ยงการติดใบหน้าหรือข้อมูลส่วนตัวของนักเรียนในภาพ</p>
         </div>
         <p id="item-message" class="form-message" aria-live="polite"></p>
         <div class="dialog-actions">
-          <button class="button" id="cancel-report" type="button">Cancel</button
-          ><button class="button primary" type="submit">Post item</button>
+          <button class="button" id="cancel-report" type="button">ยกเลิก</button
+          ><button class="button primary" type="submit">ลงประกาศ</button>
         </div>
       </form>
     </dialog>
@@ -418,7 +436,9 @@
         <img id="detail-photo" class="detail-photo hidden" alt="รูปสิ่งของ" />
         <p id="detail-description" class="detail-description"></p>
         <div id="detail-facts" class="detail-facts"></div>
-        <div class="detail-owner-actions"><button class="button danger-button hidden" id="delete-item" type="button">ลบประกาศนี้</button></div>
+        <div class="detail-owner-actions"><button class="button primary hidden" id="resolve-item" type="button"></button><button class="button hidden" id="return-qr-button" type="button">สร้าง QR ยืนยันรับคืน</button><button class="button danger-button hidden" id="delete-item" type="button">ลบประกาศนี้</button></div>
+        <div class="detail-owner-actions"><button class="button hidden" id="edit-item" type="button">แก้ไขประกาศ</button><button class="button hidden" id="claim-item" type="button">ขอรับของคืน</button><button class="button small" id="report-item" type="button">รายงานประกาศ</button></div>
+        <section id="claim-section" class="detail-comments hidden"><h3>คำขอรับของคืน</h3><form id="claim-form" class="comment-form"><label for="claim-proof">ยืนยันความเป็นเจ้าของ</label><textarea id="claim-proof" rows="3" maxlength="1000" required placeholder="บอกรายละเอียดเฉพาะที่ช่วยยืนยันว่าเป็นของคุณ"></textarea><p id="claim-status" class="form-message" aria-live="polite"></p><button class="button primary" type="submit">ส่งคำขอ</button></form><div id="claim-list" class="message-list"></div></section>
         <section class="detail-matches" id="detail-match-section" aria-labelledby="matches-heading">
           <div class="detail-comments-heading"><div><h3 id="matches-heading">ประกาศที่อาจเป็นชิ้นเดียวกัน</h3><p id="detail-match-note" class="form-hint hidden">คะแนนเป็นค่าความคล้ายจากภาพ ชื่อ หมวดหมู่ สถานที่ และรายละเอียด ไม่ใช่การยืนยันว่าเป็นชิ้นเดียวกัน</p></div></div>
           <div id="detail-match-list" class="detail-match-list hidden"></div>
@@ -440,6 +460,9 @@
         </section>
       </section>
     </dialog>
+    <dialog class="dialog" id="item-report-dialog" aria-labelledby="item-report-title"><form class="dialog-card" id="item-report-form"><button class="icon-button dialog-close" id="close-item-report" type="button" aria-label="ปิด">×</button><div class="eyebrow">ความปลอดภัยชุมชน</div><h2 id="item-report-title">รายงานประกาศ</h2><label for="item-report-reason">เหตุผล</label><select id="item-report-reason" required><option value="">เลือกเหตุผล</option><option value="inaccurate">ข้อมูลไม่ถูกต้อง</option><option value="inappropriate">เนื้อหาไม่เหมาะสม</option><option value="privacy">เปิดเผยข้อมูลส่วนตัว</option><option value="other">อื่น ๆ</option></select><label for="item-report-details">รายละเอียด (ไม่บังคับ)</label><textarea id="item-report-details" rows="3" maxlength="500"></textarea><p id="item-report-status" class="form-message" aria-live="polite"></p><div class="dialog-actions"><button class="button" id="cancel-item-report" type="button">ยกเลิก</button><button class="button primary" type="submit">ส่งรายงาน</button></div></form></dialog>
+    <dialog class="dialog" id="return-qr-dialog" aria-labelledby="return-qr-title"><section class="dialog-card"><button class="icon-button dialog-close" id="close-return-qr" type="button" aria-label="ปิด">×</button><div class="eyebrow">ยืนยันการส่งคืน</div><h2 id="return-qr-title">QR สำหรับรับของคืน</h2><p class="subtext" id="return-qr-item-name"></p><img id="return-qr-image" class="return-qr-image" alt="QR Code สำหรับยืนยันรับของคืน" /><p class="form-hint">QR ใช้ได้ครั้งเดียวและหมดอายุใน 60 นาที ให้ผู้รับสแกนเมื่อตรวจสอบสิ่งของเรียบร้อยแล้ว</p></section></dialog>
+    <dialog class="dialog" id="return-confirm-dialog" aria-labelledby="return-confirm-title"><section class="dialog-card"><div class="eyebrow">ยืนยันการรับคืน</div><h2 id="return-confirm-title">ได้รับสิ่งของคืนแล้วหรือไม่?</h2><p id="return-confirm-item" class="subtext"></p><p class="form-hint">ยืนยันแล้วระบบจะปิดประกาศนี้</p><p id="return-confirm-status" class="form-message" aria-live="polite"></p><div class="dialog-actions"><button class="button" id="cancel-return-confirm" type="button">ยังไม่ได้รับ</button><button class="button primary" id="confirm-return" type="button">ยืนยันว่าได้รับแล้ว</button></div></section></dialog>
     <dialog class="dialog" id="profile-dialog" aria-labelledby="profile-title">
       <form id="profile-form" class="dialog-card">
         <button class="icon-button dialog-close" id="close-profile" type="button" aria-label="ปิด">×</button>
@@ -464,25 +487,25 @@
           class="icon-button dialog-close"
           id="close-contact"
           type="button"
-          aria-label="Close"
+          aria-label="ปิดหน้าต่าง"
         >
           ×
         </button>
-        <div class="eyebrow">SCHOOL SUPPORT</div>
-        <h2 id="contact-title">Contact school staff</h2>
-        <p class="subtext" id="contact-intro">Tell the lost and found team how they can help.</p>
-        <label for="contact-message">Message</label
+        <div class="eyebrow">ติดต่อโรงเรียน</div>
+        <h2 id="contact-title">ติดต่อเจ้าหน้าที่</h2>
+        <p class="subtext" id="contact-intro">ส่งข้อความถึงเจ้าหน้าที่เพื่อขอความช่วยเหลือเรื่องของหายและของที่พบ</p>
+        <label for="contact-message">ข้อความ</label
         ><textarea
           id="contact-message"
           rows="5"
           maxlength="1000"
           required
-          placeholder="How can we help?"
+          placeholder="พิมพ์ข้อความที่ต้องการสอบถาม"
         ></textarea>
         <p id="contact-status" class="form-message" aria-live="polite"></p>
         <div class="dialog-actions">
-          <button class="button" id="cancel-contact" type="button">Cancel</button
-          ><button class="button primary" type="submit">Send message</button>
+          <button class="button" id="cancel-contact" type="button">ยกเลิก</button
+          ><button class="button primary" type="submit">ส่งข้อความ</button>
         </div>
       </form>
     </dialog>
@@ -492,17 +515,51 @@
           class="icon-button dialog-close"
           id="close-messages"
           type="button"
-          aria-label="Close"
+          aria-label="ปิดหน้าต่าง"
         >
           ×
         </button>
-        <div class="eyebrow">YOUR INBOX</div>
-        <h2 id="messages-title">Messages</h2>
+        <div class="eyebrow">กล่องข้อความของฉัน</div>
+        <h2 id="messages-title">ข้อความ</h2>
         <p class="subtext">ข้อความส่วนตัวและความคิดเห็นที่มีคนส่งถึงคุณจะแสดงที่นี่</p>
         <div id="message-list" class="message-list"></div>
-        <p id="messages-empty" class="empty-message hidden">No messages yet.</p>
+        <p id="messages-empty" class="empty-message hidden">ยังไม่มีข้อความ</p>
       </section>
     </dialog>
+    <dialog class="dialog" id="help-dialog" aria-labelledby="help-title">
+      <section class="dialog-card">
+        <button class="icon-button dialog-close" id="close-help" type="button" aria-label="ปิดหน้าต่าง">×</button>
+        <div class="eyebrow">คู่มือสำหรับนักเรียนและบุคลากร</div>
+        <h2 id="help-title">วิธีใช้งานศูนย์ติดตามของหาย</h2>
+        <p class="subtext">ใช้ระบบนี้เพื่อแจ้งของหาย แจ้งสิ่งของที่พบ และประสานการส่งคืนภายในโรงเรียน</p>
+        <ol class="help-steps">
+          <li><strong>สมัครสมาชิกและเข้าสู่ระบบ</strong><span>ใช้ชื่อจริงและรหัสนักเรียนของคุณ เพื่อให้เจ้าหน้าที่และเพื่อนนักเรียนติดต่อได้ถูกคน</span></li>
+          <li><strong>ค้นหาประกาศก่อน</strong><span>ค้นด้วยชื่อหรือคำสำคัญ แล้วกรองตามหมวดหมู่ สถานที่ วันที่ หรือเลือกดูประกาศของตนเอง</span></li>
+          <li><strong>ค้นหาด้วยรูปและบันทึกคำค้นหา</strong><span>เลือกรูปสิ่งของเพื่อดูประกาศที่ภาพใกล้เคียง หรือบันทึกตัวกรองเพื่อรับแจ้งเตือนเมื่อมีประกาศใหม่ คะแนนภาพเป็นเพียงตัวช่วย</span></li>
+          <li><strong>แจ้งของหายหรือแจ้งเก็บของได้</strong><span>ใส่ชื่อ ลักษณะ สี สถานที่ และวันที่ให้ชัดเจน เพิ่มรูปสิ่งของได้โดยหลีกเลี่ยงใบหน้าและข้อมูลส่วนตัว</span></li>
+          <li><strong>ตรวจรายการที่อาจตรงกัน</strong><span>ระบบเปรียบเทียบชื่อ หมวดหมู่ สี รายละเอียด สถานที่ วันที่ และภาพ คะแนนเป็นเพียงคำแนะนำ ควรตรวจสอบกับเจ้าของก่อนรับคืน</span></li>
+          <li><strong>หลีกเลี่ยงประกาศซ้ำ</strong><span>ก่อนส่งประกาศ ระบบจะแจ้งหากพบรายการประเภทเดียวกันที่อาจซ้ำ คุณตรวจดูก่อนแล้วเลือกว่าจะลงต่อหรือไม่</span></li>
+          <li><strong>ขอรับของคืน</strong><span>ในประกาศของที่พบ ส่งคำขอพร้อมรายละเอียดเฉพาะเพื่อยืนยันความเป็นเจ้าของ เจ้าของประกาศจะพิจารณาและระบบจะแจ้งผลให้ทราบ</span></li>
+          <li><strong>ยืนยันการส่งคืนด้วย QR</strong><span>หลังตรวจสอบและส่งมอบสิ่งของแล้ว เจ้าของประกาศสร้าง QR ให้ผู้รับสแกนและยืนยัน ระบบจะปิดประกาศเมื่อยืนยันสำเร็จ</span></li>
+          <li><strong>ดูรายการที่ยังไม่มีผู้รับ</strong><span>เลือกแท็บ “ยังไม่มีผู้รับ” เพื่อดูประกาศสิ่งของที่พบและยังเปิดอยู่ ประกาศจะหมดอายุตามระยะเวลาที่ผู้แจ้งเลือก</span></li>
+          <li><strong>รายงานประกาศที่มีปัญหา</strong><span>ใช้ปุ่มรายงานประกาศเพื่อแจ้งข้อมูลไม่ถูกต้อง เนื้อหาไม่เหมาะสม หรือข้อมูลส่วนตัวให้ผู้ดูแลตรวจสอบ</span></li>
+          <li><strong>ติดต่อกันอย่างปลอดภัย</strong><span>ใช้กล่องข้อความในระบบเพื่อสอบถามรายละเอียด และนัดส่งคืนกับเจ้าหน้าที่หรือในจุดที่โรงเรียนกำหนด</span></li>
+          <li><strong>ปิดประกาศเมื่อได้รับของคืน</strong><span>เจ้าของประกาศกด “ปิดประกาศแล้ว” เมื่อเรื่องเรียบร้อย หากยังตามหาอยู่สามารถเปิดประกาศอีกครั้งได้</span></li>
+        </ol>
+        <p class="form-hint">ข้อมูลติดต่อจะแสดงแก่สมาชิกที่เข้าสู่ระบบและดูประกาศได้ โปรดหลีกเลี่ยงการโพสต์รหัสผ่าน เลขประจำตัว หรือข้อมูลส่วนตัวที่ไม่จำเป็น</p>
+      </section>
+    </dialog>
+    <dialog class="dialog" id="notifications-dialog" aria-labelledby="notifications-title">
+      <section class="dialog-card">
+        <button class="icon-button dialog-close" id="close-notifications" type="button" aria-label="ปิด">×</button>
+        <div class="eyebrow">ประกาศที่อาจตรงกัน</div>
+        <h2 id="notifications-title">แจ้งเตือน</h2>
+        <p class="subtext">เมื่อมีประกาศของหายหรือของที่พบที่อาจตรงกับรายการของคุณ จะแสดงที่นี่</p>
+        <div id="notification-list" class="message-list"></div>
+        <p id="notifications-empty" class="empty-message hidden">ยังไม่มีรายการแจ้งเตือน</p>
+      </section>
+    </dialog>
+    <dialog class="dialog" id="saved-searches-dialog" aria-labelledby="saved-searches-title"><section class="dialog-card"><button class="icon-button dialog-close" id="close-saved-searches" type="button" aria-label="ปิด">×</button><div class="eyebrow">การค้นหาของฉัน</div><h2 id="saved-searches-title">คำค้นหาที่บันทึก</h2><p class="subtext">รายการใหม่ที่ตรงกับตัวกรองเหล่านี้จะแจ้งเตือนให้คุณ</p><div id="saved-searches-list" class="message-list"></div><p id="saved-searches-empty" class="empty-message hidden">ยังไม่มีคำค้นหาที่บันทึก</p></section></dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

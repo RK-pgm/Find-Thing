@@ -3,6 +3,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const QRCode = require('qrcode');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
 const ROOT = process.cwd();
@@ -20,8 +21,9 @@ const SESSION_MS = 12 * 60 * 60 * 1000;
 const ADMIN_NAME = 'AdminRK';
 const ADMIN_STUDENT_ID = 'T36699';
 const ADMIN_LOGIN_ID = process.env.ADMIN_LOGIN_ID || 'A1010';
-const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || (process.env.VERCEL ? '' : 'Admin001');
+const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || '';
 const loginAttempts = new Map();
+let localStoreWriteQueue = Promise.resolve();
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -40,27 +42,44 @@ if (!process.env.VERCEL) {
 function assertDeploymentConfig() {
   if (!process.env.VERCEL) return;
   const missing = [];
-  if (!KV_URL || !KV_TOKEN) missing.push('Upstash Redis REST credentials');
-  if (!SESSION_SECRET) missing.push('SESSION_SECRET');
+  if (!KV_URL || !KV_TOKEN) missing.push('ข้อมูลเชื่อมต่อฐานข้อมูล Redis (Upstash)');
+  if (!SESSION_SECRET) missing.push('SESSION_SECRET (รหัสความปลอดภัยของเซสชัน)');
   if (missing.length) {
-    const error = new Error(`Deployment setup is incomplete: configure ${missing.join(' and ')}.`);
+    const error = new Error(`การตั้งค่าระบบยังไม่ครบ กรุณาตั้งค่า ${missing.join(' และ ')} ก่อนใช้งาน`);
     error.status = 503;
     throw error;
   }
 }
 function emptyStore() {
-  return { users: [], items: [], messages: [], staffMessages: [], comments: [] };
+  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [] };
 }
 function normalizeStore(value) {
   const store = { ...emptyStore(), ...(value && typeof value === 'object' ? value : {}) };
-  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments']) {
+  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches']) {
     if (!Array.isArray(store[key])) store[key] = [];
   }
   return store;
 }
+function isExpiredItem(item, now = Date.now()) {
+  if (item.status === 'expired') return true;
+  return Boolean(item.expiresAt && Number.isFinite(Date.parse(item.expiresAt)) && Date.parse(item.expiresAt) <= now && ['open', 'reviewing'].includes(item.status));
+}
+function normalizedExpiryDays(value) {
+  const days = Number(value);
+  return [30, 60, 90].includes(days) ? days : 30;
+}
+function hashReturnToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+function tokenMatchesHash(token, expectedHash) {
+  if (!/^[a-f\d]{64}$/i.test(expectedHash || '')) return false;
+  const received = Buffer.from(hashReturnToken(token), 'hex');
+  const expected = Buffer.from(expectedHash, 'hex');
+  return received.length === expected.length && crypto.timingSafeEqual(received, expected);
+}
 async function redisCommand(...command) {
   if (!KV_URL || !KV_TOKEN) {
-    const error = new Error('Persistent storage is not configured. Connect Upstash Redis and set its REST URL and token.');
+    const error = new Error('ยังไม่ได้ตั้งค่าฐานข้อมูล กรุณาติดต่อผู้ดูแลระบบ');
     error.status = 503;
     throw error;
   }
@@ -75,7 +94,7 @@ async function redisCommand(...command) {
   const result = await response.json().catch(() => ({}));
   if (!response.ok || result.error) {
     console.error('Upstash Redis request failed:', result.error || response.status);
-    const error = new Error('The persistent data store is temporarily unavailable.');
+    const error = new Error('ฐานข้อมูลขัดข้องชั่วคราว กรุณาลองอีกครั้ง');
     error.status = 503;
     throw error;
   }
@@ -88,8 +107,11 @@ async function readStore() {
   }
   try {
     return normalizeStore(JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')));
-  } catch {
-    return emptyStore();
+  } catch (cause) {
+    if (cause.code === 'ENOENT') return emptyStore();
+    const error = new Error('ไม่สามารถอ่านข้อมูลในเครื่องได้ กรุณาติดต่อผู้ดูแลระบบ');
+    error.status = 503;
+    throw error;
   }
 }
 async function writeStore(store) {
@@ -102,19 +124,30 @@ async function writeStore(store) {
   fs.renameSync(temp, DATA_FILE);
 }
 async function acquireStoreLock() {
-  if (!(process.env.VERCEL || KV_URL || KV_TOKEN)) return null;
+  if (!(process.env.VERCEL || KV_URL || KV_TOKEN)) {
+    let unlock;
+    const lock = new Promise((resolve) => { unlock = resolve; });
+    const previous = localStoreWriteQueue;
+    localStoreWriteQueue = lock;
+    await previous;
+    return { local: true, unlock };
+  }
   const token = crypto.randomUUID();
   for (let attempt = 0; attempt < 25; attempt++) {
     const acquired = await redisCommand('SET', KV_LOCK_KEY, token, 'NX', 'PX', 12000);
     if (acquired === 'OK') return token;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  const error = new Error('The data store is busy. Please try again.');
+  const error = new Error('ระบบกำลังบันทึกข้อมูล กรุณาลองอีกครั้ง');
   error.status = 503;
   throw error;
 }
 async function releaseStoreLock(token) {
   if (!token) return;
+  if (token.local) {
+    token.unlock();
+    return;
+  }
   const script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
   try {
     await redisCommand('EVAL', script, 1, KV_LOCK_KEY, token);
@@ -124,7 +157,7 @@ async function releaseStoreLock(token) {
 }
 function sessionCookie(userId) {
   if (!SESSION_SECRET) {
-    const error = new Error('SESSION_SECRET must be configured for Vercel.');
+    const error = new Error('ระบบยังตั้งค่าความปลอดภัยไม่ครบ กรุณาติดต่อผู้ดูแลระบบ');
     error.status = 503;
     throw error;
   }
@@ -170,7 +203,7 @@ function readBody(req) {
     req.on('data', (chunk) => {
       size += chunk.length;
       if (size > BODY_LIMIT) {
-        reject(Object.assign(new Error('Request too large'), { status: 413 }));
+        reject(Object.assign(new Error('ข้อมูลที่ส่งมีขนาดใหญ่เกินไป'), { status: 413 }));
         req.destroy();
         return;
       }
@@ -180,7 +213,7 @@ function readBody(req) {
       try {
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
       } catch {
-        reject(Object.assign(new Error('Invalid JSON'), { status: 400 }));
+        reject(Object.assign(new Error('รูปแบบข้อมูลไม่ถูกต้อง'), { status: 400 }));
       }
     });
     req.on('error', reject);
@@ -213,7 +246,7 @@ async function getUser(req) {
 async function requireUser(req, res) {
   const user = await getUser(req);
   if (!user) {
-    json(res, 401, { error: 'Please log in to continue.' });
+    json(res, 401, { error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน' });
     return null;
   }
   return user;
@@ -222,7 +255,7 @@ async function requireAdmin(req, res) {
   const user = await requireUser(req, res);
   if (!user) return null;
   if (user.role !== 'admin') {
-    json(res, 403, { error: 'Administrator access is required.' });
+    json(res, 403, { error: 'เฉพาะผู้ดูแลระบบเท่านั้นที่ใช้งานส่วนนี้ได้' });
     return null;
   }
   return user;
@@ -315,8 +348,8 @@ function imageSimilarity(left, right) {
   const colorScore = 1 - Math.min(1, histogramDistance / 6);
   return hashScore * 0.55 + colorScore * 0.45;
 }
-function matchAnalysis(a, b) {
-  if (a.type === b.type) return { score: 0, imageScore: null, reasons: [] };
+function matchAnalysis(a, b, allowSameType = false) {
+  if (a.type === b.type && !allowSameType) return { score: 0, imageScore: null, reasons: [] };
   const sameCategory = normalizedMatchText(a.category) && normalizedMatchText(b.category)
     ? Number(normalizedMatchText(a.category) === normalizedMatchText(b.category))
     : null;
@@ -352,8 +385,8 @@ function matchAnalysis(a, b) {
 }
 function withMatches(items) {
   return items.map((item) => {
-    const possibleMatches = items
-      .filter((other) => other.id !== item.id && other.type !== item.type)
+    const possibleMatches = ['resolved', 'expired'].includes(item.status) ? [] : items
+      .filter((other) => other.id !== item.id && other.type !== item.type && !['resolved', 'expired'].includes(other.status))
       .map((other) => ({ itemId: other.id, ...matchAnalysis(item, other) }))
       .filter((match) => match.score >= 28)
       .sort((left, right) => right.score - left.score)
@@ -362,15 +395,36 @@ function withMatches(items) {
     return { ...publicItem, possibleMatches };
   });
 }
+function savedSearchMatchesItem(search, item) {
+  if (search.type && search.type !== 'all' && search.type !== item.type) return false;
+  if (search.category && search.category !== item.category) return false;
+  if (search.location && search.location !== item.location) return false;
+  if (search.date && search.date !== item.date) return false;
+  const query = normalizedMatchText(search.query);
+  if (!query) return true;
+  const haystack = normalizedMatchText(`${item.itemName} ${item.category} ${item.color} ${item.location} ${item.description}`);
+  return haystack.includes(query);
+}
+function removeNotificationsForItems(store, itemIds) {
+  const ids = itemIds instanceof Set ? itemIds : new Set([itemIds]);
+  store.notifications = store.notifications.filter(
+    (notification) =>
+      !ids.has(notification.sourceItemId) &&
+      !ids.has(notification.matchItemId) &&
+      !ids.has(notification.targetItemId),
+  );
+}
 function sendFile(res, filename) {
   const ext = path.extname(filename).toLowerCase();
-  if (!MIME[ext]) return json(res, 404, { error: 'Not found.' });
+  if (!MIME[ext]) return json(res, 404, { error: 'ไม่พบข้อมูลที่ต้องการ' });
   fs.readFile(filename, (error, content) => {
-    if (error) return json(res, 404, { error: 'Not found.' });
+    if (error) return json(res, 404, { error: 'ไม่พบข้อมูลที่ต้องการ' });
     res.writeHead(200, {
       'Content-Type': MIME[ext],
       'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=3600',
+      'Cache-Control': ['.html', '.js', '.css'].includes(ext)
+        ? 'no-cache'
+        : 'public, max-age=3600',
     });
     res.end(content);
   });
@@ -385,17 +439,17 @@ async function handler(req, res) {
     ? requestedPath.slice(0, -3)
     : requestedPath;
   if (route.startsWith('/api/') && req.method !== 'GET' && !validOrigin(req))
-    return json(res, 403, { error: 'Request origin was not accepted.' });
+    return json(res, 403, { error: 'คำขอนี้มาจากแหล่งที่ไม่อนุญาต' });
   let lockToken = null;
   try {
     if (route.startsWith('/api/')) assertDeploymentConfig();
-    if (['POST', 'DELETE'].includes(req.method) && route.startsWith('/api/'))
+    if (['POST', 'PUT', 'DELETE'].includes(req.method) && route.startsWith('/api/'))
       lockToken = await acquireStoreLock();
     if (req.method === 'GET' && route === '/api/session') {
       const user = await getUser(req);
       return user
         ? json(res, 200, { user: cleanUser(user) })
-        : json(res, 401, { error: 'Not logged in.' });
+        : json(res, 401, { error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน' });
     }
     if (req.method === 'POST' && route === '/api/profile') {
       const user = await requireUser(req, res);
@@ -405,12 +459,12 @@ async function handler(req, res) {
       const grade = String(body.grade || '').trim();
       const school = String(body.school || '').trim();
       if (name.length < 2 || name.length > 80)
-        return json(res, 400, { error: 'Name must contain 2–80 characters.' });
-      if (grade.length > 40) return json(res, 400, { error: 'Class must be 40 characters or fewer.' });
-      if (school.length > 100) return json(res, 400, { error: 'School must be 100 characters or fewer.' });
+        return json(res, 400, { error: 'ชื่อต้องมีความยาว 2–80 ตัวอักษร' });
+      if (grade.length > 40) return json(res, 400, { error: 'ชั้นเรียนต้องมีความยาวไม่เกิน 40 ตัวอักษร' });
+      if (school.length > 100) return json(res, 400, { error: 'ชื่อโรงเรียนต้องมีความยาวไม่เกิน 100 ตัวอักษร' });
       const store = await readStore();
       const account = store.users.find((entry) => entry.id === user.id);
-      if (!account) return json(res, 404, { error: 'Account not found.' });
+      if (!account) return json(res, 404, { error: 'ไม่พบบัญชีผู้ใช้' });
       account.name = name;
       account.grade = grade;
       account.school = school;
@@ -426,35 +480,35 @@ async function handler(req, res) {
       const studentId = String(body.studentId || '').trim();
       const password = String(body.password || '');
       if (name.length < 2 || name.length > 80)
-        return json(res, 400, { error: 'Enter a name between 2 and 80 characters.' });
+        return json(res, 400, { error: 'กรุณากรอกชื่อความยาว 2–80 ตัวอักษร' });
       if (!/^[A-Za-z0-9-]{2,40}$/.test(studentId))
         return json(res, 400, {
-          error: 'Student ID must contain 2–40 letters, numbers, or hyphens.',
+          error: 'รหัสนักเรียนต้องมีความยาว 2–40 ตัว และใช้ได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข หรือเครื่องหมายขีดกลาง',
         });
       if (studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase())
-        return json(res, 403, { error: 'This login ID is reserved for the administrator.' });
+        return json(res, 403, { error: 'รหัสนี้สงวนไว้สำหรับบัญชีผู้ดูแลระบบ' });
       if (password.length < 8 || password.length > 128)
-        return json(res, 400, { error: 'Password must contain at least 8 characters.' });
+        return json(res, 400, { error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
       const adminCandidate = isAdminIdentity(name, studentId);
       if (studentId.toLocaleUpperCase() === ADMIN_STUDENT_ID && !adminCandidate)
-        return json(res, 403, { error: 'This student ID is reserved for the administrator.' });
+        return json(res, 403, { error: 'รหัสนักเรียนนี้สงวนไว้สำหรับบัญชีผู้ดูแลระบบ' });
       if (adminCandidate && !matchesAdminSetupCode(body.adminSetupCode))
         return json(res, 403, {
-          error: 'Enter the administrator setup code configured for this deployment.',
+          error: 'กรุณากรอกรหัสตั้งค่าบัญชีผู้ดูแลที่กำหนดไว้ในระบบ',
         });
       const store = await readStore();
       if (store.users.some((u) => u.studentId.toLowerCase() === studentId.toLowerCase()))
-        return json(res, 409, { error: 'That student ID already has an account.' });
+        return json(res, 409, { error: 'รหัสนักเรียนนี้มีบัญชีอยู่แล้ว' });
       const salt = crypto.randomBytes(16).toString('hex');
       const hash = await scrypt(password, salt, 64);
       const latestStore = await readStore();
       if (latestStore.users.some((u) => u.studentId.toLowerCase() === studentId.toLowerCase()))
-        return json(res, 409, { error: 'That student ID already has an account.' });
+        return json(res, 409, { error: 'รหัสนักเรียนนี้มีบัญชีอยู่แล้ว' });
       if (adminCandidate) {
         if (!matchesAdminSetupCode(body.adminSetupCode))
-          return json(res, 403, { error: 'The administrator setup code is no longer valid.' });
+          return json(res, 403, { error: 'รหัสตั้งค่าผู้ดูแลหมดอายุหรือไม่ถูกต้อง' });
         if (latestStore.users.some((user) => user.role === 'admin'))
-          return json(res, 409, { error: 'An administrator account already exists.' });
+          return json(res, 409, { error: 'มีบัญชีผู้ดูแลระบบอยู่แล้ว' });
       }
       const staffId = String(process.env.STAFF_STUDENT_ID || '')
         .trim()
@@ -490,24 +544,24 @@ async function handler(req, res) {
       const now = Date.now();
       const attempts = (loginAttempts.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
       if (attempts.length >= 20)
-        return json(res, 429, { error: 'Too many attempts. Please wait and try again.' });
+        return json(res, 429, { error: 'เข้าสู่ระบบไม่สำเร็จหลายครั้ง กรุณารอสักครู่แล้วลองใหม่' });
       const body = await readBody(req);
       const studentId = String(body.studentId || '').trim();
       const password = String(body.password || '');
       if (studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase()) {
         if (!ADMIN_LOGIN_PASSWORD)
-          return json(res, 503, { error: 'Administrator login is not configured for this deployment.' });
+          return json(res, 503, { error: 'ยังไม่ได้เปิดใช้งานการเข้าสู่ระบบผู้ดูแลช่องทางนี้ กรุณาติดต่อผู้ดูแลระบบ' });
         const provided = Buffer.from(password);
         const expected = Buffer.from(ADMIN_LOGIN_PASSWORD);
         if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
           attempts.push(now);
           loginAttempts.set(ip, attempts);
-          return json(res, 401, { error: 'Administrator ID or password is incorrect.' });
+          return json(res, 401, { error: 'รหัสผู้ดูแลหรือรหัสผ่านไม่ถูกต้อง' });
         }
         const store = await readStore();
         let admin = store.users.find((user) => user.studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase());
         if (admin && admin.role !== 'admin')
-          return json(res, 409, { error: 'The administrator login ID is already assigned to a non-admin account.' });
+          return json(res, 409, { error: 'รหัสเข้าสู่ระบบนี้ถูกใช้กับบัญชีที่ไม่ใช่ผู้ดูแลแล้ว' });
         if (!admin) {
           const salt = crypto.randomBytes(16).toString('hex');
           const hash = await scrypt(ADMIN_LOGIN_PASSWORD, salt, 64);
@@ -534,7 +588,7 @@ async function handler(req, res) {
       if (!valid) {
         attempts.push(now);
         loginAttempts.set(ip, attempts);
-        return json(res, 401, { error: 'Student ID or password is incorrect.' });
+        return json(res, 401, { error: 'รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง' });
       }
       loginAttempts.delete(ip);
       const cookie = sessionCookie(user.id);
@@ -573,19 +627,59 @@ async function handler(req, res) {
       const status = String(body.status || '');
       const assignedTo = String(body.assignedTo || '').trim();
       if (!/^[\da-f-]{36}$/i.test(itemId))
-        return json(res, 400, { error: 'Invalid report ID.' });
-      if (!['open', 'reviewing', 'resolved'].includes(status))
-        return json(res, 400, { error: 'Choose a valid work status.' });
+        return json(res, 400, { error: 'รหัสประกาศไม่ถูกต้อง' });
+      if (!['open', 'reviewing', 'resolved', 'expired'].includes(status))
+        return json(res, 400, { error: 'กรุณาเลือกสถานะงานที่ถูกต้อง' });
       if (assignedTo.length > 80)
-        return json(res, 400, { error: 'Assignee name must be 80 characters or fewer.' });
+        return json(res, 400, { error: 'ชื่อผู้รับผิดชอบต้องมีความยาวไม่เกิน 80 ตัวอักษร' });
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item) return json(res, 404, { error: 'Report not found.' });
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status !== status) {
+        item.returnTokenHash = null;
+        item.returnTokenExpiresAt = null;
+      }
       item.status = status;
       item.assignedTo = assignedTo;
       item.updatedAt = new Date().toISOString();
+      if (status === 'resolved') {
+        removeNotificationsForItems(store, itemId);
+        item.returnTokenHash = null;
+        item.returnTokenExpiresAt = null;
+      }
+      if (status === 'open') item.expiresAt = new Date(Date.now() + normalizedExpiryDays(item.expiryDays) * 86400000).toISOString();
       await writeStore(store);
       return json(res, 200, { ok: true, itemId, status, assignedTo });
+    }
+    if (req.method === 'POST' && route === '/api/items/status') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const itemId = String(body.itemId || '');
+      const status = String(body.status || '');
+      if (!/^[\da-f-]{36}$/i.test(itemId))
+        return json(res, 400, { error: 'รหัสประกาศไม่ถูกต้อง' });
+      if (!['open', 'resolved'].includes(status))
+        return json(res, 400, { error: 'กรุณาเลือกสถานะประกาศที่ถูกต้อง' });
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.ownerId !== user.id && user.role !== 'admin')
+        return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่เปลี่ยนสถานะได้' });
+      item.status = status;
+      item.updatedAt = new Date().toISOString();
+      if (status === 'resolved') removeNotificationsForItems(store, itemId);
+      if (status === 'resolved') {
+        item.returnTokenHash = null;
+        item.returnTokenExpiresAt = null;
+      }
+      if (status === 'open') {
+        item.expiresAt = new Date(Date.now() + normalizedExpiryDays(item.expiryDays) * 86400000).toISOString();
+        item.returnTokenHash = null;
+        item.returnTokenExpiresAt = null;
+      }
+      await writeStore(store);
+      return json(res, 200, { ok: true, itemId, status });
     }
     if (req.method === 'GET' && route === '/api/admin/users') {
       if (!(await requireAdmin(req, res))) return;
@@ -608,17 +702,23 @@ async function handler(req, res) {
       if (!admin) return;
       const targetId = req.method === 'DELETE' ? route.slice('/api/admin/users/'.length) : String((await readBody(req)).userId || '');
       if (!/^[\da-f-]{36}$/i.test(targetId))
-        return json(res, 400, { error: 'Invalid account ID.' });
+        return json(res, 400, { error: 'รหัสบัญชีไม่ถูกต้อง' });
       if (targetId === admin.id)
-        return json(res, 403, { error: 'You cannot delete your own administrator account.' });
+        return json(res, 403, { error: 'ไม่สามารถลบบัญชีผู้ดูแลของตนเองได้' });
       const store = await readStore();
       const target = store.users.find((user) => user.id === targetId);
-      if (!target) return json(res, 404, { error: 'Account not found.' });
+      if (!target) return json(res, 404, { error: 'ไม่พบบัญชีผู้ใช้' });
       if (target.role === 'admin')
-        return json(res, 403, { error: 'Administrator accounts are protected.' });
+        return json(res, 403, { error: 'ไม่สามารถลบบัญชีผู้ดูแลระบบได้' });
       const removedItems = store.items.filter((item) => item.ownerId === targetId);
       store.users = store.users.filter((user) => user.id !== targetId);
       store.items = store.items.filter((item) => item.ownerId !== targetId);
+      const removedItemIds = new Set(removedItems.map((item) => item.id));
+      store.notifications = store.notifications.filter((notification) => notification.userId !== targetId);
+      removeNotificationsForItems(store, removedItemIds);
+      store.claims = store.claims.filter((claim) => claim.fromId !== targetId && claim.ownerId !== targetId && !removedItemIds.has(claim.itemId));
+      store.itemReports = store.itemReports.filter((report) => report.fromId !== targetId && !removedItemIds.has(report.itemId));
+      store.savedSearches = store.savedSearches.filter((search) => search.userId !== targetId);
       store.messages = store.messages.filter(
         (message) => message.fromId !== targetId && message.toId !== targetId,
       );
@@ -649,20 +749,91 @@ async function handler(req, res) {
       }
       return json(res, 200, { ok: true });
     }
+    if (req.method === 'PUT' && route.startsWith('/api/items/')) {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const itemId = route.slice('/api/items/'.length);
+      const body = await readBody(req);
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.ownerId !== user.id && user.role !== 'admin')
+        return json(res, 403, { error: 'แก้ไขได้เฉพาะประกาศของตนเอง' });
+      const itemName = String(body.itemName || '').trim();
+      const category = String(body.category || '');
+      const location = String(body.location || '');
+      const date = String(body.date || '');
+      const parsedDate = Date.parse(`${date}T00:00:00Z`);
+      if (itemName.length < 2 || itemName.length > 90 || !['lost', 'found'].includes(body.type))
+        return json(res, 400, { error: 'กรุณาตรวจสอบชื่อและประเภทประกาศ' });
+      if (!['School supplies', 'Stationery', 'Clothing', 'Personal items', 'Bags', 'Phones', 'Electronics', 'Other'].includes(category))
+        return json(res, 400, { error: 'กรุณาเลือกหมวดหมู่ที่ถูกต้อง' });
+      if (!['Classroom', 'Library', 'Cafeteria', 'Sports area', 'Other'].includes(location))
+        return json(res, 400, { error: 'กรุณาเลือกสถานที่ที่ถูกต้อง' });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate) || new Date(parsedDate).toISOString().slice(0, 10) !== date)
+        return json(res, 400, { error: 'กรุณาระบุวันที่ให้ถูกต้อง' });
+      item.type = body.type;
+      item.itemName = itemName;
+      item.reporterName = String(body.reporterName || user.name).trim().slice(0, 80);
+      item.category = category;
+      item.color = String(body.color || '').trim().slice(0, 40);
+      item.description = String(body.description || '').trim().slice(0, 500);
+      item.contact = String(body.contact || '').trim().slice(0, 100);
+      item.location = location;
+      item.date = date;
+      item.eventTime = /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '';
+      item.expiryDays = normalizedExpiryDays(body.expiryDays);
+      item.expiresAt = new Date(Date.now() + item.expiryDays * 86400000).toISOString();
+      item.returnTokenHash = null;
+      item.returnTokenExpiresAt = null;
+      item.updatedAt = new Date().toISOString();
+      let oldPhoto = null;
+      if (body.photo) {
+        const photo = mimeFromData(body.photo);
+        if (!photo) return json(res, 400, { error: 'รูปภาพต้องเป็นไฟล์ JPG, PNG หรือ WebP และมีขนาดไม่เกิน 3 MB' });
+        const ext = photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
+        const filename = crypto.randomUUID() + ext;
+        oldPhoto = item.photo;
+        if (process.env.VERCEL) {
+          const { put } = require('@vercel/blob');
+          const blob = await put(`found-it/${filename}`, photo.bytes, { access: 'public', contentType: photo.type, addRandomSuffix: false, cacheControlMaxAge: 31536000 });
+          item.photo = blob.url;
+        } else {
+          fs.writeFileSync(path.join(PHOTO_DIR, filename), photo.bytes, { flag: 'wx' });
+          item.photo = '/uploads/' + filename;
+        }
+        item.imageFeatures = normalizeImageFeatures(body.imageFeatures);
+      }
+      await writeStore(store);
+      if (oldPhoto) {
+        try {
+          if (oldPhoto.startsWith('https://') && process.env.VERCEL) {
+            const { del } = require('@vercel/blob');
+            await del(oldPhoto);
+          } else if (oldPhoto.startsWith('/uploads/')) {
+            fs.unlinkSync(path.join(PHOTO_DIR, path.basename(oldPhoto)));
+          }
+        } catch (error) { if (error.code !== 'ENOENT') console.error('Could not remove replaced item photo:', error); }
+      }
+      return json(res, 200, { ok: true, item });
+    }
     if (req.method === 'DELETE' && route.startsWith('/api/items/')) {
       const user = await requireUser(req, res);
       if (!user) return;
       const itemId = route.slice('/api/items/'.length);
       if (!/^[\da-f-]{36}$/i.test(itemId))
-        return json(res, 400, { error: 'Invalid report ID.' });
+        return json(res, 400, { error: 'รหัสประกาศไม่ถูกต้อง' });
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item) return json(res, 404, { error: 'Report not found.' });
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId !== user.id && user.role !== 'admin')
-        return json(res, 403, { error: 'Only the report owner or an administrator can delete this post.' });
+        return json(res, 403, { error: 'เฉพาะเจ้าของประกาศหรือผู้ดูแลระบบเท่านั้นที่ลบประกาศนี้ได้' });
       store.items = store.items.filter((entry) => entry.id !== itemId);
       store.comments = store.comments.filter((comment) => comment.itemId !== itemId);
       store.messages = store.messages.filter((message) => message.itemId !== itemId);
+      store.claims = store.claims.filter((claim) => claim.itemId !== itemId);
+      store.itemReports = store.itemReports.filter((report) => report.itemId !== itemId);
+      removeNotificationsForItems(store, itemId);
       await writeStore(store);
       if (typeof item.photo === 'string') {
         try {
@@ -680,6 +851,133 @@ async function handler(req, res) {
       }
       return json(res, 200, { ok: true, itemId });
     }
+    if (req.method === 'POST' && route.startsWith('/api/items/') && route.endsWith('/return-qr')) {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const itemId = route.slice('/api/items/'.length, -'/return-qr'.length);
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.ownerId !== user.id && user.role !== 'admin') return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่สร้าง QR ได้' });
+      if (item.status !== 'open' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ไม่ได้เปิดรับการยืนยันรับคืนแล้ว' });
+      const token = crypto.randomBytes(32).toString('base64url');
+      item.returnTokenHash = hashReturnToken(token);
+      item.returnTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      await writeStore(store);
+      const appBase = process.env.PUBLIC_APP_URL || req.headers.origin || `${req.headers['x-forwarded-proto'] || (process.env.VERCEL ? 'https' : 'http')}://${req.headers['x-forwarded-host'] || req.headers.host}`;
+      const returnUrl = new URL('/', appBase);
+      returnUrl.hash = new URLSearchParams({ returnToken: token }).toString();
+      const qrCode = await QRCode.toDataURL(returnUrl.toString(), { errorCorrectionLevel: 'M', margin: 2, width: 300 });
+      return json(res, 200, { qrCode, itemName: item.itemName, expiresAt: item.returnTokenExpiresAt });
+    }
+    if (req.method === 'POST' && route === '/api/return-preview') {
+      if (!(await requireUser(req, res))) return;
+      const body = await readBody(req);
+      const token = String(body.token || '');
+      const store = await readStore();
+      const item = store.items.find((entry) => tokenMatchesHash(token, entry.returnTokenHash));
+      if (!item || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
+        return json(res, 404, { error: 'QR หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอ QR ใหม่จากผู้แจ้ง' });
+      return json(res, 200, { itemId: item.id, itemName: item.itemName, type: item.type });
+    }
+    if (req.method === 'POST' && route === '/api/return-confirm') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const store = await readStore();
+      const item = store.items.find((entry) => tokenMatchesHash(String(body.token || ''), entry.returnTokenHash));
+      if (!item || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
+        return json(res, 404, { error: 'QR หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอ QR ใหม่จากผู้แจ้ง' });
+      if (item.ownerId === user.id) return json(res, 403, { error: 'ให้ผู้รับสิ่งของเป็นผู้สแกน QR เพื่อยืนยัน' });
+      item.status = 'resolved';
+      item.returnedAt = new Date().toISOString();
+      item.returnConfirmedBy = user.id;
+      item.returnTokenHash = null;
+      item.returnTokenExpiresAt = null;
+      for (const claim of store.claims.filter((entry) => entry.itemId === item.id)) {
+        if (claim.fromId === user.id && claim.status === 'approved') claim.status = 'fulfilled';
+        else if (claim.status === 'pending') claim.status = 'rejected';
+      }
+      removeNotificationsForItems(store, item.id);
+      store.notifications.push({ id: crypto.randomUUID(), type: 'return_confirmed', userId: item.ownerId, itemName: item.itemName, targetItemId: item.id, createdAt: item.returnedAt, readAt: null });
+      await writeStore(store);
+      return json(res, 200, { ok: true, itemId: item.id, itemName: item.itemName });
+    }
+    if (req.method === 'POST' && route === '/api/items/check') {
+      if (!(await requireUser(req, res))) return;
+      const body = await readBody(req);
+      const draft = {
+        type: body.type,
+        itemName: String(body.itemName || '').slice(0, 90),
+        category: String(body.category || ''),
+        color: String(body.color || '').slice(0, 40),
+        description: String(body.description || '').slice(0, 500),
+        location: String(body.location || ''),
+        date: String(body.date || ''),
+        imageFeatures: normalizeImageFeatures(body.imageFeatures),
+      };
+      if (!['lost', 'found'].includes(draft.type)) return json(res, 400, { error: 'กรุณาเลือกประเภทประกาศ' });
+      const duplicates = (await readStore()).items
+        .filter((item) => item.type === draft.type && !['resolved', 'expired'].includes(item.status) && !isExpiredItem(item))
+        .map((item) => ({ itemId: item.id, itemName: item.itemName, ...matchAnalysis(draft, item, true) }))
+        .filter((match) => match.score >= 52)
+        .sort((left, right) => right.score - left.score)
+        .slice(0, 3);
+      return json(res, 200, { duplicates });
+    }
+    if (req.method === 'POST' && route === '/api/image-search') {
+      if (!(await requireUser(req, res))) return;
+      const body = await readBody(req);
+      const imageFeatures = normalizeImageFeatures(body.imageFeatures);
+      if (!imageFeatures) return json(res, 400, { error: 'อ่านข้อมูลจากรูปภาพไม่สำเร็จ กรุณาเลือกรูปใหม่' });
+      const matches = (await readStore()).items
+        .filter((item) => item.status !== 'resolved' && item.imageFeatures)
+        .map((item) => ({ itemId: item.id, score: imageSimilarity(imageFeatures, item.imageFeatures) }))
+        .filter((match) => match.score !== null && match.score >= 0.35)
+        .sort((left, right) => right.score - left.score)
+        .slice(0, 20)
+        .map((match) => ({ ...match, score: Math.round(match.score * 100) }));
+      return json(res, 200, { matches });
+    }
+    if (req.method === 'GET' && route === '/api/saved-searches') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const savedSearches = (await readStore()).savedSearches.filter((search) => search.userId === user.id);
+      return json(res, 200, { savedSearches });
+    }
+    if (req.method === 'POST' && route === '/api/saved-searches') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const search = {
+        userId: user.id,
+        query: String(body.query || '').trim().slice(0, 100),
+        category: String(body.category || ''),
+        location: String(body.location || ''),
+        date: String(body.date || ''),
+        type: ['all', 'lost', 'found'].includes(body.type) ? body.type : 'all',
+      };
+      if (!search.query && !search.category && !search.location && !search.date && search.type === 'all')
+        return json(res, 400, { error: 'กรุณาระบุคำค้นหาหรือเลือกตัวกรองอย่างน้อยหนึ่งรายการ' });
+      const store = await readStore();
+      if (store.savedSearches.some((entry) => entry.userId === user.id && entry.query === search.query && entry.category === search.category && entry.location === search.location && entry.date === search.date && entry.type === search.type))
+        return json(res, 409, { error: 'บันทึกการค้นหานี้ไว้แล้ว' });
+      const savedSearch = { id: crypto.randomUUID(), ...search, createdAt: new Date().toISOString() };
+      store.savedSearches.push(savedSearch);
+      await writeStore(store);
+      return json(res, 201, { savedSearch });
+    }
+    if (req.method === 'DELETE' && route.startsWith('/api/saved-searches/')) {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const id = route.slice('/api/saved-searches/'.length);
+      const store = await readStore();
+      const search = store.savedSearches.find((entry) => entry.id === id && entry.userId === user.id);
+      if (!search) return json(res, 404, { error: 'ไม่พบรายการค้นหาที่บันทึกไว้' });
+      store.savedSearches = store.savedSearches.filter((entry) => entry.id !== id);
+      await writeStore(store);
+      return json(res, 200, { ok: true });
+    }
     if (req.method === 'GET' && route === '/api/items') {
       if (!(await requireUser(req, res))) return;
       const store = await readStore();
@@ -692,17 +990,41 @@ async function handler(req, res) {
         .map((item) => {
           return {
             ...item,
+            status: isExpiredItem(item) ? 'expired' : item.status,
             commentCount: commentCounts.get(item.id) || 0,
           };
         });
       return json(res, 200, { items: withMatches(items) });
     }
+    if (req.method === 'GET' && route === '/api/notifications') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const userNotifications = (await readStore()).notifications
+        .filter((notification) => notification.userId === user.id)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, {
+        notifications: userNotifications.slice(0, 50),
+        unreadCount: userNotifications.filter((notification) => !notification.readAt).length,
+      });
+    }
+    if (req.method === 'POST' && route === '/api/notifications/read') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const store = await readStore();
+      const readAt = new Date().toISOString();
+      store.notifications.forEach((notification) => {
+        if (notification.userId === user.id && !notification.readAt) notification.readAt = readAt;
+      });
+      await writeStore(store);
+      return json(res, 200, { ok: true });
+    }
     if (req.method === 'GET' && route === '/api/comments') {
       if (!(await requireUser(req, res))) return;
       const itemId = String(url.searchParams.get('itemId') || '');
       const store = await readStore();
-      if (!store.items.some((item) => item.id === itemId))
-        return json(res, 404, { error: 'Report not found.' });
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item)
+        return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       const comments = store.comments
         .filter((comment) => comment.itemId === itemId)
         .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -716,12 +1038,14 @@ async function handler(req, res) {
       const text = String(body.text || '').trim();
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
-      if (!item) return json(res, 404, { error: 'Report not found.' });
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status === 'resolved' || isExpiredItem(item))
+        return json(res, 409, { error: 'ประกาศนี้ปิดแล้วและไม่รับความคิดเห็นใหม่' });
       if (text.length < 1 || text.length > 1000)
-        return json(res, 400, { error: 'Comment must contain 1–1,000 characters.' });
+        return json(res, 400, { error: 'ความคิดเห็นต้องมีความยาว 1–1,000 ตัวอักษร' });
       const parentId = String(body.parentId || '');
       const parent = parentId ? store.comments.find((entry) => entry.id === parentId && entry.itemId === itemId) : null;
-      if (parentId && !parent) return json(res, 404, { error: 'Comment not found.' });
+      if (parentId && !parent) return json(res, 404, { error: 'ไม่พบความคิดเห็นที่ต้องการตอบกลับ' });
       const comment = {
         id: crypto.randomUUID(),
         itemId,
@@ -748,21 +1072,26 @@ async function handler(req, res) {
       const location = String(body.location || '');
       const date = String(body.date || '');
       if (itemName.length < 2 || itemName.length > 90)
-        return json(res, 400, { error: 'Enter an item name between 2 and 90 characters.' });
+        return json(res, 400, { error: 'กรุณากรอกชื่อสิ่งของความยาว 2–90 ตัวอักษร' });
       if (reporterName.length < 2 || reporterName.length > 80)
-        return json(res, 400, { error: 'Enter the reporter name (2–80 characters).' });
+        return json(res, 400, { error: 'กรุณากรอกชื่อผู้แจ้งความยาว 2–80 ตัวอักษร' });
       if (!['lost', 'found'].includes(type))
-        return json(res, 400, { error: 'Choose whether the item is lost or found.' });
+        return json(res, 400, { error: 'กรุณาเลือกประเภทประกาศของหายหรือของที่พบ' });
       if (
-        !['School supplies', 'Clothing', 'Personal items', 'Electronics', 'Other'].includes(
+        !['School supplies', 'Stationery', 'Clothing', 'Personal items', 'Bags', 'Phones', 'Electronics', 'Other'].includes(
           category,
         )
       )
-        return json(res, 400, { error: 'Choose a valid category.' });
+        return json(res, 400, { error: 'กรุณาเลือกหมวดหมู่ที่ถูกต้อง' });
       if (!['Classroom', 'Library', 'Cafeteria', 'Sports area', 'Other'].includes(location))
-        return json(res, 400, { error: 'Choose a valid location.' });
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))
-        return json(res, 400, { error: 'Choose a valid date.' });
+        return json(res, 400, { error: 'กรุณาเลือกสถานที่ที่ถูกต้อง' });
+      const parsedDate = Date.parse(`${date}T00:00:00Z`);
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        Number.isNaN(parsedDate) ||
+        new Date(parsedDate).toISOString().slice(0, 10) !== date
+      )
+        return json(res, 400, { error: 'กรุณาระบุวันที่ให้ถูกต้อง' });
       const item = {
         id: crypto.randomUUID(),
         type,
@@ -780,6 +1109,9 @@ async function handler(req, res) {
           .slice(0, 100),
         location,
         date,
+        eventTime: /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '',
+        expiryDays: normalizedExpiryDays(body.expiryDays),
+        expiresAt: new Date(Date.now() + normalizedExpiryDays(body.expiryDays) * 86400000).toISOString(),
         photo: null,
         ownerId: user.id,
         ownerName: user.name,
@@ -790,7 +1122,7 @@ async function handler(req, res) {
       if (body.photo) {
         const photo = mimeFromData(body.photo);
         if (!photo)
-          return json(res, 400, { error: 'Photo must be a valid JPG, PNG, or WebP under 3 MB.' });
+          return json(res, 400, { error: 'รูปภาพต้องเป็นไฟล์ JPG, PNG หรือ WebP และมีขนาดไม่เกิน 3 MB' });
         item.imageFeatures = normalizeImageFeatures(body.imageFeatures);
         const ext =
           photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
@@ -810,11 +1142,133 @@ async function handler(req, res) {
         }
       }
       const store = await readStore();
+      const matches = store.items
+        .filter((existing) => existing.type !== type && !['resolved', 'expired'].includes(existing.status) && !isExpiredItem(existing))
+        .map((existing) => ({ existing, score: matchAnalysis(item, existing).score }))
+        .filter((match) => match.score >= 40);
+      const notificationMatches = matches.filter(({ existing }) => existing.ownerId !== user.id);
+      const createdAt = item.createdAt;
+      for (const { existing, score } of notificationMatches) {
+        const base = {
+          id: crypto.randomUUID(),
+          type: 'possible_match',
+          sourceItemId: item.id,
+          matchItemId: existing.id,
+          itemName: item.itemName,
+          matchItemName: existing.itemName,
+          score,
+          createdAt,
+          readAt: null,
+        };
+        store.notifications.push({ ...base, userId: user.id, targetItemId: existing.id });
+        store.notifications.push({ ...base, id: crypto.randomUUID(), userId: existing.ownerId, targetItemId: item.id });
+      }
+      for (const search of store.savedSearches) {
+        if (search.userId === user.id || !savedSearchMatchesItem(search, item)) continue;
+        store.notifications.push({
+          id: crypto.randomUUID(),
+          type: 'saved_search',
+          userId: search.userId,
+          itemName: item.itemName,
+          query: search.query,
+          targetItemId: item.id,
+          createdAt,
+          readAt: null,
+        });
+      }
       store.items.push(item);
       await writeStore(store);
       const results = withMatches(store.items);
       const saved = results.find((x) => x.id === item.id);
-      return json(res, 201, { item: saved });
+      return json(res, 201, { item: saved, possibleMatchCount: notificationMatches.length });
+    }
+    if (req.method === 'POST' && route === '/api/claims') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const itemId = String(body.itemId || '');
+      const proof = String(body.proof || '').trim();
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item || item.type !== 'found') return json(res, 404, { error: 'ไม่พบประกาศสิ่งของที่เก็บได้' });
+      if (item.ownerId === user.id) return json(res, 400, { error: 'ไม่สามารถขอรับของจากประกาศของตนเองได้' });
+      if (item.status === 'resolved' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ปิดแล้วหรือหมดอายุ' });
+      if (proof.length < 10 || proof.length > 1000) return json(res, 400, { error: 'กรุณาระบุรายละเอียดเพื่อยืนยันความเป็นเจ้าของอย่างน้อย 10 ตัวอักษร' });
+      if (store.claims.some((claim) => claim.itemId === itemId && claim.fromId === user.id && claim.status === 'pending'))
+        return json(res, 409, { error: 'คุณมีคำขอที่กำลังรอพิจารณาอยู่แล้ว' });
+      const claim = { id: crypto.randomUUID(), itemId, itemName: item.itemName, fromId: user.id, fromName: user.name, ownerId: item.ownerId, proof, status: 'pending', createdAt: new Date().toISOString() };
+      store.claims.push(claim);
+      store.notifications.push({ id: crypto.randomUUID(), userId: item.ownerId, type: 'claim_request', itemName: item.itemName, fromName: user.name, targetItemId: item.id, createdAt: claim.createdAt, readAt: null });
+      await writeStore(store);
+      return json(res, 201, { claim });
+    }
+    if (req.method === 'GET' && route === '/api/claims') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const itemId = String(url.searchParams.get('itemId') || '');
+      const claims = (await readStore()).claims.filter((claim) =>
+        (claim.fromId === user.id || claim.ownerId === user.id || user.role === 'admin') && (!itemId || claim.itemId === itemId),
+      ).map((claim) => ({ ...claim, proof: claim.ownerId === user.id || claim.fromId === user.id ? claim.proof : undefined }));
+      return json(res, 200, { claims });
+    }
+    if (req.method === 'POST' && route === '/api/claims/status') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const store = await readStore();
+      const claim = store.claims.find((entry) => entry.id === body.claimId);
+      if (!claim) return json(res, 404, { error: 'ไม่พบคำขอนี้' });
+      if (claim.ownerId !== user.id && user.role !== 'admin') return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่พิจารณาคำขอได้' });
+      if (!['approved', 'rejected'].includes(body.status)) return json(res, 400, { error: 'สถานะคำขอไม่ถูกต้อง' });
+      if (claim.status !== 'pending') return json(res, 409, { error: 'คำขอนี้ได้รับการพิจารณาแล้ว' });
+      const item = store.items.find((entry) => entry.id === claim.itemId);
+      if (!item || item.status === 'resolved' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ปิดแล้วหรือหมดอายุ' });
+      claim.status = body.status;
+      claim.updatedAt = new Date().toISOString();
+      store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: claim.status, targetItemId: claim.itemId, createdAt: claim.updatedAt, readAt: null });
+      if (body.status === 'approved') {
+        for (const other of store.claims.filter((entry) => entry.itemId === claim.itemId && entry.id !== claim.id && entry.status === 'pending')) other.status = 'rejected';
+      }
+      await writeStore(store);
+      return json(res, 200, { claim });
+    }
+    if (req.method === 'POST' && route === '/api/item-reports') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const itemId = String(body.itemId || '');
+      const reason = String(body.reason || '');
+      const details = String(body.details || '').trim().slice(0, 500);
+      const store = await readStore();
+      const item = store.items.find((entry) => entry.id === itemId);
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.ownerId === user.id) return json(res, 400, { error: 'ไม่สามารถรายงานประกาศของตนเองได้' });
+      if (!['inaccurate', 'inappropriate', 'privacy', 'other'].includes(reason)) return json(res, 400, { error: 'กรุณาเลือกเหตุผลในการรายงาน' });
+      if (store.itemReports.some((report) => report.itemId === itemId && report.fromId === user.id && report.status === 'open'))
+        return json(res, 409, { error: 'คุณได้รายงานประกาศนี้แล้วและอยู่ระหว่างตรวจสอบ' });
+      store.itemReports.push({ id: crypto.randomUUID(), itemId, itemName: item.itemName, fromId: user.id, fromName: user.name, reason, details, status: 'open', createdAt: new Date().toISOString() });
+      await writeStore(store);
+      return json(res, 201, { ok: true });
+    }
+    if (req.method === 'GET' && route === '/api/admin/item-reports') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      if (user.role !== 'admin') return json(res, 403, { error: 'เฉพาะผู้ดูแลระบบเท่านั้น' });
+      const reports = (await readStore()).itemReports.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { reports });
+    }
+    if (req.method === 'POST' && route === '/api/admin/item-reports/status') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      if (user.role !== 'admin') return json(res, 403, { error: 'เฉพาะผู้ดูแลระบบเท่านั้น' });
+      const body = await readBody(req);
+      const store = await readStore();
+      const report = store.itemReports.find((entry) => entry.id === body.reportId);
+      if (!report) return json(res, 404, { error: 'ไม่พบรายงานนี้' });
+      report.status = 'reviewed';
+      report.reviewedAt = new Date().toISOString();
+      await writeStore(store);
+      return json(res, 200, { ok: true });
     }
     if (req.method === 'POST' && route === '/api/messages') {
       const user = await requireUser(req, res);
@@ -822,11 +1276,13 @@ async function handler(req, res) {
       const body = await readBody(req);
       const item = (await readStore()).items.find((x) => x.id === body.itemId);
       const message = String(body.message || '').trim();
-      if (!item) return json(res, 404, { error: 'Item not found.' });
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status === 'resolved' || isExpiredItem(item))
+        return json(res, 409, { error: 'ประกาศนี้ปิดแล้วและไม่รับข้อความใหม่' });
       if (item.ownerId === user.id)
-        return json(res, 400, { error: 'You cannot contact yourself about your own item.' });
+        return json(res, 400, { error: 'ไม่สามารถส่งข้อความถึงประกาศของตนเองได้' });
       if (message.length < 5 || message.length > 1000)
-        return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
+        return json(res, 400, { error: 'ข้อความต้องมีความยาว 5–1,000 ตัวอักษร' });
       const store = await readStore();
       const entry = {
         id: crypto.randomUUID(),
@@ -850,9 +1306,12 @@ async function handler(req, res) {
       const store = await readStore();
       const original = store.messages.find((m) => m.id === body.messageId);
       if (!original || (original.fromId !== user.id && original.toId !== user.id))
-        return json(res, 404, { error: 'Message not found.' });
+        return json(res, 404, { error: 'ไม่พบข้อความนี้' });
+      const item = store.items.find((entry) => entry.id === original.itemId);
+      if (item && (item.status === 'resolved' || isExpiredItem(item)))
+        return json(res, 409, { error: 'ประกาศนี้ปิดแล้วและไม่รับข้อความใหม่' });
       if (message.length < 5 || message.length > 1000)
-        return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
+        return json(res, 400, { error: 'ข้อความต้องมีความยาว 5–1,000 ตัวอักษร' });
       const recipientId = original.fromId === user.id ? original.toId : original.fromId;
       const reply = {
         id: crypto.randomUUID(),
@@ -895,14 +1354,14 @@ async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       if (!canManageSupport(user))
-        return json(res, 403, { error: 'Only school staff can reply to support requests.' });
+        return json(res, 403, { error: 'เฉพาะเจ้าหน้าที่เท่านั้นที่ตอบกลับคำขอนี้ได้' });
       const body = await readBody(req);
       const message = String(body.message || '').trim();
       if (message.length < 5 || message.length > 1000)
-        return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
+        return json(res, 400, { error: 'ข้อความต้องมีความยาว 5–1,000 ตัวอักษร' });
       const store = await readStore();
       const request = store.staffMessages.find((m) => m.id === body.requestId);
-      if (!request) return json(res, 404, { error: 'Support request not found.' });
+      if (!request) return json(res, 404, { error: 'ไม่พบคำขอความช่วยเหลือนี้' });
       if (!Array.isArray(request.replies)) request.replies = [];
       request.replies.push({
         id: crypto.randomUUID(),
@@ -920,7 +1379,7 @@ async function handler(req, res) {
       const body = await readBody(req);
       const message = String(body.message || '').trim();
       if (message.length < 5 || message.length > 1000)
-        return json(res, 400, { error: 'Message must be 5–1,000 characters.' });
+        return json(res, 400, { error: 'ข้อความต้องมีความยาว 5–1,000 ตัวอักษร' });
       const store = await readStore();
       store.staffMessages.push({
         id: crypto.randomUUID(),
@@ -935,17 +1394,17 @@ async function handler(req, res) {
     if (req.method === 'GET' && route.startsWith('/uploads/')) {
       const filename = path.basename(route.slice('/uploads/'.length));
       if (!/^[\da-f-]{36}\.(?:jpg|png|webp)$/.test(filename))
-        return json(res, 404, { error: 'Not found.' });
+        return json(res, 404, { error: 'ไม่พบข้อมูลที่ต้องการ' });
       return sendFile(res, path.join(PHOTO_DIR, filename));
     }
     if (req.method === 'GET' && route === '/') return sendFile(res, path.join(ROOT, 'index.html'));
     if (req.method === 'GET' && ['/index.html', '/style.css', '/script.js'].includes(route))
       return sendFile(res, path.join(ROOT, route.slice(1)));
-    return json(res, 404, { error: 'Not found.' });
+    return json(res, 404, { error: 'ไม่พบข้อมูลที่ต้องการ' });
   } catch (error) {
     if (!res.headersSent)
       json(res, error.status || 500, {
-        error: error.status ? error.message : 'Something went wrong. Please try again.',
+        error: error.status ? error.message : 'ระบบขัดข้อง กรุณาลองอีกครั้ง',
       });
     else res.destroy();
     if (!error.status) console.error(error);
