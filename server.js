@@ -1226,9 +1226,40 @@ async function handler(req, res) {
         return json(res, 409, { error: 'คุณมีคำขอที่กำลังรอพิจารณาอยู่แล้ว' });
       const claim = { id: crypto.randomUUID(), itemId, itemName: item.itemName, fromId: user.id, fromName: user.name, ownerId: item.ownerId, proof, status: 'pending', createdAt: new Date().toISOString() };
       store.claims.push(claim);
-      store.notifications.push({ id: crypto.randomUUID(), userId: item.ownerId, type: 'claim_request', itemName: item.itemName, fromName: user.name, targetItemId: item.id, createdAt: claim.createdAt, readAt: null });
+      store.notifications.push({ id: crypto.randomUUID(), userId: item.ownerId, type: 'claim_request', claimId: claim.id, fromId: user.id, itemName: item.itemName, fromName: user.name, targetItemId: item.id, createdAt: claim.createdAt, readAt: null });
       await writeStore(store);
       return json(res, 201, { claim });
+    }
+    if (req.method === 'POST' && route === '/api/claims/cancel') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const store = await readStore();
+      const claim = store.claims.find((entry) => entry.id === body.claimId);
+      if (!claim) return json(res, 404, { error: 'ไม่พบคำขอนี้' });
+      if (claim.fromId !== user.id) return json(res, 403, { error: 'ยกเลิกได้เฉพาะคำขอของตนเอง' });
+      if (claim.status !== 'pending') return json(res, 409, { error: 'ยกเลิกได้เฉพาะคำขอที่ยังรอพิจารณา' });
+      const item = store.items.find((entry) => entry.id === claim.itemId);
+      if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้แล้ว' });
+      claim.status = 'cancelled';
+      claim.updatedAt = new Date().toISOString();
+      store.notifications = store.notifications.filter((notification) =>
+        !(notification.type === 'claim_request' && notification.userId === claim.ownerId && notification.targetItemId === claim.itemId &&
+          (notification.claimId === claim.id || (!notification.claimId && (notification.fromId === user.id || (!notification.fromId && notification.fromName === claim.fromName))))),
+      );
+      store.notifications.push({
+        id: crypto.randomUUID(),
+        userId: item.ownerId,
+        type: 'claim_cancelled',
+        claimId: claim.id,
+        itemName: item.itemName,
+        fromName: user.name,
+        targetItemId: item.id,
+        createdAt: claim.updatedAt,
+        readAt: null,
+      });
+      await writeStore(store);
+      return json(res, 200, { claim });
     }
     if (req.method === 'GET' && route === '/api/claims') {
       const user = await requireUser(req, res);

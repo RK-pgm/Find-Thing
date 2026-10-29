@@ -595,6 +595,8 @@ async function openNotifications() {
       const title = document.createElement('strong');
       title.textContent = notification.type === 'claim_request'
         ? 'มีคำขอรับของคืน'
+        : notification.type === 'claim_cancelled'
+          ? 'ยกเลิกคำขอรับของคืน'
         : notification.type === 'claim_status'
           ? 'อัปเดตคำขอรับของคืน'
           : notification.type === 'return_confirmed'
@@ -605,6 +607,8 @@ async function openNotifications() {
       const body = document.createElement('p');
       body.textContent = notification.type === 'claim_request'
         ? `${notification.fromName} ขอรับ “${notification.itemName}”`
+        : notification.type === 'claim_cancelled'
+          ? `${notification.fromName} ยกเลิกคำขอรับ “${notification.itemName}”`
         : notification.type === 'claim_status'
           ? `คำขอรับ “${notification.itemName}” ${notification.status === 'approved' ? 'ได้รับการอนุมัติ โปรดนัดรับคืนและสแกน QR เมื่อได้รับของแล้ว' : 'ยังไม่ได้รับการอนุมัติ'}`
           : notification.type === 'return_confirmed'
@@ -725,7 +729,7 @@ async function loadClaimsForItem(item) {
       const card = document.createElement('article');
       card.className = 'message-card';
       const title = document.createElement('strong');
-      title.textContent = `${claim.fromName} · ${claim.status === 'pending' ? 'รอพิจารณา' : claim.status === 'approved' ? 'อนุมัติคำขอ · รอรับคืน' : claim.status === 'fulfilled' ? 'ยืนยันรับคืนแล้ว' : 'ไม่อนุมัติ'}`;
+      title.textContent = `${claim.fromName} · ${claim.status === 'pending' ? 'รอพิจารณา' : claim.status === 'approved' ? 'อนุมัติคำขอ · รอรับคืน' : claim.status === 'fulfilled' ? 'ยืนยันรับคืนแล้ว' : claim.status === 'cancelled' ? 'ผู้ขอยกเลิกคำขอ' : 'ไม่อนุมัติ'}`;
       const proof = document.createElement('p');
       proof.textContent = claim.proof;
       card.append(title, proof);
@@ -745,6 +749,25 @@ async function loadClaimsForItem(item) {
           });
           card.append(button);
         }
+      } else if (claim.fromId === state.user.id && claim.status === 'pending') {
+        const cancel = document.createElement('button');
+        cancel.className = 'button small';
+        cancel.type = 'button';
+        cancel.textContent = 'ยกเลิกคำขอ';
+        cancel.addEventListener('click', async () => {
+          cancel.disabled = true;
+          try {
+            await api('/api/claims/cancel', { method: 'POST', body: JSON.stringify({ claimId: claim.id }) });
+            await loadClaimsForItem(item);
+            await loadItems();
+            refreshNotificationCount();
+            showToast('ยกเลิกคำขอแล้ว');
+          } catch (error) {
+            byId('claim-status').textContent = error.message;
+            cancel.disabled = false;
+          }
+        });
+        card.append(cancel);
       }
       list.append(card);
     }
@@ -989,13 +1012,35 @@ async function openMyClaims() {
           ? 'ยืนยันเจ้าของแล้ว · รอนัดรับคืน'
           : claim.status === 'fulfilled'
             ? 'ยืนยันรับคืนแล้ว'
-            : 'ไม่อนุมัติคำขอ';
+            : claim.status === 'cancelled'
+              ? 'คุณยกเลิกคำขอนี้แล้ว'
+              : 'ไม่อนุมัติคำขอ';
       const meta = document.createElement('small');
       const itemState = item?.status === 'expired' ? ' · ประกาศหมดอายุ' : item?.status === 'resolved' ? ' · ประกาศปิดแล้ว' : '';
       meta.textContent = `ส่งคำขอ ${formatPostedDate(claim.createdAt)}${itemState}`;
       const proof = document.createElement('p');
       proof.textContent = claim.proof;
       card.append(heading, status, meta, proof);
+      if (claim.status === 'pending') {
+        const cancel = document.createElement('button');
+        cancel.className = 'button small';
+        cancel.type = 'button';
+        cancel.textContent = 'ยกเลิกคำขอ';
+        cancel.addEventListener('click', async () => {
+          cancel.disabled = true;
+          try {
+            await api('/api/claims/cancel', { method: 'POST', body: JSON.stringify({ claimId: claim.id }) });
+            await loadItems();
+            await openMyClaims();
+            refreshNotificationCount();
+            showToast('ยกเลิกคำขอแล้ว');
+          } catch (error) {
+            byId('my-claims-error').textContent = error.message;
+            cancel.disabled = false;
+          }
+        });
+        card.append(cancel);
+      }
       if (item) {
         const open = document.createElement('button');
         open.className = 'button small';
@@ -1011,10 +1056,10 @@ async function openMyClaims() {
       list.append(card);
     }
     byId('my-claims-empty').classList.toggle('hidden', claims.length > 0);
-    byId('my-claims-dialog').showModal();
+    if (!byId('my-claims-dialog').open) byId('my-claims-dialog').showModal();
   } catch (error) {
     byId('my-claims-error').textContent = error.message;
-    byId('my-claims-dialog').showModal();
+    if (!byId('my-claims-dialog').open) byId('my-claims-dialog').showModal();
   }
 }
 async function saveProfile(event) {
