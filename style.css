@@ -2923,13 +2923,8 @@ textarea {
   }
 }
 
-/* Keep the wide frame and move the photo focal point down to the item area. */
+/* Show the whole submitted photo in each item preview without cropping. */
 .item-art.has-photo img {
-  object-fit: cover;
-  object-position: center 64%;
-}
-
-/* Lower the focal crop so the photographed item, not the empty upper area, is visible. */
-.item-art.has-photo img {
-  object-position: center 88%;
+  object-fit: contain;
+  object-position: center;
 }
