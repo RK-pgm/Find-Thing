@@ -2795,3 +2795,13 @@ textarea {
     font-size: 9.5px;
   }
 }
+
+/* Photo posts use a near-square center crop to match the requested preview. */
+.item-art.has-photo {
+  aspect-ratio: 1.05 / 1;
+}
+
+.item-art.has-photo img {
+  object-fit: cover;
+  object-position: center center;
+}
