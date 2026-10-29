@@ -2418,7 +2418,7 @@ textarea {
   }
 
   .item-art {
-    aspect-ratio: 1.45 / 1;
+    aspect-ratio: 1.25 / 1;
   }
 
   .item-art .badge {
@@ -2497,15 +2497,15 @@ textarea {
 
 /* Final card density: four reports per desktop row, with taller image panels. */
 .item-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .item-art {
   height: auto;
-  aspect-ratio: 1.45 / 1;
+  aspect-ratio: 1.25 / 1;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 560px) {
   .item-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
