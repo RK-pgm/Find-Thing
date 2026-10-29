@@ -1,8 +1,28 @@
 'use strict';
 const byId = (id) => document.getElementById(id);
 const FALLBACK_SCHOOLS = [
-  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช', latitude: 8.1638565, longitude: 99.7190381, mapDescription: 'ตำบลถ้ำใหญ่ อำเภอทุ่งสง จังหวัดนครศรีธรรมราช' },
-  { id: 'hamster-hub', name: 'โรงเรียน Hamster Hub', province: 'นครศรีธรรมราช', latitude: 8.1745, longitude: 99.6955, mapDescription: 'ตำแหน่งจำลองในอำเภอทุ่งสง', fictional: true },
+  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช', latitude: 8.1638565, longitude: 99.7190381, mapDescription: 'ตำบลถ้ำใหญ่ อำเภอทุ่งสง จังหวัดนครศรีธรรมราช', mapImage: '/thung-song-campus-map.png', mapPlaces: [
+    { id: 'building-7', name: 'อาคาร 7', legacyLocation: 'Classroom', x: 22, y: 42, points: '106,114 178,118 180,225 108,231' },
+    { id: 'building-6', name: 'อาคาร 6', legacyLocation: 'Classroom', x: 12, y: 55, points: '40,187 110,187 110,303 39,312' },
+    { id: 'building-5', name: 'อาคาร 5', legacyLocation: 'Classroom', x: 31, y: 55, points: '171,188 232,188 232,288 170,291' },
+    { id: 'building-4', name: 'อาคาร 4', legacyLocation: 'Classroom', x: 33, y: 40, points: '183,116 244,116 245,226 183,226' },
+    { id: 'building-2', name: 'อาคาร 2', legacyLocation: 'Classroom', x: 42, y: 40, points: '246,116 296,116 297,227 246,227' },
+    { id: 'running-track', name: 'ลู่วิ่งรอบสนาม', legacyLocation: 'Sports area', x: 72, y: 49, points: '351,140 605,140 615,266 350,266' },
+    { id: 'football-field', name: 'สนามฟุตบอล', legacyLocation: 'Sports area', x: 72, y: 43, points: '387,154 549,154 573,184 561,220 536,240 396,238 369,215 363,184' },
+    { id: 'assembly-hall', name: 'หอประชุม', legacyLocation: 'Other', x: 61, y: 73, points: '350,294 410,294 410,378 350,378' },
+    { id: 'cafeteria', name: 'ศูนย์อาหาร', legacyLocation: 'Cafeteria', x: 56, y: 91, points: '342,379 405,379 405,419 342,419' },
+    { id: 'sports-court', name: 'สนามบาสเกตบอล', legacyLocation: 'Sports area', x: 80, y: 92, points: '495,390 562,390 562,420 495,420' },
+    { id: 'main-gate', name: 'ประตูทางเข้า', legacyLocation: 'Other', x: 94, y: 54, points: '601,213 657,213 657,260 601,260' },
+  ] },
+  { id: 'hamster-hub', name: 'โรงเรียน Hamster Hub', province: 'นครศรีธรรมราช', latitude: 8.1745, longitude: 99.6955, mapDescription: 'ตำแหน่งจำลองในอำเภอทุ่งสง', fictional: true, mapImage: '/hamster-hub-campus-map.svg', mapPlaces: [
+    { id: 'classroom-a', name: 'อาคารเรียน A', legacyLocation: 'Classroom', x: 20, y: 28, points: '62,62 193,62 193,170 62,170' },
+    { id: 'classroom-b', name: 'อาคารเรียน B', legacyLocation: 'Classroom', x: 42, y: 28, points: '208,62 339,62 339,170 208,170' },
+    { id: 'library', name: 'ห้องสมุด', legacyLocation: 'Library', x: 19, y: 62, points: '62,207 193,207 193,293 62,293' },
+    { id: 'cafeteria', name: 'โรงอาหาร', legacyLocation: 'Cafeteria', x: 43, y: 62, points: '208,207 350,207 350,293 208,293' },
+    { id: 'football-field', name: 'สนามฟุตบอล', legacyLocation: 'Sports area', x: 74, y: 30, points: '390,62 586,62 586,188 390,188' },
+    { id: 'sports-court', name: 'สนามกีฬาในร่ม', legacyLocation: 'Sports area', x: 76, y: 65, points: '402,207 586,207 586,355 402,355' },
+    { id: 'main-gate', name: 'ประตูทางเข้า', legacyLocation: 'Other', x: 94, y: 51, points: '610,197 658,197 658,286 610,286' },
+  ] },
 ];
 const state = {
   user: null,
@@ -29,6 +49,10 @@ const state = {
   replyMessageId: null,
   activeItemId: null,
   replyToCommentId: null,
+  mapPlaceFilterId: '',
+  mapDialogMode: 'search',
+  mapSchoolId: '',
+  selectedMapPlaceId: '',
 };
 if (state.pendingReturnToken) {
   const cleanUrl = new URL(window.location.href);
@@ -351,6 +375,106 @@ function locationLabel(location) {
     Other: 'อื่น ๆ',
   })[location] || location || 'ไม่ระบุสถานที่';
 }
+function itemLocationLabel(item) { return item.placeName || locationLabel(item.location); }
+function placesForSchool(schoolId) { return state.schools.find((school) => school.id === schoolId)?.mapPlaces || []; }
+function findMapPlace(placeId, schoolId = state.user?.schoolId) { return placesForSchool(schoolId).find((place) => place.id === placeId); }
+function renderCampusMap() {
+  const school = state.schools.find((entry) => entry.id === state.mapSchoolId);
+  const places = school?.mapPlaces || [];
+  const available = Boolean(school?.mapImage && places.length);
+  const empty = byId('campus-map-empty');
+  empty.classList.toggle('hidden', available);
+  byId('campus-map-content').classList.toggle('hidden', !available);
+  byId('map-no-school-actions').classList.toggle('hidden', Boolean(school));
+  byId('map-school-caption').textContent = school ? `${school.name} · ${school.fictional ? 'แผนผังจำลอง' : 'เลือกจุดจากผังโรงเรียน'}` : '';
+  if (!available) {
+    empty.textContent = school ? 'ยังไม่มีแผนผังสำหรับโรงเรียนนี้ ใช้ตัวกรองสถานที่เดิมได้' : 'เลือกโรงเรียนในโปรไฟล์ก่อน เพื่อค้นหาจุดในโรงเรียน';
+    byId('apply-map-search').disabled = true;
+    return;
+  }
+  byId('apply-map-search').disabled = false;
+  byId('campus-map-image').src = school.mapImage;
+  byId('campus-map-image').alt = `แผนผังสถานที่ ${school.name}`;
+  const overlay = byId('campus-map-overlay');
+  overlay.replaceChildren();
+  const options = byId('map-place-options');
+  options.replaceChildren();
+  for (const place of places) {
+    const area = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    area.setAttribute('points', place.points);
+    area.dataset.placeId = place.id;
+    area.setAttribute('tabindex', '0');
+    area.setAttribute('role', 'button');
+    area.setAttribute('aria-label', `เลือก${place.name}`);
+    area.setAttribute('aria-pressed', String(state.selectedMapPlaceId === place.id));
+    area.classList.toggle('selected', state.selectedMapPlaceId === place.id);
+    overlay.append(area);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'button map-place-option';
+    button.dataset.placeId = place.id;
+    button.setAttribute('aria-pressed', String(state.selectedMapPlaceId === place.id));
+    button.textContent = place.name;
+    button.addEventListener('click', () => chooseCampusPlace(place.id));
+    options.append(button);
+  }
+  const selected = places.find((place) => place.id === state.selectedMapPlaceId);
+  byId('campus-map-selected').textContent = selected ? `เลือกแล้ว: ${selected.name}` : 'แตะบริเวณบนแผนที่หรือเลือกชื่อด้านล่าง';
+  byId('map-search-type').classList.toggle('hidden', state.mapDialogMode !== 'search');
+  document.querySelector('.map-search-type-label').classList.toggle('hidden', state.mapDialogMode !== 'search');
+  byId('map-search-title').textContent = state.mapDialogMode === 'post' ? 'เลือกจุดที่พบหรือหาย' : 'เลือกบริเวณบนแผนผัง';
+  byId('map-search-eyebrow').textContent = state.mapDialogMode === 'post' ? 'ตำแหน่งในประกาศ' : 'ค้นหาตามจุดในโรงเรียน';
+  byId('map-search-instructions').textContent = state.mapDialogMode === 'post'
+    ? 'แตะอาคารหรือบริเวณที่พบ/ทำของหาย ตำแหน่งนี้จะติดไปกับประกาศ'
+    : 'แตะอาคารหรือบริเวณบนผัง แล้วค้นหาประกาศของหายหรือของที่พบตรงจุดนั้น';
+  byId('apply-map-search').textContent = state.mapDialogMode === 'post' ? 'ใช้จุดนี้กับประกาศ' : 'ค้นหาจุดนี้';
+  byId('map-search-error').textContent = '';
+}
+function chooseCampusPlace(placeId) {
+  if (!placesForSchool(state.mapSchoolId).some((place) => place.id === placeId)) return;
+  state.selectedMapPlaceId = placeId;
+  renderCampusMap();
+}
+function openCampusMap(mode = 'search') {
+  state.mapDialogMode = mode;
+  const editedItem = mode === 'post' && state.editingItemId ? state.items.find((item) => item.id === state.editingItemId) : null;
+  state.mapSchoolId = editedItem?.schoolId || state.user?.schoolId || '';
+  state.selectedMapPlaceId = mode === 'post' ? byId('item-map-place-id').value : state.mapPlaceFilterId;
+  if (mode === 'search') byId('map-search-type').value = ['lost', 'found'].includes(state.activeFilter) ? state.activeFilter : 'all';
+  renderCampusMap();
+  byId('map-search-dialog').showModal();
+}
+function applyCampusMapSelection() {
+  const place = findMapPlace(state.selectedMapPlaceId, state.mapSchoolId);
+  if (!place) {
+    byId('map-search-error').textContent = 'เลือกอาคารหรือบริเวณบนแผนที่ก่อน';
+    return;
+  }
+  if (state.mapDialogMode === 'post') {
+    byId('item-map-place-id').value = place.id;
+    byId('item-map-place-display').textContent = place.name;
+    byId('item-location').value = place.legacyLocation;
+    byId('item-map-place-hint').textContent = `สถานที่หลัก: ${locationLabel(place.legacyLocation)} · ค้นหาโพสต์นี้ได้จากแผนที่`;
+  } else {
+    state.mapPlaceFilterId = place.id;
+    byId('location-filter').value = '';
+    state.activeFilter = byId('map-search-type').value;
+    document.querySelectorAll('.tabs [data-filter]').forEach((tab) => {
+      const active = tab.dataset.filter === state.activeFilter;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
+    byId('map-location-status-text').textContent = `กำลังค้นหา: ${place.name} · ประกาศเดิมที่ระบุเพียงหมวดสถานที่อาจแสดงร่วมด้วย`;
+    byId('map-location-status').classList.remove('hidden');
+    renderItems();
+  }
+  byId('map-search-dialog').close();
+}
+function clearCampusMapFilter() {
+  state.mapPlaceFilterId = '';
+  byId('map-location-status').classList.add('hidden');
+  renderItems();
+}
 function formatDate(value) {
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime())
@@ -568,7 +692,7 @@ function makeItemCard(item) {
   const info = document.createElement('div');
   info.className = 'item-card-info';
   const location = document.createElement('span');
-  location.textContent = `📍 ${locationLabel(item.location)}`;
+  location.textContent = `📍 ${itemLocationLabel(item)}`;
   const eventDate = document.createElement('span');
   eventDate.textContent = `📅 ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
   if (item.eventTime) eventDate.textContent += ` · ${item.eventTime} น.`;
@@ -743,7 +867,7 @@ async function openItemDetails(itemId, replyToId = null) {
   byId('cancel-comment-reply').hidden = true;
   byId('detail-kind').textContent = item.type === 'lost' ? 'ประกาศของหาย' : 'ประกาศของที่พบ';
   byId('detail-title').textContent = item.itemName;
-  byId('detail-meta').textContent = `${categoryDisplayName(item.category)} · ${locationLabel(item.location)} · ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
+  byId('detail-meta').textContent = `${categoryDisplayName(item.category)} · ${itemLocationLabel(item)} · ${item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ'} ${formatDate(item.date)}`;
   if (item.eventTime) byId('detail-meta').textContent += ` · เวลาประมาณ ${item.eventTime} น.`;
   byId('detail-description').textContent = item.description || `สี / ลักษณะ: ${item.color || 'ไม่ได้ระบุ'}`;
   const deleteButton = byId('delete-item');
@@ -778,6 +902,7 @@ async function openItemDetails(itemId, replyToId = null) {
     ['ลงประกาศ', formatPostedDate(item.createdAt)],
     ['สถานะ', item.status === 'resolved' ? 'ปิดประกาศแล้ว' : item.status === 'expired' ? 'หมดอายุ' : item.type === 'found' && item.status === 'open' ? 'ยังไม่มีผู้รับ' : 'ยังเปิดรับข้อมูล'],
   ];
+  if (item.placeName) rows.push(['จุดบนแผนที่', item.placeName]);
   if (item.schoolName) rows.push(['โรงเรียนของโพสต์', item.schoolName]);
   rows.push(['การมองเห็น', item.visibility === 'school' ? 'สมาชิกโรงเรียนนี้' : 'สาธารณะ']);
   if (item.type === 'found' && item.depositLocation) rows.push(['ฝากของไว้ที่', item.depositLocation]);
@@ -1170,6 +1295,8 @@ async function saveProfile(event) {
       }),
     });
     state.user = result.user;
+    state.mapPlaceFilterId = '';
+    byId('map-location-status').classList.add('hidden');
     state.items = [];
     renderCommunityLabel();
     byId('profile-dialog').close();
@@ -1192,6 +1319,7 @@ function renderItems() {
   const category = byId('category-filter').value;
   const location = byId('location-filter').value;
   const date = byId('date-filter').value;
+  const mapPlace = findMapPlace(state.mapPlaceFilterId);
   const items = state.items.filter(
     (item) =>
       (state.activeFilter === 'all' || item.type === state.activeFilter || (state.activeFilter === 'unclaimed' && item.type === 'found' && item.status === 'open')) &&
@@ -1199,9 +1327,10 @@ function renderItems() {
       (!state.imageSearchIds || state.imageSearchIds.includes(item.id)) &&
       (!category || item.category === category) &&
       (!location || item.location === location) &&
+      (!mapPlace || (item.schoolId === state.user?.schoolId && (item.placeId === mapPlace.id || (!item.placeId && mapPlace.legacyLocation !== 'Other' && item.location === mapPlace.legacyLocation)))) &&
       (!date || item.date === date) &&
       (!query ||
-        `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${item.depositLocation || ''} ${item.description}`
+        `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${item.placeName || ''} ${item.depositLocation || ''} ${item.description}`
           .toLocaleLowerCase()
           .includes(query)),
   );
@@ -1308,6 +1437,10 @@ function openReport(type) {
   byId('item-reward-amount').disabled = true;
   byId('item-message').textContent = '';
   byId('item-reporter').value = state.user?.name || '';
+  byId('item-map-place-id').value = '';
+  byId('item-map-place-display').textContent = 'ยังไม่ได้เลือกจุด';
+  byId('item-map-place-hint').textContent = state.user?.schoolId ? 'เลือกอาคารหรือบริเวณ เพื่อให้ค้นหาประกาศจากจุดนี้ได้' : 'เลือกโรงเรียนในโปรไฟล์ก่อน จึงจะปักจุดบนผังได้';
+  byId('item-map-place-open').disabled = !placesForSchool(state.user?.schoolId).length;
   byId('dialog-kind').textContent = type === 'lost' ? 'แจ้งของหาย' : 'แจ้งเก็บของได้';
   byId('dialog-title').textContent = type === 'lost' ? 'แจ้งของหาย' : 'แจ้งสิ่งของที่พบ';
   byId('item-date-label').textContent = type === 'lost' ? 'วันที่หาย' : 'วันที่พบ';
@@ -1342,6 +1475,10 @@ function editItem(item) {
   byId('item-color').value = item.color || '';
   byId('item-description').value = item.description || '';
   byId('item-location').value = item.location;
+  byId('item-map-place-id').value = item.placeId || '';
+  byId('item-map-place-display').textContent = item.placeName || 'ยังไม่ได้เลือกจุด';
+  byId('item-map-place-hint').textContent = item.placeName ? `จุดที่บันทึกไว้: ${item.placeName}` : (item.schoolId ? 'เลือกอาคารหรือบริเวณ เพื่อให้ค้นหาประกาศจากจุดนี้ได้' : 'โพสต์นี้ไม่มีโรงเรียนที่ผูกไว้ จึงปักจุดบนผังไม่ได้');
+  byId('item-map-place-open').disabled = !placesForSchool(item.schoolId).length;
   byId('item-deposit-location').value = item.depositLocation || '';
   byId('item-date').value = item.date;
   byId('item-time').value = item.eventTime || '';
@@ -1456,6 +1593,7 @@ async function submitItem(event) {
     rewardOffered: state.reportType === 'lost' && byId('item-reward-offered').checked,
     rewardAmount: byId('item-reward-offered').checked ? byId('item-reward-amount').value : '',
     location: byId('item-location').value,
+    placeId: byId('item-map-place-id').value,
     depositLocation: state.reportType === 'found' ? byId('item-deposit-location').value.trim() : '',
     date: byId('item-date').value,
     eventTime: byId('item-time').value,
@@ -1801,7 +1939,7 @@ function renderAdminReports(items) {
     name.append(title, date);
     nameCell.append(name);
     const location = document.createElement('td');
-    location.textContent = locationLabel(item.location);
+    location.textContent = itemLocationLabel(item);
     const reporter = document.createElement('td');
     reporter.textContent = item.reporterName || item.ownerName || 'ไม่ระบุ';
     const statusCell = document.createElement('td');
@@ -1966,6 +2104,15 @@ function bindEvents() {
   byId('manage-saved-searches').addEventListener('click', openSavedSearches);
   byId('category-filter').addEventListener('change', renderItems);
   byId('location-filter').addEventListener('change', renderItems);
+  byId('map-search-open').addEventListener('click', () => openCampusMap('search'));
+  byId('item-map-place-open').addEventListener('click', () => openCampusMap('post'));
+  byId('campus-map-overlay').addEventListener('click', (event) => { const area = event.target.closest('[data-place-id]'); if (area) chooseCampusPlace(area.dataset.placeId); });
+  byId('campus-map-overlay').addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { const area = event.target.closest('[data-place-id]'); if (area) { event.preventDefault(); chooseCampusPlace(area.dataset.placeId); } } });
+  byId('apply-map-search').addEventListener('click', applyCampusMapSelection);
+  byId('map-location-clear').addEventListener('click', clearCampusMapFilter);
+  byId('close-map-search').addEventListener('click', () => byId('map-search-dialog').close());
+  byId('cancel-map-search').addEventListener('click', () => byId('map-search-dialog').close());
+  byId('map-set-school').addEventListener('click', () => { byId('map-search-dialog').close(); openProfile(); });
   byId('date-filter').addEventListener('change', renderItems);
   byId('my-items-filter').addEventListener('click', (event) => {
     state.showingMyItems = !state.showingMyItems;

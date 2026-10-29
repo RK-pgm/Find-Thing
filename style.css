@@ -3545,3 +3545,34 @@ input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(45, 128, 
 .school-map-card iframe { display: block; width: 100%; height: 210px; border: 0; border-radius: 11px; background: #e8efea; }
 .school-map-link { min-height: 42px; margin-top: 9px; width: 100%; justify-content: center; font-size: 13px; }
 @media (max-width: 520px) { .school-map-card iframe { height: 180px; } }
+
+
+/* Clickable campus map search and post-location picker */
+.map-search-button { border-color: #b6d8cb; color: #176d52; font-weight: 700; }
+.map-location-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; padding: 10px 12px; border: 1px solid #b8dacd; border-radius: 14px; background: #f0f8f4; color: #176d52; font-size: 13px; }
+.map-place-picker-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 6px 8px 6px 14px; border: 1px solid var(--border-hairline); border-radius: 14px; background: #f6faf7; }
+.map-place-picker-row > span { color: var(--ink-muted); font-size: 13px; }
+.map-place-picker-row .button { flex: none; min-height: 38px; }
+.campus-map-dialog { width: min(980px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.campus-map { position: relative; width: 100%; overflow: hidden; border: 1px solid #cbd5d1; border-radius: 14px; background: #e5e8e6; aspect-ratio: 659 / 436; }
+.campus-map > img, .campus-map-overlay { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.campus-map > img { object-fit: fill; }
+.campus-map-overlay { overflow: visible; }
+.campus-map-overlay polygon { cursor: pointer; fill: rgba(19, 142, 99, .08); stroke: rgba(7, 104, 75, .72); stroke-width: 2.4; vector-effect: non-scaling-stroke; transition: fill .15s ease, stroke .15s ease; }
+.campus-map-overlay polygon:hover, .campus-map-overlay polygon:focus { fill: rgba(30, 177, 126, .35); stroke: #087653; stroke-width: 4; outline: none; }
+.campus-map-overlay polygon.selected { fill: rgba(24, 177, 125, .42); stroke: #066746; stroke-width: 4; }
+.campus-map-selected { min-height: 38px; margin: 8px 0; color: #155c47; font-weight: 700; }
+.map-place-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.map-place-option { min-height: 44px; border-radius: 999px; padding: 8px 14px; }
+.map-place-option[aria-pressed="true"] { background: #147b59; border-color: #147b59; color: white; }
+.campus-map-hint { margin-top: 8px; }
+.map-no-school-actions { margin: 12px 0; }
+.map-search-type-label { display: block; margin: 8px 0 5px; }
+@media (max-width: 600px) {
+  .campus-map-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 24px 14px; }
+  .campus-map { border-radius: 10px; }
+  .map-location-status { align-items: flex-start; flex-direction: column; }
+  .map-location-status .button { width: 100%; }
+  .map-place-options { gap: 6px; }
+  .map-place-option { flex: 1 1 42%; justify-content: center; padding-inline: 9px; }
+}

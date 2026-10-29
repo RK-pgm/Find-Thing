@@ -25,8 +25,37 @@ const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || '';
 const loginAttempts = new Map();
 // Add future school communities here using a permanent ID.
 const SCHOOLS = [
-  { id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช', latitude: 8.1638565, longitude: 99.7190381, mapDescription: 'ตำบลถ้ำใหญ่ อำเภอทุ่งสง จังหวัดนครศรีธรรมราช', mapSource: 'สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน' },
-  { id: 'hamster-hub', name: 'โรงเรียน Hamster Hub', province: 'นครศรีธรรมราช', latitude: 8.1745, longitude: 99.6955, mapDescription: 'ตำแหน่งจำลองในอำเภอทุ่งสง', fictional: true },
+  {
+    id: 'thung-song', name: 'โรงเรียนทุ่งสง', province: 'นครศรีธรรมราช', latitude: 8.1638565, longitude: 99.7190381,
+    mapDescription: 'ตำบลถ้ำใหญ่ อำเภอทุ่งสง จังหวัดนครศรีธรรมราช', mapSource: 'สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน',
+    mapImage: '/thung-song-campus-map.png',
+    mapPlaces: [
+      { id: 'building-7', name: 'อาคาร 7', legacyLocation: 'Classroom', x: 22, y: 42, points: '106,114 178,118 180,225 108,231' },
+      { id: 'building-6', name: 'อาคาร 6', legacyLocation: 'Classroom', x: 12, y: 55, points: '40,187 110,187 110,303 39,312' },
+      { id: 'building-5', name: 'อาคาร 5', legacyLocation: 'Classroom', x: 31, y: 55, points: '171,188 232,188 232,288 170,291' },
+      { id: 'building-4', name: 'อาคาร 4', legacyLocation: 'Classroom', x: 33, y: 40, points: '183,116 244,116 245,226 183,226' },
+      { id: 'building-2', name: 'อาคาร 2', legacyLocation: 'Classroom', x: 42, y: 40, points: '246,116 296,116 297,227 246,227' },
+      { id: 'running-track', name: 'ลู่วิ่งรอบสนาม', legacyLocation: 'Sports area', x: 72, y: 49, points: '351,140 605,140 615,266 350,266' },
+      { id: 'football-field', name: 'สนามฟุตบอล', legacyLocation: 'Sports area', x: 72, y: 43, points: '387,154 549,154 573,184 561,220 536,240 396,238 369,215 363,184' },
+      { id: 'assembly-hall', name: 'หอประชุม', legacyLocation: 'Other', x: 61, y: 73, points: '350,294 410,294 410,378 350,378' },
+      { id: 'cafeteria', name: 'ศูนย์อาหาร', legacyLocation: 'Cafeteria', x: 56, y: 91, points: '342,379 405,379 405,419 342,419' },
+      { id: 'sports-court', name: 'สนามบาสเกตบอล', legacyLocation: 'Sports area', x: 80, y: 92, points: '495,390 562,390 562,420 495,420' },
+      { id: 'main-gate', name: 'ประตูทางเข้า', legacyLocation: 'Other', x: 94, y: 54, points: '601,213 657,213 657,260 601,260' },
+    ],
+  },
+  {
+    id: 'hamster-hub', name: 'โรงเรียน Hamster Hub', province: 'นครศรีธรรมราช', latitude: 8.1745, longitude: 99.6955,
+    mapDescription: 'ตำแหน่งจำลองในอำเภอทุ่งสง', fictional: true, mapImage: '/hamster-hub-campus-map.svg',
+    mapPlaces: [
+      { id: 'classroom-a', name: 'อาคารเรียน A', legacyLocation: 'Classroom', x: 20, y: 28, points: '62,62 193,62 193,170 62,170' },
+      { id: 'classroom-b', name: 'อาคารเรียน B', legacyLocation: 'Classroom', x: 42, y: 28, points: '208,62 339,62 339,170 208,170' },
+      { id: 'library', name: 'ห้องสมุด', legacyLocation: 'Library', x: 19, y: 62, points: '62,207 193,207 193,293 62,293' },
+      { id: 'cafeteria', name: 'โรงอาหาร', legacyLocation: 'Cafeteria', x: 43, y: 62, points: '208,207 350,207 350,293 208,293' },
+      { id: 'football-field', name: 'สนามฟุตบอล', legacyLocation: 'Sports area', x: 74, y: 30, points: '390,62 586,62 586,188 390,188' },
+      { id: 'sports-court', name: 'สนามกีฬาในร่ม', legacyLocation: 'Sports area', x: 76, y: 65, points: '402,207 586,207 586,355 402,355' },
+      { id: 'main-gate', name: 'ประตูทางเข้า', legacyLocation: 'Other', x: 94, y: 51, points: '610,197 658,197 658,286 610,286' },
+    ],
+  },
 ];
 let localStoreWriteQueue = Promise.resolve();
 const MIME = {
@@ -34,6 +63,7 @@ const MIME = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
+  '.svg': 'image/svg+xml; charset=utf-8',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
@@ -851,6 +881,9 @@ async function handler(req, res) {
         return json(res, 400, { error: 'กรุณาเลือกหมวดหมู่ที่ถูกต้อง' });
       if (!['Classroom', 'Library', 'Cafeteria', 'Sports area', 'Other'].includes(location))
         return json(res, 400, { error: 'กรุณาเลือกสถานที่ที่ถูกต้อง' });
+      const requestedPlaceId = String(body.placeId || '').trim();
+      const mapPlace = requestedPlaceId ? SCHOOLS.find((school) => school.id === item.schoolId)?.mapPlaces?.find((place) => place.id === requestedPlaceId) : null;
+      if (requestedPlaceId && !mapPlace) return json(res, 400, { error: 'จุดบนแผนที่ไม่ตรงกับโรงเรียนของโพสต์นี้' });
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate) || new Date(parsedDate).toISOString().slice(0, 10) !== date)
         return json(res, 400, { error: 'กรุณาระบุวันที่ให้ถูกต้อง' });
       const reward = parseOptionalReward(body, body.type);
@@ -866,7 +899,9 @@ async function handler(req, res) {
       item.rewardOffered = reward.offered;
       item.rewardAmount = reward.amount;
       item.depositLocation = body.type === 'found' ? String(body.depositLocation || '').trim().slice(0, 120) : '';
-      item.location = location;
+      item.location = mapPlace?.legacyLocation || location;
+      item.placeId = mapPlace?.id || '';
+      item.placeName = mapPlace?.name || '';
       item.date = date;
       item.eventTime = /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '';
       delete item.expiryDays;
@@ -1195,6 +1230,9 @@ async function handler(req, res) {
         return json(res, 400, { error: 'กรุณาเลือกหมวดหมู่ที่ถูกต้อง' });
       if (!['Classroom', 'Library', 'Cafeteria', 'Sports area', 'Other'].includes(location))
         return json(res, 400, { error: 'กรุณาเลือกสถานที่ที่ถูกต้อง' });
+      const requestedPlaceId = String(body.placeId || '').trim();
+      const mapPlace = requestedPlaceId ? SCHOOLS.find((school) => school.id === user.schoolId)?.mapPlaces?.find((place) => place.id === requestedPlaceId) : null;
+      if (requestedPlaceId && !mapPlace) return json(res, 400, { error: 'กรุณาเลือกจุดบนแผนที่ของโรงเรียนในโปรไฟล์' });
       const parsedDate = Date.parse(`${date}T00:00:00Z`);
       if (
         !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
@@ -1221,7 +1259,9 @@ async function handler(req, res) {
         rewardOffered: reward.offered,
         rewardAmount: reward.amount,
         depositLocation: type === 'found' ? String(body.depositLocation || '').trim().slice(0, 120) : '',
-        location,
+        location: mapPlace?.legacyLocation || location,
+        placeId: mapPlace?.id || '',
+        placeName: mapPlace?.name || '',
         date,
         eventTime: /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '',
         photo: null,
@@ -1568,7 +1608,7 @@ async function handler(req, res) {
       return sendFile(res, path.join(PHOTO_DIR, filename));
     }
     if (req.method === 'GET' && route === '/') return sendFile(res, path.join(ROOT, 'index.html'));
-    if (req.method === 'GET' && ['/index.html', '/style.css', '/script.js'].includes(route))
+    if (req.method === 'GET' && ['/index.html', '/style.css', '/script.js', '/thung-song-campus-map.png', '/hamster-hub-campus-map.svg'].includes(route))
       return sendFile(res, path.join(ROOT, route.slice(1)));
     return json(res, 404, { error: 'ไม่พบข้อมูลที่ต้องการ' });
   } catch (error) {

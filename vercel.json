@@ -14,6 +14,14 @@
       "use": "@vercel/static"
     },
     {
+      "src": "thung-song-campus-map.png",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "hamster-hub-campus-map.svg",
+      "use": "@vercel/static"
+    },
+    {
       "src": "api/handler.js",
       "use": "@vercel/node"
     }
