@@ -930,8 +930,40 @@ function openProfile() {
   byId('profile-student-id').value = state.user?.studentId || '';
   byId('profile-grade').value = state.user?.grade || '';
   byId('profile-school').value = state.user?.school || '';
+  byId('open-change-password').classList.toggle('hidden', state.user?.studentId?.toLowerCase() === 'a1010');
   byId('profile-status').textContent = '';
   byId('profile-dialog').showModal();
+}
+function openChangePassword() {
+  byId('profile-dialog').close();
+  byId('change-password-form').reset();
+  byId('change-password-status').textContent = '';
+  byId('change-password-dialog').showModal();
+}
+async function submitPasswordChange(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  if (byId('new-password').value !== byId('confirm-new-password').value) {
+    byId('change-password-status').textContent = 'รหัสผ่านใหม่ทั้งสองช่องไม่ตรงกัน';
+    return;
+  }
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  byId('change-password-status').textContent = '';
+  try {
+    await api('/api/profile/password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: byId('current-password').value, newPassword: byId('new-password').value }),
+    });
+    form.reset();
+    byId('change-password-dialog').close();
+    showToast('เปลี่ยนรหัสผ่านแล้ว เซสชันอื่นถูกออกจากระบบ');
+  } catch (error) {
+    byId('change-password-status').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 async function openMyClaims() {
   const list = byId('my-claims-list');
@@ -1698,6 +1730,10 @@ function bindEvents() {
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('open-my-claims').addEventListener('click', openMyClaims);
   byId('close-my-claims').addEventListener('click', () => byId('my-claims-dialog').close());
+  byId('open-change-password').addEventListener('click', openChangePassword);
+  byId('close-change-password').addEventListener('click', () => byId('change-password-dialog').close());
+  byId('cancel-change-password').addEventListener('click', () => byId('change-password-dialog').close());
+  byId('change-password-form').addEventListener('submit', submitPasswordChange);
   byId('close-detail').addEventListener('click', () => byId('detail-dialog').close());
   byId('close-return-qr').addEventListener('click', () => byId('return-qr-dialog').close());
   byId('cancel-return-confirm').addEventListener('click', () => {

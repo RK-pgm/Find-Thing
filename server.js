@@ -155,13 +155,13 @@ async function releaseStoreLock(token) {
     console.error('Could not release the data-store lock:', error.message);
   }
 }
-function sessionCookie(userId) {
+function sessionCookie(userId, sessionVersion = 0) {
   if (!SESSION_SECRET) {
     const error = new Error('ระบบยังตั้งค่าความปลอดภัยไม่ครบ กรุณาติดต่อผู้ดูแลระบบ');
     error.status = 503;
     throw error;
   }
-  const payload = Buffer.from(JSON.stringify({ userId, exp: Date.now() + SESSION_MS })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ userId, sessionVersion, exp: Date.now() + SESSION_MS })).toString('base64url');
   const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
   return `school_session=${payload}.${signature}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MS / 1000}${process.env.VERCEL || process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
 }
@@ -241,7 +241,9 @@ async function getUser(req) {
     return null;
   }
   if (!session.userId || !Number.isFinite(session.exp) || session.exp < Date.now()) return null;
-  return (await readStore()).users.find((user) => user.id === session.userId) || null;
+  const account = (await readStore()).users.find((user) => user.id === session.userId);
+  if (!account || (session.sessionVersion || 0) !== (account.sessionVersion || 0)) return null;
+  return account;
 }
 async function requireUser(req, res) {
   const user = await getUser(req);
@@ -474,6 +476,32 @@ async function handler(req, res) {
       await writeStore(store);
       return json(res, 200, { user: cleanUser(account) });
     }
+    if (req.method === 'POST' && route === '/api/profile/password') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      if (user.studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase())
+        return json(res, 403, { error: 'บัญชีผู้ดูแล A1010 ต้องเปลี่ยนรหัสผ่านผ่านการตั้งค่าเซิร์ฟเวอร์' });
+      const body = await readBody(req);
+      const currentPassword = String(body.currentPassword || '');
+      const newPassword = String(body.newPassword || '');
+      if (newPassword.length < 8 || newPassword.length > 128)
+        return json(res, 400, { error: 'รหัสผ่านใหม่ต้องมีความยาว 8–128 ตัวอักษร' });
+      const currentHash = Buffer.from(user.passwordHash || '', 'hex');
+      const suppliedHash = user.salt ? await scrypt(currentPassword, user.salt, 64) : Buffer.alloc(64);
+      if (currentHash.length !== 64 || !crypto.timingSafeEqual(suppliedHash, currentHash))
+        return json(res, 401, { error: 'รหัสผ่านเดิมไม่ถูกต้อง' });
+      if (currentPassword === newPassword)
+        return json(res, 400, { error: 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม' });
+      const store = await readStore();
+      const account = store.users.find((entry) => entry.id === user.id);
+      if (!account) return json(res, 404, { error: 'ไม่พบบัญชีผู้ใช้' });
+      account.salt = crypto.randomBytes(16).toString('hex');
+      account.passwordHash = (await scrypt(newPassword, account.salt, 64)).toString('hex');
+      account.sessionVersion = (account.sessionVersion || 0) + 1;
+      account.passwordChangedAt = new Date().toISOString();
+      await writeStore(store);
+      return json(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(account.id, account.sessionVersion) });
+    }
     if (req.method === 'POST' && route === '/api/register') {
       const body = await readBody(req);
       const name = String(body.name || '').trim();
@@ -578,7 +606,7 @@ async function handler(req, res) {
           await writeStore(store);
         }
         loginAttempts.delete(ip);
-        return json(res, 200, { user: cleanUser(admin) }, { 'Set-Cookie': sessionCookie(admin.id) });
+        return json(res, 200, { user: cleanUser(admin) }, { 'Set-Cookie': sessionCookie(admin.id, admin.sessionVersion || 0) });
       }
       const user = (await readStore()).users.find(
         (u) => u.studentId.toLowerCase() === studentId.toLowerCase(),
@@ -591,7 +619,7 @@ async function handler(req, res) {
         return json(res, 401, { error: 'รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง' });
       }
       loginAttempts.delete(ip);
-      const cookie = sessionCookie(user.id);
+      const cookie = sessionCookie(user.id, user.sessionVersion || 0);
       return json(
         res,
         200,

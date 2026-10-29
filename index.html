@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#f7f6ef" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=claims-history-1" />
-  <script src="script.js?v=claims-history-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=password-settings-1" />
+  <script src="script.js?v=password-settings-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -478,6 +478,7 @@
         <label for="profile-school">โรงเรียน</label>
         <input id="profile-school" name="school" maxlength="100" placeholder="ชื่อโรงเรียน" />
         <button class="button claim-history-open" id="open-my-claims" type="button">ติดตามคำขอรับของคืน</button>
+        <button class="button claim-history-open" id="open-change-password" type="button">เปลี่ยนรหัสผ่าน</button>
         <p id="profile-status" class="form-message" aria-live="polite"></p>
         <div class="dialog-actions"><button class="button" id="cancel-profile" type="button">ยกเลิก</button><button class="button primary" type="submit">บันทึกโปรไฟล์</button></div>
       </form>
@@ -492,6 +493,21 @@
         <p id="my-claims-empty" class="empty-message hidden">ยังไม่มีคำขอรับของคืน</p>
         <p id="my-claims-error" class="form-message" aria-live="polite"></p>
       </section>
+    </dialog>
+    <dialog class="dialog" id="change-password-dialog" aria-labelledby="change-password-title">
+      <form id="change-password-form" class="dialog-card">
+        <button class="icon-button dialog-close" id="close-change-password" type="button" aria-label="ปิด">×</button>
+        <div class="eyebrow">ความปลอดภัยบัญชี</div>
+        <h2 id="change-password-title">เปลี่ยนรหัสผ่าน</h2>
+        <label for="current-password">รหัสผ่านเดิม</label>
+        <input id="current-password" type="password" autocomplete="current-password" required />
+        <label for="new-password">รหัสผ่านใหม่</label>
+        <input id="new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+        <label for="confirm-new-password">ยืนยันรหัสผ่านใหม่</label>
+        <input id="confirm-new-password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required />
+        <p id="change-password-status" class="form-message" aria-live="polite"></p>
+        <div class="dialog-actions"><button class="button" id="cancel-change-password" type="button">ยกเลิก</button><button class="button primary" type="submit">บันทึกรหัสผ่านใหม่</button></div>
+      </form>
     </dialog>
     <dialog class="dialog" id="contact-dialog" aria-labelledby="contact-title">
       <form id="contact-form" class="dialog-card">
