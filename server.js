@@ -62,6 +62,22 @@ function normalizeStore(value) {
   for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches']) {
     if (!Array.isArray(store[key])) store[key] = [];
   }
+  const schoolForUser = (user) => SCHOOLS.find((school) => school.id === user?.schoolId) || SCHOOLS.find((school) => school.name === user?.school);
+  for (const user of store.users) {
+    if (!user.schoolId) user.schoolId = schoolForUser(user)?.id || '';
+  }
+  const usersById = new Map(store.users.map((user) => [user.id, user]));
+  for (const item of store.items) {
+    const school = schoolForUser(usersById.get(item.ownerId));
+    if (!item.visibility) {
+      item.schoolId = item.schoolId || school?.id || '';
+      item.schoolName = item.schoolName || school?.name || '';
+      item.visibility = item.schoolId ? 'school' : 'public';
+    } else if (item.visibility === 'school' && !item.schoolId && school) {
+      item.schoolId = school.id;
+      item.schoolName = item.schoolName || school.name;
+    }
+  }
   return store;
 }
 function isExpiredItem(item) {
