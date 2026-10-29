@@ -68,6 +68,15 @@ function normalizedExpiryDays(value) {
   const days = Number(value);
   return [30, 60, 90].includes(days) ? days : 30;
 }
+function parseOptionalReward(body, type) {
+  if (type !== 'lost' || body.rewardOffered !== true) return { offered: false, amount: null };
+  const rawAmount = String(body.rewardAmount ?? '').trim();
+  if (!rawAmount) return { offered: true, amount: null };
+  if (!/^\d{1,7}$/.test(rawAmount)) return null;
+  const amount = Number(rawAmount);
+  if (!Number.isSafeInteger(amount) || amount < 1 || amount > 1000000) return null;
+  return { offered: true, amount };
+}
 function hashReturnToken(token) {
   return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
@@ -801,6 +810,8 @@ async function handler(req, res) {
         return json(res, 400, { error: 'กรุณาเลือกสถานที่ที่ถูกต้อง' });
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate) || new Date(parsedDate).toISOString().slice(0, 10) !== date)
         return json(res, 400, { error: 'กรุณาระบุวันที่ให้ถูกต้อง' });
+      const reward = parseOptionalReward(body, body.type);
+      if (!reward) return json(res, 400, { error: 'จำนวนสินน้ำใจต้องเป็นจำนวนเต็มตั้งแต่ 1 ถึง 1,000,000 บาท' });
       item.type = body.type;
       item.itemName = itemName;
       item.reporterName = String(body.reporterName || user.name).trim().slice(0, 80);
@@ -809,6 +820,8 @@ async function handler(req, res) {
       item.description = String(body.description || '').trim().slice(0, 500);
       item.contact = String(body.contact || '').trim().slice(0, 100);
       item.contactPublic = body.contactPublic === true;
+      item.rewardOffered = reward.offered;
+      item.rewardAmount = reward.amount;
       item.location = location;
       item.date = date;
       item.eventTime = /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '';
@@ -1104,6 +1117,7 @@ async function handler(req, res) {
       const itemName = String(body.itemName || '').trim();
       const reporterName = String(body.reporterName || '').trim();
       const type = body.type;
+      const reward = parseOptionalReward(body, type);
       const category = String(body.category || '');
       const location = String(body.location || '');
       const date = String(body.date || '');
@@ -1113,6 +1127,7 @@ async function handler(req, res) {
         return json(res, 400, { error: 'กรุณากรอกชื่อผู้แจ้งความยาว 2–80 ตัวอักษร' });
       if (!['lost', 'found'].includes(type))
         return json(res, 400, { error: 'กรุณาเลือกประเภทประกาศของหายหรือของที่พบ' });
+      if (!reward) return json(res, 400, { error: 'จำนวนสินน้ำใจต้องเป็นจำนวนเต็มตั้งแต่ 1 ถึง 1,000,000 บาท' });
       if (
         !['School supplies', 'Stationery', 'Clothing', 'Personal items', 'Bags', 'Phones', 'Electronics', 'Other'].includes(
           category,
@@ -1144,6 +1159,8 @@ async function handler(req, res) {
           .trim()
           .slice(0, 100),
         contactPublic: body.contactPublic === true,
+        rewardOffered: reward.offered,
+        rewardAmount: reward.amount,
         location,
         date,
         eventTime: /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '',

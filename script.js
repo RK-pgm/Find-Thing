@@ -515,6 +515,12 @@ function makeItemCard(item) {
   const posted = document.createElement('span');
   posted.textContent = `◷ ลงประกาศ ${formatPostedDate(item.createdAt)}`;
   info.append(location, eventDate, posted);
+  if (item.type === 'lost' && item.rewardOffered) {
+    const reward = document.createElement('span');
+    reward.className = 'reward-note';
+    reward.textContent = item.rewardAmount ? `💛 สินน้ำใจ ฿${Number(item.rewardAmount).toLocaleString('th-TH')}` : '💛 มีสินน้ำใจ (สอบถามรายละเอียด)';
+    info.append(reward);
+  }
   if (item.expiresAt) {
     const expiry = document.createElement('span');
     expiry.textContent = `⌛ หมดเขต ${formatDate(item.expiresAt.slice(0, 10))}`;
@@ -704,6 +710,9 @@ async function openItemDetails(itemId, replyToId = null) {
     ['สถานะ', item.status === 'resolved' ? 'ปิดประกาศแล้ว' : item.status === 'expired' ? 'หมดอายุ' : item.type === 'found' && item.status === 'open' ? 'ยังไม่มีผู้รับ' : 'ยังเปิดรับข้อมูล'],
     ...(item.expiresAt ? [['หมดเขต', formatDate(item.expiresAt.slice(0, 10))]] : []),
   ];
+  if (item.type === 'lost' && item.rewardOffered) {
+    rows.push(['สินน้ำใจ', item.rewardAmount ? `฿${Number(item.rewardAmount).toLocaleString('th-TH')}` : 'เจ้าของยินดีให้ (สอบถามรายละเอียด)']);
+  }
   if (item.contact) rows.push(['ช่องทางติดต่อ', item.contact]);
   rows.forEach(([label, value]) => {
     const row = document.createElement('div');
@@ -1208,6 +1217,9 @@ function openReport(type) {
   state.editingItemId = null;
   state.photo = null;
   byId('item-form').reset();
+  byId('reward-options').hidden = type !== 'lost';
+  byId('reward-amount-field').hidden = true;
+  byId('item-reward-amount').disabled = true;
   byId('item-message').textContent = '';
   byId('item-reporter').value = state.user?.name || '';
   byId('dialog-kind').textContent = type === 'lost' ? 'แจ้งของหาย' : 'แจ้งเก็บของได้';
@@ -1228,6 +1240,11 @@ function editItem(item) {
   state.reportType = item.type;
   state.photo = null;
   byId('item-form').reset();
+  byId('reward-options').hidden = item.type !== 'lost';
+  byId('item-reward-offered').checked = item.rewardOffered === true;
+  byId('item-reward-amount').value = item.rewardAmount || '';
+  byId('reward-amount-field').hidden = item.type !== 'lost' || !item.rewardOffered;
+  byId('item-reward-amount').disabled = item.type !== 'lost' || !item.rewardOffered;
   byId('dialog-kind').textContent = 'แก้ไขประกาศ';
   byId('dialog-title').textContent = `แก้ไข “${item.itemName}”`;
   byId('item-reporter').value = item.reporterName || state.user.name;
@@ -1346,6 +1363,8 @@ async function submitItem(event) {
     description: byId('item-description').value.trim(),
     contact: byId('item-contact').value.trim(),
     contactPublic: byId('item-contact-public').checked,
+    rewardOffered: state.reportType === 'lost' && byId('item-reward-offered').checked,
+    rewardAmount: byId('item-reward-offered').checked ? byId('item-reward-amount').value : '',
     location: byId('item-location').value,
     date: byId('item-date').value,
     eventTime: byId('item-time').value,
@@ -1826,6 +1845,10 @@ function bindEvents() {
   byId('report-lost').addEventListener('click', () => openReport('lost'));
   byId('report-found').addEventListener('click', () => openReport('found'));
   byId('item-form').addEventListener('submit', submitItem);
+  byId('item-reward-offered').addEventListener('change', (event) => {
+    byId('reward-amount-field').hidden = !event.currentTarget.checked || state.reportType !== 'lost';
+    byId('item-reward-amount').disabled = !event.currentTarget.checked || state.reportType !== 'lost';
+  });
   byId('close-dialog').addEventListener('click', () => byId('item-dialog').close());
   byId('cancel-report').addEventListener('click', () => byId('item-dialog').close());
   byId('item-dialog').addEventListener('close', clearPhoto);

@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#f7f6ef" />
     <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
     <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=contact-privacy-1" />
-  <script src="script.js?v=contact-privacy-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=optional-reward-1" />
+  <script src="script.js?v=optional-reward-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -388,6 +388,14 @@
         <input id="item-time" name="time" type="time" />
         <label for="item-expiry-days">ระยะเวลาแสดงประกาศ</label>
         <select id="item-expiry-days" name="expiryDays"><option value="30">30 วัน</option><option value="60">60 วัน</option><option value="90">90 วัน</option></select>
+        <div id="reward-options" hidden>
+          <label class="privacy-option" for="item-reward-offered"><input id="item-reward-offered" name="rewardOffered" type="checkbox" /><span>มีสินน้ำใจให้ผู้พบ (ไม่บังคับ)</span></label>
+          <div id="reward-amount-field" hidden>
+            <label for="item-reward-amount">จำนวนสินน้ำใจ (บาท) <span class="optional">(ไม่บังคับ)</span></label>
+            <input id="item-reward-amount" name="rewardAmount" type="number" min="1" max="1000000" step="1" inputmode="numeric" placeholder="เว้นว่างได้ หากยังไม่กำหนดจำนวน" disabled />
+          </div>
+          <p class="form-hint">การให้สินน้ำใจเป็นความสมัครใจ จะระบุจำนวนหรือไม่ก็ได้</p>
+        </div>
         <label for="item-contact">ช่องทางติดต่อ <span class="optional">(ไม่บังคับ)</span></label>
         <input
           id="item-contact"
