@@ -2884,6 +2884,41 @@ textarea {
 .match-coverage { color: #526b5e !important; font-size: 11px; font-weight: 700; }
 .match-evidence { color: #607b6b !important; font-size: 10.5px; line-height: 1.45; }
 .match-reasons { color: #16815b !important; font-weight: 700; }
+.match-preview.compact,
+.match-empty.compact { min-height: 164px; }
+.match-evidence {
+  display: grid;
+  gap: 8px;
+  margin-top: 5px;
+  padding: 12px;
+  border: 1px solid #d7e7da;
+  border-radius: 12px;
+  background: #f4faf4;
+}
+.match-evidence > strong { color: #285e48; font-size: 12px; }
+.match-factor-list { display: grid; gap: 8px; }
+.match-factor-row { display: grid; gap: 4px; }
+.match-factor-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #526b5e;
+  font-size: 11px;
+}
+.match-factor-heading strong { flex: none; color: #246b52; font-size: 11px; }
+.match-factor-meter {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dfe9e1;
+}
+.match-factor-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+}
 
 /* Compact cards and center the crop on the photographed subject. */
 .item-grid {

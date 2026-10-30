@@ -611,16 +611,36 @@ function makeMatchPreview(match, compact = false) {
   reasons.className = 'match-reasons';
   const labels = [...(match.reasons || [])];
   reasons.textContent = labels.length ? `ตรงกัน: ${labels.slice(0, 4).join(' · ')}` : 'ยังไม่มีปัจจัยเด่นที่ตรงกัน';
-  const evidence = document.createElement('span');
+  const evidence = document.createElement('div');
   evidence.className = 'match-evidence';
-  evidence.textContent = (match.factorScores || [])
-    .slice()
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 3)
-    .map((factor) => factor.label + ' ' + factor.score + '%')
-    .join(' · ');
+  const evidenceTitle = document.createElement('strong');
+  evidenceTitle.textContent = 'รายละเอียดที่นำมาเปรียบเทียบ';
+  const factorList = document.createElement('div');
+  factorList.className = 'match-factor-list';
+  const factors = (match.factorScores || []).slice().sort((left, right) => right.score - left.score);
+  factors.forEach((factor) => {
+    const row = document.createElement('div');
+    row.className = 'match-factor-row';
+    const label = document.createElement('div');
+    label.className = 'match-factor-heading';
+    const name = document.createElement('span');
+    name.textContent = factor.label;
+    const score = document.createElement('strong');
+    score.textContent = factor.score + '%';
+    label.append(name, score);
+    const meter = document.createElement('span');
+    meter.className = 'match-factor-meter';
+    meter.setAttribute('role', 'img');
+    meter.setAttribute('aria-label', factor.label + ' ' + factor.score + '%');
+    const fill = document.createElement('span');
+    fill.style.width = Math.max(0, Math.min(100, factor.score)) + '%';
+    meter.append(fill);
+    row.append(label, meter);
+    factorList.append(row);
+  });
+  evidence.append(evidenceTitle, factorList);
   content.append(heading, caption, meter, coverage, reasons);
-  if (!compact && evidence.textContent) content.append(evidence);
+  if (!compact && factors.length) content.append(evidence);
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'button match-open';
