@@ -977,14 +977,40 @@ async function openItemDetails(itemId, replyToId = null) {
   const itemPhotos = Array.isArray(item.photos) && item.photos.length ? item.photos : item.photo ? [item.photo] : [];
   photoGallery.replaceChildren();
   photoGallery.classList.toggle('hidden', itemPhotos.length === 0);
-  itemPhotos.forEach((url, index) => {
-    const photo = document.createElement('img');
-    photo.className = 'detail-photo';
-    photo.src = url;
-    photo.alt = `รูปสิ่งของภาพที่ ${index + 1} จาก ${itemPhotos.length}`;
-    photo.loading = index > 0 ? 'lazy' : 'eager';
-    photoGallery.append(photo);
-  });
+  if (itemPhotos.length) {
+    const viewer = document.createElement('div');
+    viewer.className = 'detail-photo-viewer';
+    const main = document.createElement('img');
+    main.className = 'detail-photo';
+    main.src = itemPhotos[0];
+    main.alt = `รูปสิ่งของภาพที่ 1 จาก ${itemPhotos.length}`;
+    viewer.append(main);
+    if (itemPhotos.length > 1) {
+      const thumbnails = document.createElement('div');
+      thumbnails.className = 'detail-photo-thumbnails';
+      thumbnails.setAttribute('aria-label', 'เลือกรูปที่ต้องการดู');
+      itemPhotos.forEach((url, index) => {
+        const choice = document.createElement('button');
+        choice.type = 'button';
+        choice.className = 'detail-photo-choice';
+        choice.setAttribute('aria-label', `ดูรูปที่ ${index + 1} จาก ${itemPhotos.length}`);
+        choice.setAttribute('aria-pressed', String(index === 0));
+        const thumbnail = document.createElement('img');
+        thumbnail.src = url;
+        thumbnail.alt = '';
+        thumbnail.loading = 'lazy';
+        choice.append(thumbnail);
+        choice.addEventListener('click', () => {
+          main.src = url;
+          main.alt = `รูปสิ่งของภาพที่ ${index + 1} จาก ${itemPhotos.length}`;
+          thumbnails.querySelectorAll('.detail-photo-choice').forEach((button) => button.setAttribute('aria-pressed', String(button === choice)));
+        });
+        thumbnails.append(choice);
+      });
+      viewer.append(thumbnails);
+    }
+    photoGallery.append(viewer);
+  }
   const facts = byId('detail-facts');
   facts.replaceChildren();
   const rows = [
