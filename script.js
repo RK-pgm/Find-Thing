@@ -134,62 +134,85 @@ function showToast(text) {
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
+function setNavButton(button, role, label, iconName) {
+  const paths = {
+    board: ['M5 4.5h14v15H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
+    help: ['M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z', 'M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1.2-1.8 1.3-1.8 2.8', 'M12 16.5h.01'],
+    inbox: ['M4 5.5h16v13H4z', 'm4.5 7 7.5 6 7.5-6', 'M4.5 14h4l1.5 2h4l1.5-2h4'],
+    notifications: ['M18 9a6 6 0 0 0-12 0c0 7-2.5 7-2.5 9h17C20.5 16 18 16 18 9Z', 'M10 21h4'],
+    profile: ['M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z', 'M5 20a7 7 0 0 1 14 0'],
+    logout: ['M10 4.5H5.5v15H10', 'm14 8 4 4-4 4', 'M18 12H9'],
+    admin: ['M12 3 20 6v5.5c0 5.1-3.4 8.2-8 9.5-4.6-1.3-8-4.4-8-9.5V6l8-3Z', 'm8.7 12 2.2 2.2 4.6-4.7'],
+    signup: ['M12 5v14', 'M5 12h14'],
+    login: ['M13 5h5.5v14H13', 'm10 8-4 4 4 4', 'M6 12h11'],
+  };
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('class', 'nav-icon');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (const pathData of paths[iconName] || []) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    svg.append(path);
+  }
+  const text = document.createElement('span');
+  text.className = 'nav-label';
+  text.textContent = label;
+  button.className = `button nav-action nav-${role}`;
+  button.type = 'button';
+  button.replaceChildren(svg, text);
+  return button;
+}
 function renderNav() {
   const nav = byId('nav');
   nav.replaceChildren();
   if (!state.user) {
     const signup = document.createElement('button');
-    signup.className = 'button';
-    signup.textContent = 'สมัครสมาชิก';
+    setNavButton(signup, 'signup', 'สมัครสมาชิก', 'signup');
     signup.addEventListener('click', () => setAuthView('signup-form'));
     const login = document.createElement('button');
-    login.className = 'button primary';
-    login.textContent = 'เข้าสู่ระบบ';
+    setNavButton(login, 'login', 'เข้าสู่ระบบ', 'login');
     login.addEventListener('click', () => setAuthView('login-form'));
     const help = document.createElement('button');
-    help.className = 'button';
-    help.type = 'button';
-    help.textContent = 'วิธีใช้งาน';
+    setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
     help.addEventListener('click', openHelp);
     nav.append(signup, login, help);
     return;
   }
   const board = document.createElement('button');
-  board.className = 'button';
-  board.type = 'button';
-    board.textContent = 'หน้าประกาศ';
+  setNavButton(board, 'board', 'หน้าประกาศ', 'board');
+  board.setAttribute('aria-current', 'page');
   board.addEventListener('click', showBoard);
   const help = document.createElement('button');
-  help.className = 'button';
-  help.type = 'button';
-  help.textContent = 'วิธีใช้งาน';
+  setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
   help.addEventListener('click', openHelp);
   const inbox = document.createElement('button');
-  inbox.className = 'button';
-  inbox.textContent = canManageSupport() ? 'กล่องข้อความเจ้าหน้าที่' : 'กล่องข้อความ';
+  setNavButton(inbox, 'inbox', canManageSupport() ? 'ข้อความเจ้าหน้าที่' : 'ข้อความ', 'inbox');
   inbox.addEventListener('click', openInbox);
   const notifications = document.createElement('button');
-  notifications.className = 'button';
   notifications.id = 'notifications-button';
-  notifications.type = 'button';
+  setNavButton(notifications, 'notifications', 'แจ้งเตือน', 'notifications');
   notifications.addEventListener('click', openNotifications);
   updateNotificationButton(notifications);
   const profile = document.createElement('button');
-  profile.className = 'button';
-  profile.type = 'button';
-  profile.textContent = 'โปรไฟล์';
+  setNavButton(profile, 'profile', 'โปรไฟล์', 'profile');
   profile.addEventListener('click', openProfile);
-  nav.append(board, help, inbox, notifications, profile);
+  const messageTools = document.createElement('div');
+  messageTools.className = 'nav-tool-group';
+  messageTools.setAttribute('role', 'group');
+  messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
+  messageTools.append(inbox, notifications);
+  nav.append(board, messageTools, help);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
-    adminPanel.className = 'button';
-    adminPanel.textContent = 'แผงควบคุมงาน';
+    setNavButton(adminPanel, 'admin', 'แผงควบคุม', 'admin');
     adminPanel.addEventListener('click', openAdminPanel);
     nav.append(adminPanel);
   }
+  nav.append(profile);
   const logout = document.createElement('button');
-  logout.className = 'button';
-  logout.textContent = 'ออกจากระบบ';
+  setNavButton(logout, 'logout', 'ออกจากระบบ', 'logout');
   logout.addEventListener('click', logoutUser);
   nav.append(logout);
 }
@@ -202,11 +225,15 @@ function openHelp() {
 function showBoard() {
   byId('app').classList.remove('admin-mode');
   byId('admin-panel').classList.add('hidden');
+  byId('nav')?.querySelector('.nav-admin')?.removeAttribute('aria-current');
+  byId('nav')?.querySelector('.nav-board')?.setAttribute('aria-current', 'page');
 }
 async function openAdminPanel() {
   if (state.user?.role !== 'admin') return;
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
+  byId('nav')?.querySelector('.nav-board')?.removeAttribute('aria-current');
+  byId('nav')?.querySelector('.nav-admin')?.setAttribute('aria-current', 'page');
   await loadAdminData();
 }
 function enterApp(user) {
@@ -851,7 +878,20 @@ async function loadItems() {
 function updateNotificationButton(button = byId('notifications-button')) {
   if (!button) return;
   const count = state.unreadNotifications;
-  button.textContent = count ? `แจ้งเตือน (${count})` : 'แจ้งเตือน';
+  const label = button.querySelector('.nav-label');
+  if (label) label.textContent = 'แจ้งเตือน';
+  else button.textContent = 'แจ้งเตือน';
+  let badge = button.querySelector('.nav-badge');
+  if (count) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'nav-badge';
+      button.append(badge);
+    }
+    badge.textContent = String(count);
+  } else {
+    badge?.remove();
+  }
   button.setAttribute('aria-label', count ? `แจ้งเตือน มีรายการใหม่ ${count} รายการ` : 'แจ้งเตือน');
 }
 async function refreshNotificationCount() {
@@ -1914,10 +1954,14 @@ async function submitItem(event) {
   event.preventDefault();
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
+  const button = form.querySelector('button[type="submit"]');
+  if (button.disabled) return;
   if (state.photoEntries.length > 6) {
     byId('item-message').textContent = 'เพิ่มรูปได้ไม่เกิน 6 รูป';
     return;
   }
+  button.disabled = true;
+  byId('item-message').textContent = '';
   const payload = {
     type: state.reportType,
     visibility: byId('item-audience').value,
@@ -1953,10 +1997,9 @@ async function submitItem(event) {
     else payload.imageFeatures = null;
   } catch (error) {
     byId('item-message').textContent = error.message || 'เตรียมรูปภาพไม่สำเร็จ';
+    button.disabled = false;
     return;
   }
-  const button = form.querySelector('button[type="submit"]');
-  button.disabled = true;
   try {
     if (!state.editingItemId) {
       const check = await api('/api/items/check', {
