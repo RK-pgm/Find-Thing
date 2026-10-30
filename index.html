@@ -7,8 +7,8 @@
     <meta name="application-name" content="KhongHai" />
     <meta name="description" content="KhongHai ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหา แจ้ง และช่วยกันส่งคืนของที่พบ" />
     <title>KhongHai — ศูนย์ของหายและของที่พบในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=school-noticeboard-1" />
-    <script src="script.js?v=school-nav-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=school-rewards-1" />
+    <script src="script.js?v=school-rewards-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -548,7 +548,10 @@
           </div>
         </div>
         <p class="form-hint">ฟีดจะแสดงโพสต์สาธารณะและโพสต์ของโรงเรียนที่เลือก เปลี่ยนได้ทุกเมื่อ</p>
-        <section class="community-points-panel" aria-labelledby="community-points-title"><div><span class="eyebrow">ช่วยกันตามหาและส่งคืน</span><h3 id="community-points-title">แต้มพลเมืองดี</h3><p>เจ้าของประกาศของที่พบรับ 10 แต้ม เมื่อผู้รับยืนยันการคืนผ่าน QR</p></div><strong id="community-points-total">—</strong><ul id="community-points-history" class="community-points-history"></ul></section>
+        <section class="community-points-panel" aria-labelledby="community-points-title"><div><span class="eyebrow">ช่วยกันตามหาและส่งคืน</span><h3 id="community-points-title">แต้มพลเมืองดี</h3><p>รับ 10 แต้มเมื่อผู้รับยืนยันคืนของที่พบผ่าน QR แล้วนำแต้มมาแลกของในโรงเรียน</p></div><strong id="community-points-total">—</strong>
+          <div class="reward-shop"><div class="reward-shop-heading"><h4>ร้านแลกของจำลอง</h4><span>ทดลองระบบ · ยังไม่ใช่การสั่งซื้อจริง</span></div><div id="reward-catalog" class="reward-catalog" aria-live="polite"></div><p id="reward-shop-status" class="form-message" aria-live="polite"></p><p class="form-hint">หลังแลก ระบบจะแสดงรหัสรับของตัวอย่าง ใช้สำหรับสาธิตเท่านั้น</p></div>
+          <div class="reward-history"><h4>ประวัติแต้มและการแลก</h4><ul id="community-points-history" class="community-points-history"></ul></div>
+        </section>
         <button class="button claim-history-open" id="open-my-claims" type="button">ติดตามคำขอรับของคืน</button>
         <button class="button claim-history-open" id="open-change-password" type="button">เปลี่ยนรหัสผ่าน</button>
         <p id="profile-status" class="form-message" aria-live="polite"></p>

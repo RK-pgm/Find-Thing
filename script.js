@@ -1365,11 +1365,36 @@ function renderItemTimeline(item) {
 async function loadCommunityPoints() {
   const total = byId('community-points-total');
   const history = byId('community-points-history');
+  const catalog = byId('reward-catalog');
   total.textContent = '…';
   history.replaceChildren();
+  catalog.replaceChildren();
   try {
     const result = await api('/api/community-points');
     total.textContent = `${result.total} แต้ม`;
+    result.rewards.forEach((reward) => {
+      const card = document.createElement('article');
+      card.className = 'reward-card';
+      const icon = document.createElement('span');
+      icon.className = 'reward-card-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = reward.icon;
+      const name = document.createElement('strong');
+      name.textContent = reward.name;
+      const detail = document.createElement('small');
+      detail.textContent = reward.detail;
+      const cost = document.createElement('span');
+      cost.className = 'reward-card-cost';
+      cost.textContent = `${reward.points} แต้ม`;
+      const button = document.createElement('button');
+      button.className = 'button small reward-redeem-button';
+      button.type = 'button';
+      button.textContent = result.total >= reward.points ? 'แลกของ' : 'แต้มไม่พอ';
+      button.disabled = result.total < reward.points;
+      button.addEventListener('click', () => redeemReward(reward, button));
+      card.append(icon, name, detail, cost, button);
+      catalog.append(card);
+    });
     if (!result.entries.length) {
       const empty = document.createElement('li');
       empty.textContent = 'ยังไม่มีรายการแต้ม เมื่อช่วยส่งคืนและผู้รับยืนยันผ่าน QR แต้มจะบันทึกที่นี่';
@@ -1379,9 +1404,9 @@ async function loadCommunityPoints() {
     result.entries.forEach((entry) => {
       const row = document.createElement('li');
       const label = document.createElement('span');
-      label.textContent = `${entry.reason} · ${entry.itemName}`;
+      label.textContent = `${entry.reason}${entry.itemName ? ` · ${entry.itemName}` : ''}${entry.pickupCode ? ` · รหัสรับของ ${entry.pickupCode}` : ''}`;
       const value = document.createElement('strong');
-      value.textContent = `+${entry.points}`;
+      value.textContent = `${entry.points > 0 ? '+' : ''}${entry.points} แต้ม`;
       row.append(label, value);
       history.append(row);
     });
@@ -1390,6 +1415,23 @@ async function loadCommunityPoints() {
     const error = document.createElement('li');
     error.textContent = 'โหลดข้อมูลแต้มไม่สำเร็จ ลองเปิดโปรไฟล์อีกครั้ง';
     history.append(error);
+  }
+}
+async function redeemReward(reward, button) {
+  const status = byId('reward-shop-status');
+  if (!window.confirm(`แลก${reward.name} ในราคา ${reward.points} แต้มใช่ไหม?`)) return;
+  button.disabled = true;
+  status.textContent = 'กำลังบันทึกการแลก…';
+  try {
+    const result = await api('/api/rewards/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ rewardId: reward.id }),
+    });
+    status.textContent = `แลกสำเร็จ! รหัสรับของจำลอง ${result.redemption.pickupCode} · คงเหลือ ${result.total} แต้ม`;
+    await loadCommunityPoints();
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
   }
 }
 function openChangePassword() {

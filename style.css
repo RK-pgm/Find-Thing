@@ -1838,6 +1838,23 @@ textarea {
 .community-points-history { grid-column: 1 / -1; display: grid; gap: 7px; list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid #dce8df; }
 .community-points-history li { display: flex; justify-content: space-between; gap: 10px; color: #596c60; font-size: 12px; }
 .community-points-history li strong { color: #167351; white-space: nowrap; }
+.reward-shop, .reward-history { grid-column: 1 / -1; }
+.reward-shop { padding-top: 12px; border-top: 1px solid #dce8df; }
+.reward-shop-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.reward-shop-heading h4, .reward-history h4 { margin: 0; color: #17372f; font-size: 14px; }
+.reward-shop-heading span { color: #718078; font-size: 10px; text-align: right; }
+.reward-catalog { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.reward-card { display: grid; justify-items: start; gap: 3px; padding: 10px; border: 1px solid #dce8df; border-radius: 12px; background: #fffefa; }
+.reward-card-icon { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 3px; border-radius: 10px; background: #f2f6e9; font-size: 20px; }
+.reward-card strong { color: #17372f; font-size: 13px; }
+.reward-card small { color: #718078; font-size: 10px; }
+.reward-card-cost { margin: 3px 0; color: #a8761c; font-size: 12px; font-weight: 800; }
+.reward-redeem-button { min-height: 32px; padding: 5px 9px; font-size: 11px; }
+.reward-redeem-button:disabled { cursor: not-allowed; opacity: .62; }
+.reward-history { padding-top: 11px; border-top: 1px solid #dce8df; }
+.reward-history .community-points-history { margin-top: 7px; padding-top: 8px; }
+.reward-shop > .form-hint { margin: 8px 0 0; }
+@media (max-width: 520px) { .reward-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); } .reward-shop-heading { align-items: flex-start; flex-direction: column; gap: 2px; } }
 @media (max-width: 520px) {
   .photo-gallery-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail-photo-gallery .detail-photo { height: 240px; }

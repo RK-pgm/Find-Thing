@@ -23,6 +23,14 @@ const ADMIN_STUDENT_ID = 'T36699';
 const ADMIN_LOGIN_ID = process.env.ADMIN_LOGIN_ID || 'A1010';
 const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || '';
 const loginAttempts = new Map();
+const REWARD_CATALOG = [
+  { id: 'water', name: 'น้ำดื่ม', detail: 'น้ำดื่ม 1 ขวด', points: 10, icon: '💧' },
+  { id: 'snack', name: 'ขนม', detail: 'ขนม 1 ชิ้น', points: 15, icon: '🍪' },
+  { id: 'pencil', name: 'ดินสอ', detail: 'ดินสอ 1 แท่ง', points: 10, icon: '✏️' },
+  { id: 'eraser', name: 'ยางลบ', detail: 'ยางลบ 1 ก้อน', points: 10, icon: '🧼' },
+  { id: 'pen', name: 'ปากกา', detail: 'ปากกาน้ำเงิน 1 ด้าม', points: 15, icon: '🖊️' },
+  { id: 'notebook', name: 'สมุด', detail: 'สมุดนักเรียน 1 เล่ม', points: 30, icon: '📓' },
+];
 // Add future school communities here using a permanent ID.
 const SCHOOLS = [
   {
@@ -620,7 +628,27 @@ async function handler(req, res) {
       const user = await requireUser(req, res);
       if (!user) return;
       const entries = (await readStore()).pointLedger.filter((entry) => entry.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      return json(res, 200, { total: entries.reduce((sum, entry) => sum + entry.points, 0), returnedCount: entries.length, entries: entries.slice(0, 10) });
+      return json(res, 200, { total: entries.reduce((sum, entry) => sum + entry.points, 0), returnedCount: entries.filter((entry) => entry.points > 0).length, entries: entries.slice(0, 10), rewards: REWARD_CATALOG });
+    }
+    if (req.method === 'POST' && route === '/api/rewards/redeem') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const reward = REWARD_CATALOG.find((entry) => entry.id === String(body.rewardId || ''));
+      if (!reward) return json(res, 400, { error: 'ไม่พบของรางวัลที่เลือก' });
+      const store = await readStore();
+      const balance = store.pointLedger.filter((entry) => entry.userId === user.id).reduce((sum, entry) => sum + entry.points, 0);
+      if (balance < reward.points) return json(res, 400, { error: `แต้มไม่พอ ต้องมี ${reward.points} แต้ม (ขณะนี้มี ${balance} แต้ม)` });
+      const createdAt = new Date().toISOString();
+      const pickupCode = `KH-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+      const redemption = {
+        id: crypto.randomUUID(), userId: user.id, points: -reward.points,
+        reason: `แลก${reward.name}`, itemName: reward.detail, rewardId: reward.id,
+        pickupCode, status: 'pending', createdAt,
+      };
+      store.pointLedger.push(redemption);
+      await writeStore(store);
+      return json(res, 201, { ok: true, total: balance - reward.points, redemption });
     }
     if (req.method === 'POST' && route === '/api/profile') {
       const user = await requireUser(req, res);
