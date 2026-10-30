@@ -610,8 +610,7 @@ function makeMatchPreview(match, compact = false) {
   const reasons = document.createElement('span');
   reasons.className = 'match-reasons';
   const labels = [...(match.reasons || [])];
-  if (match.imageScore !== null && match.imageScore !== undefined) labels.unshift(`ภาพ ${match.imageScore}%`);
-  reasons.textContent = labels.length ? `ตรงกัน: ${labels.slice(0, 4).join(' · ')}` : 'คะแนนจากข้อมูลที่มีของทั้งสองประกาศ';
+  reasons.textContent = labels.length ? `ตรงกัน: ${labels.slice(0, 4).join(' · ')}` : 'ยังไม่มีปัจจัยเด่นที่ตรงกัน';
   const evidence = document.createElement('span');
   evidence.className = 'match-evidence';
   evidence.textContent = (match.factorScores || [])

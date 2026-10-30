@@ -2873,6 +2873,18 @@ textarea {
   color: #246b52;
 }
 
+/* Restore the earlier match panel frame while keeping the richer explanation. */
+.match-preview {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #f8fafc 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.05);
+}
+.match-preview.compact { min-height: 108px; padding: 12px; }
+.match-coverage { color: #526b5e !important; font-size: 11px; font-weight: 700; }
+.match-evidence { color: #607b6b !important; font-size: 10.5px; line-height: 1.45; }
+.match-reasons { color: #16815b !important; font-weight: 700; }
+
 /* Compact cards and center the crop on the photographed subject. */
 .item-grid {
   gap: 18px;
