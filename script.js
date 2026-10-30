@@ -134,6 +134,31 @@ function showToast(text) {
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
+function updateThemeToggle(button) {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  setNavButton(button, 'theme', dark ? 'ธีมสว่าง' : 'ธีมมืด', dark ? 'sun' : 'moon');
+  button.setAttribute('aria-pressed', String(dark));
+  button.setAttribute('aria-label', dark ? 'เปลี่ยนเป็นธีมสว่าง' : 'เปลี่ยนเป็นธีมมืด');
+  button.title = dark ? 'เปลี่ยนเป็นธีมสว่าง' : 'เปลี่ยนเป็นธีมมืด';
+}
+function applyTheme(theme) {
+  const nextTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = nextTheme;
+  try { localStorage.setItem('khonghai-theme', nextTheme); } catch {}
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.content = nextTheme === 'dark' ? '#111914' : '#f3f6f2';
+  const toggle = document.querySelector('.nav-theme');
+  if (toggle) updateThemeToggle(toggle);
+}
+function addThemeToggle(nav) {
+  const button = document.createElement('button');
+  button.id = 'theme-toggle-button';
+  updateThemeToggle(button);
+  button.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  });
+  nav.append(button);
+}
 function setNavButton(button, role, label, iconName) {
   const paths = {
     board: ['M5 4.5h14v15H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
@@ -145,6 +170,8 @@ function setNavButton(button, role, label, iconName) {
     admin: ['M12 3 20 6v5.5c0 5.1-3.4 8.2-8 9.5-4.6-1.3-8-4.4-8-9.5V6l8-3Z', 'm8.7 12 2.2 2.2 4.6-4.7'],
     signup: ['M12 5v14', 'M5 12h14'],
     login: ['M13 5h5.5v14H13', 'm10 8-4 4 4 4', 'M6 12h11'],
+    moon: ['M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.6 8.6 0 1 0 20.5 15.3Z'],
+    sun: ['M12 3v2', 'M12 19v2', 'm4.9 4.9 1.4 1.4', 'm17.7 17.7 1.4 1.4', 'M3 12h2', 'M19 12h2', 'm4.9 19.1 1.4-1.4', 'm17.7 6.3 1.4-1.4', 'M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z'],
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
@@ -178,6 +205,7 @@ function renderNav() {
     setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
     help.addEventListener('click', openHelp);
     nav.append(signup, login, help);
+    addThemeToggle(nav);
     return;
   }
   const board = document.createElement('button');
@@ -204,6 +232,7 @@ function renderNav() {
   messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
   messageTools.append(inbox, notifications);
   nav.append(board, messageTools, help);
+  addThemeToggle(nav);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
     setNavButton(adminPanel, 'admin', 'แผงควบคุม', 'admin');
@@ -753,20 +782,20 @@ function makeItemCard(item) {
   }
   const badge = document.createElement('span');
   badge.className = `badge ${item.type}`;
-  badge.textContent = item.type === 'lost' ? '🔴 ของหาย' : '🟢 เก็บได้';
+  badge.textContent = item.type === 'lost' ? 'ของหาย' : 'เก็บได้';
   if (item.status === 'resolved') {
     const resolvedBadge = document.createElement('span');
-    resolvedBadge.className = 'badge resolved';
+    resolvedBadge.className = 'badge returned';
     resolvedBadge.textContent = 'ปิดประกาศแล้ว';
     art.append(resolvedBadge);
   } else if (item.status === 'expired') {
     const expiredBadge = document.createElement('span');
-    expiredBadge.className = 'badge resolved';
+    expiredBadge.className = 'badge expired';
     expiredBadge.textContent = 'หมดอายุ';
     art.append(expiredBadge);
   } else if (item.type === 'found' && item.status === 'open') {
     const unclaimedBadge = document.createElement('span');
-    unclaimedBadge.className = 'badge resolved';
+    unclaimedBadge.className = 'badge unclaimed';
     unclaimedBadge.textContent = 'ยังไม่มีผู้รับ';
     art.append(unclaimedBadge);
   }
@@ -1365,11 +1394,36 @@ function renderItemTimeline(item) {
 async function loadCommunityPoints() {
   const total = byId('community-points-total');
   const history = byId('community-points-history');
+  const catalog = byId('reward-catalog');
   total.textContent = '…';
   history.replaceChildren();
+  catalog.replaceChildren();
   try {
     const result = await api('/api/community-points');
     total.textContent = `${result.total} แต้ม`;
+    result.rewards.forEach((reward) => {
+      const card = document.createElement('article');
+      card.className = 'reward-card';
+      const icon = document.createElement('span');
+      icon.className = 'reward-card-icon';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.textContent = reward.icon;
+      const name = document.createElement('strong');
+      name.textContent = reward.name;
+      const detail = document.createElement('small');
+      detail.textContent = reward.detail;
+      const cost = document.createElement('span');
+      cost.className = 'reward-card-cost';
+      cost.textContent = `${reward.points} แต้ม`;
+      const button = document.createElement('button');
+      button.className = 'button small reward-redeem-button';
+      button.type = 'button';
+      button.textContent = result.total >= reward.points ? 'แลกของ' : 'แต้มไม่พอ';
+      button.disabled = result.total < reward.points;
+      button.addEventListener('click', () => redeemReward(reward, button));
+      card.append(icon, name, detail, cost, button);
+      catalog.append(card);
+    });
     if (!result.entries.length) {
       const empty = document.createElement('li');
       empty.textContent = 'ยังไม่มีรายการแต้ม เมื่อช่วยส่งคืนและผู้รับยืนยันผ่าน QR แต้มจะบันทึกที่นี่';
@@ -1379,9 +1433,9 @@ async function loadCommunityPoints() {
     result.entries.forEach((entry) => {
       const row = document.createElement('li');
       const label = document.createElement('span');
-      label.textContent = `${entry.reason} · ${entry.itemName}`;
+      label.textContent = `${entry.reason}${entry.itemName ? ` · ${entry.itemName}` : ''}${entry.pickupCode ? ` · รหัสรับของ ${entry.pickupCode}` : ''}`;
       const value = document.createElement('strong');
-      value.textContent = `+${entry.points}`;
+      value.textContent = `${entry.points > 0 ? '+' : ''}${entry.points} แต้ม`;
       row.append(label, value);
       history.append(row);
     });
@@ -1390,6 +1444,23 @@ async function loadCommunityPoints() {
     const error = document.createElement('li');
     error.textContent = 'โหลดข้อมูลแต้มไม่สำเร็จ ลองเปิดโปรไฟล์อีกครั้ง';
     history.append(error);
+  }
+}
+async function redeemReward(reward, button) {
+  const status = byId('reward-shop-status');
+  if (!window.confirm(`แลก${reward.name} ในราคา ${reward.points} แต้มใช่ไหม?`)) return;
+  button.disabled = true;
+  status.textContent = 'กำลังบันทึกการแลก…';
+  try {
+    const result = await api('/api/rewards/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ rewardId: reward.id }),
+    });
+    status.textContent = `แลกสำเร็จ! รหัสรับของจำลอง ${result.redemption.pickupCode} · คงเหลือ ${result.total} แต้ม`;
+    await loadCommunityPoints();
+  } catch (error) {
+    status.textContent = error.message;
+    button.disabled = false;
   }
 }
 function openChangePassword() {
@@ -1581,7 +1652,7 @@ function parseNaturalSearch(rawQuery) {
     [['สีดำ', 'ดำ', 'black'], ['ดำ', 'black']],
     [['สีขาว', 'ขาว', 'white'], ['ขาว', 'white']],
     [['สีแดง', 'แดง', 'red'], ['แดง', 'red']],
-    [['สีน้ำเงิน', 'สีน้ำเงิน', 'น้ำเงิน', 'ฟ้า', 'blue', 'navy'], ['น้ำเงิน', 'ฟ้า', 'blue', 'navy']],
+    [['สีน้ำเงิน', 'สีฟ้า', 'น้ำเงิน', 'ฟ้า', 'blue', 'navy'], ['น้ำเงิน', 'ฟ้า', 'blue', 'navy']],
     [['สีเขียว', 'เขียว', 'green'], ['เขียว', 'green']],
     [['สีเหลือง', 'เหลือง', 'yellow'], ['เหลือง', 'yellow']],
     [['สีชมพู', 'ชมพู', 'pink'], ['ชมพู', 'pink']],
@@ -1613,6 +1684,11 @@ function renderItems() {
   const query = parsedQuery.terms.join(' ').toLocaleLowerCase();
   const category = byId('category-filter').value;
   const locationValue = byId('location-filter').value;
+  [
+    ['category-filter', category],
+    ['location-filter', locationValue],
+    ['date-filter', byId('date-filter').value],
+  ].forEach(([id, value]) => byId(id).closest('.filter-field')?.classList.toggle('has-value', Boolean(value)));
   const selectedPlaceId = locationValue.startsWith('place:') ? locationValue.slice(6) : '';
   const location = selectedPlaceId ? '' : locationValue;
   const date = byId('date-filter').value;
@@ -1730,6 +1806,8 @@ function updateStats() {
 function openReport(type) {
   state.reportType = type;
   state.editingItemId = null;
+  byId('item-dialog').classList.toggle('is-lost-report', type === 'lost');
+  byId('item-dialog').classList.toggle('is-found-report', type === 'found');
   byId('item-form').reset();
   const schoolAudience = byId('item-audience').querySelector('option[value="school"]');
   schoolAudience.disabled = !state.user?.schoolId;
@@ -1763,6 +1841,8 @@ function openReport(type) {
 function editItem(item) {
   state.editingItemId = item.id;
   state.reportType = item.type;
+  byId('item-dialog').classList.toggle('is-lost-report', item.type === 'lost');
+  byId('item-dialog').classList.toggle('is-found-report', item.type === 'found');
   byId('item-form').reset();
   byId('item-audience').value = item.visibility || 'public';
   byId('item-audience').disabled = true;
@@ -2432,6 +2512,9 @@ function bindEvents() {
   byId('profile-form').addEventListener('submit', saveProfile);
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
+  byId('open-points-rules').addEventListener('click', () => byId('points-rules-dialog').showModal());
+  byId('close-points-rules').addEventListener('click', () => byId('points-rules-dialog').close());
+  byId('done-points-rules').addEventListener('click', () => byId('points-rules-dialog').close());
   byId('open-my-claims').addEventListener('click', openMyClaims);
   byId('close-my-claims').addEventListener('click', () => byId('my-claims-dialog').close());
   byId('open-change-password').addEventListener('click', openChangePassword);
