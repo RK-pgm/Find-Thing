@@ -1011,6 +1011,7 @@ async function openItemDetails(itemId, replyToId = null) {
     }
     photoGallery.append(viewer);
   }
+  renderItemTimeline(item);
   const facts = byId('detail-facts');
   facts.replaceChildren();
   const rows = [
@@ -1289,6 +1290,67 @@ function openProfile() {
   byId('open-change-password').classList.toggle('hidden', state.user?.studentId?.toLowerCase() === 'a1010');
   byId('profile-status').textContent = '';
   byId('profile-dialog').showModal();
+  loadCommunityPoints();
+}
+function renderItemTimeline(item) {
+  const list = byId('item-timeline-list');
+  list.replaceChildren();
+  const labels = {
+    reported: 'ลงประกาศ', claim_requested: 'มีผู้ส่งคำขอรับคืน', claim_approved: 'ผู้แจ้งอนุมัติคำขอ',
+    claim_rejected: 'คำขอรับคืนไม่ได้รับอนุมัติ', claim_cancelled: 'ยกเลิกคำขอรับคืน',
+    returned: 'ยืนยันการรับคืนผ่าน QR แล้ว', closed: 'ผู้แจ้งปิดประกาศ', reopened: 'เปิดประกาศอีกครั้ง', expired: 'ประกาศหมดอายุ',
+  };
+  const timeline = Array.isArray(item.timeline) && item.timeline.length
+    ? item.timeline
+    : [{ type: 'reported', at: item.createdAt }];
+  timeline.forEach((event) => {
+    const text = labels[event.type];
+    if (!text) return;
+    const row = document.createElement('li');
+    row.className = `item-timeline-event${event.type === 'returned' ? ' is-complete' : ''}`;
+    const marker = document.createElement('span');
+    marker.className = 'item-timeline-marker';
+    marker.setAttribute('aria-hidden', 'true');
+    const content = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = text;
+    const time = document.createElement('time');
+    time.dateTime = event.at || item.createdAt;
+    time.textContent = formatPostedDate(event.at || item.createdAt);
+    content.append(title, time);
+    row.append(marker, content);
+    list.append(row);
+  });
+}
+async function loadCommunityPoints() {
+  const total = byId('community-points-total');
+  const history = byId('community-points-history');
+  total.textContent = '…';
+  history.replaceChildren();
+  try {
+    const result = await api('/api/community-points');
+    total.textContent = `${result.total} แต้ม`;
+    if (!result.entries.length) {
+      const empty = document.createElement('li');
+      empty.textContent = 'ยังไม่มีรายการแต้ม เมื่อช่วยส่งคืนและผู้รับยืนยันผ่าน QR แต้มจะบันทึกที่นี่';
+      history.append(empty);
+      return;
+    }
+    result.entries.forEach((entry) => {
+      const row = document.createElement('li');
+      const label = document.createElement('span');
+      label.textContent = `${entry.reason} · ${entry.itemName}`;
+      const value = document.createElement('strong');
+      value.textContent = `+${entry.points}`;
+      row.append(label, value);
+      history.append(row);
+    });
+  } catch {
+    total.textContent = '—';
+    const error = document.createElement('li');
+    error.textContent = 'โหลดข้อมูลแต้มไม่สำเร็จ ลองเปิดโปรไฟล์อีกครั้ง';
+    history.append(error);
+  }
 }
 function openChangePassword() {
   byId('profile-dialog').close();
@@ -1430,10 +1492,85 @@ async function saveProfile(event) {
     button.disabled = false;
   }
 }
+function parseNaturalSearch(rawQuery) {
+  let remaining = rawQuery.normalize('NFKC').toLocaleLowerCase().trim();
+  const parsed = { type: '', category: '', location: '', date: '', colors: [] };
+  const remove = (patterns) => {
+    for (const pattern of patterns) if (pattern.test(remaining)) {
+      remaining = remaining.replace(pattern, ' ');
+      return true;
+    }
+    return false;
+  };
+  if (remove([/ของหาย/g, /หาย/g, /lost\b/g])) parsed.type = 'lost';
+  else if (remove([/เก็บได้/g, /พบ/g, /เจอ/g, /found\b/g, /picked\s*up\b/g])) parsed.type = 'found';
+  const categories = [
+    [['กระเป๋า', 'เป๋า', 'bag', 'bags', 'backpack'], 'Bags'],
+    [['โทรศัพท์', 'มือถือ', 'phone', 'mobile'], 'Phones'],
+    [['อิเล็กทรอนิกส์', 'หูฟัง', 'electronics', 'headphones', 'earbuds'], 'Electronics'],
+    [['เครื่องเขียน', 'ปากกา', 'ดินสอ', 'stationery', 'pen', 'pencil'], 'Stationery'],
+    [['อุปกรณ์การเรียน', 'หนังสือ', 'สมุด', 'school supplies', 'book', 'notebook'], 'School supplies'],
+    [['เสื้อผ้า', 'เสื้อ', 'เสื้อกันหนาว', 'clothing', 'jacket', 'shirt'], 'Clothing'],
+    [['ของใช้ส่วนตัว', 'กระบอกน้ำ', 'ขวดน้ำ', 'personal items', 'bottle', 'water bottle'], 'Personal items'],
+  ];
+  for (const [terms, value] of categories) {
+    const found = terms.some((term) => {
+      const pattern = new RegExp(term.normalize('NFKC').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      if (!pattern.test(remaining)) return false;
+      remaining = remaining.replace(pattern, ' ');
+      return true;
+    });
+    if (found) { parsed.category = value; break; }
+  }
+  const locations = [
+    [['โรงอาหาร', 'cafeteria', 'canteen'], 'Cafeteria'],
+    [['ห้องสมุด', 'library'], 'Library'],
+    [['สนามกีฬา', 'สนามฟุตบอล', 'สนามบาส', 'sports area', 'football field', 'court'], 'Sports area'],
+    [['ห้องเรียน', 'ห้อง', 'classroom'], 'Classroom'],
+  ];
+  for (const [terms, value] of locations) {
+    const found = terms.some((term) => {
+      const pattern = new RegExp(term.normalize('NFKC').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      if (!pattern.test(remaining)) return false;
+      remaining = remaining.replace(pattern, ' ');
+      return true;
+    });
+    if (found) { parsed.location = value; break; }
+  }
+  const colors = [
+    [['สีดำ', 'ดำ', 'black'], ['ดำ', 'black']],
+    [['สีขาว', 'ขาว', 'white'], ['ขาว', 'white']],
+    [['สีแดง', 'แดง', 'red'], ['แดง', 'red']],
+    [['สีน้ำเงิน', 'สีน้ำเงิน', 'น้ำเงิน', 'ฟ้า', 'blue', 'navy'], ['น้ำเงิน', 'ฟ้า', 'blue', 'navy']],
+    [['สีเขียว', 'เขียว', 'green'], ['เขียว', 'green']],
+    [['สีเหลือง', 'เหลือง', 'yellow'], ['เหลือง', 'yellow']],
+    [['สีชมพู', 'ชมพู', 'pink'], ['ชมพู', 'pink']],
+  ];
+  for (const [terms, alternatives] of colors) {
+    const found = terms.some((term) => {
+      const pattern = new RegExp(term.normalize('NFKC').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      if (!pattern.test(remaining)) return false;
+      remaining = remaining.replace(pattern, ' ');
+      return true;
+    });
+    if (found) { parsed.colors.push(...alternatives); break; }
+  }
+  if (remove([/เมื่อวาน/g, /yesterday\b/g])) parsed.date = shiftDate(-1);
+  else if (remove([/วันนี้/g, /today\b/g])) parsed.date = shiftDate(0);
+  parsed.terms = remaining.split(/[\s,，]+/).filter((term) => term.length >= 2 && !['ที่', 'แถว', 'บริเวณ', 'ใกล้', 'near', 'at', 'in', 'on', 'the', 'a', 'an', 'item', 'was', 'my', 'ของ'].includes(term));
+  return parsed;
+}
+function shiftDate(offsetDays) {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
 function renderItems() {
   const list = byId('item-list');
   list.replaceChildren();
-  const query = byId('search-input').value.trim().toLocaleLowerCase();
+  const rawQuery = byId('search-input').value.trim();
+  const parsedQuery = parseNaturalSearch(rawQuery);
+  const query = parsedQuery.terms.join(' ').toLocaleLowerCase();
   const category = byId('category-filter').value;
   const locationValue = byId('location-filter').value;
   const selectedPlaceId = locationValue.startsWith('place:') ? locationValue.slice(6) : '';
@@ -1449,11 +1586,21 @@ function renderItems() {
       (!location || item.location === location) &&
       (!mapPlace || (item.schoolId === state.user?.schoolId && (item.placeId === mapPlace.id || (!item.placeId && mapPlace.legacyLocation !== 'Other' && item.location === mapPlace.legacyLocation)))) &&
       (!date || item.date === date) &&
-      (!query ||
-        `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${item.placeName || ''} ${item.depositLocation || ''} ${item.description}`
-          .toLocaleLowerCase()
-          .includes(query)),
+      (!parsedQuery.type || item.type === parsedQuery.type) &&
+      (!parsedQuery.category || item.category === parsedQuery.category) &&
+      (!parsedQuery.location || item.location === parsedQuery.location) &&
+      (!parsedQuery.date || item.date === parsedQuery.date) &&
+      (!parsedQuery.colors.length || parsedQuery.colors.some((color) => `${item.color || ''} ${item.itemName} ${item.description || ''}`.normalize('NFKC').toLocaleLowerCase().includes(color.normalize('NFKC')))) &&
+      (!query || query.split(/\s+/).every((term) => {
+        const text = `${item.itemName} ${item.category} ${categoryDisplayName(item.category)} ${item.color} ${item.location} ${locationLabel(item.location)} ${item.placeName || ''} ${item.depositLocation || ''} ${item.description}`.normalize('NFKC').toLocaleLowerCase();
+        const aliases = { bag: ['กระเป๋า', 'backpack'], กระเป๋า: ['bag', 'backpack'], bottle: ['กระบอกน้ำ', 'ขวดน้ำ'], กระบอกน้ำ: ['bottle', 'water bottle'], black: ['ดำ'], ดำ: ['black'], book: ['หนังสือ', 'สมุด'], หนังสือ: ['book', 'notebook'], phone: ['โทรศัพท์', 'มือถือ'], โทรศัพท์: ['phone', 'mobile'], 'น้ำเงิน': ['blue', 'ฟ้า'], blue: ['น้ำเงิน', 'ฟ้า'] };
+        return text.includes(term) || (aliases[term] || []).some((alias) => text.includes(alias));
+      })),
   );
+  const hint = byId('natural-search-hint');
+  const detected = [parsedQuery.type && (parsedQuery.type === 'lost' ? 'ของหาย' : 'เก็บได้'), parsedQuery.category && categoryDisplayName(parsedQuery.category), parsedQuery.location && locationLabel(parsedQuery.location), parsedQuery.date && `วันที่ ${formatDate(parsedQuery.date)}`, parsedQuery.colors.length && `สี ${parsedQuery.colors[0]}`].filter(Boolean);
+  hint.classList.toggle('hidden', !rawQuery || !detected.length);
+  hint.textContent = detected.length ? `ตัวกรองจากข้อความ: ${detected.join(' · ')}${query ? ` · คำสำคัญ: ${query}` : ''}` : '';
   items.forEach((item) => list.append(makeItemCard(item)));
   byId('empty-state').classList.toggle('hidden', items.length > 0);
 }

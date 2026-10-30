@@ -86,11 +86,11 @@ function assertDeploymentConfig() {
   }
 }
 function emptyStore() {
-  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [] };
+  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [], pointLedger: [] };
 }
 function normalizeStore(value) {
   const store = { ...emptyStore(), ...(value && typeof value === 'object' ? value : {}) };
-  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches']) {
+  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches', 'pointLedger']) {
     if (!Array.isArray(store[key])) store[key] = [];
   }
   const schoolForUser = (user) => SCHOOLS.find((school) => school.id === user?.schoolId) || SCHOOLS.find((school) => school.name === user?.school);
@@ -108,8 +108,19 @@ function normalizeStore(value) {
       item.schoolId = school.id;
       item.schoolName = item.schoolName || school.name;
     }
+    if (!Array.isArray(item.timeline)) {
+      item.timeline = [{ type: 'reported', at: item.createdAt || new Date().toISOString() }];
+      if (item.status === 'resolved') item.timeline.push({ type: item.returnedAt ? 'returned' : 'closed', at: item.returnedAt || item.updatedAt || item.createdAt || new Date().toISOString() });
+      else if (item.status === 'expired') item.timeline.push({ type: 'expired', at: item.updatedAt || item.createdAt || new Date().toISOString() });
+    }
   }
   return store;
+}
+function addItemTimeline(item, type, at = new Date().toISOString()) {
+  if (!Array.isArray(item.timeline)) item.timeline = [];
+  const last = item.timeline[item.timeline.length - 1];
+  if (last?.type === type && last?.at === at) return;
+  item.timeline.push({ type, at });
 }
 function isExpiredItem(item) {
   return item.status === 'expired';
@@ -605,6 +616,12 @@ async function handler(req, res) {
         ? json(res, 200, { user: cleanUser(user) })
         : json(res, 401, { error: 'กรุณาเข้าสู่ระบบก่อนใช้งาน' });
     }
+    if (req.method === 'GET' && route === '/api/community-points') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const entries = (await readStore()).pointLedger.filter((entry) => entry.userId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      return json(res, 200, { total: entries.reduce((sum, entry) => sum + entry.points, 0), returnedCount: entries.length, entries: entries.slice(0, 10) });
+    }
     if (req.method === 'POST' && route === '/api/profile') {
       const user = await requireUser(req, res);
       if (!user) return;
@@ -829,6 +846,7 @@ async function handler(req, res) {
       item.status = status;
       item.assignedTo = assignedTo;
       item.updatedAt = new Date().toISOString();
+      addItemTimeline(item, status === 'expired' ? 'expired' : status === 'resolved' ? 'closed' : 'reopened', item.updatedAt);
       if (status === 'resolved' || status === 'expired') {
         removeNotificationsForItems(store, itemId);
         rejectPendingClaims(store, item);
@@ -856,6 +874,7 @@ async function handler(req, res) {
         return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่เปลี่ยนสถานะได้' });
       item.status = status;
       item.updatedAt = new Date().toISOString();
+      addItemTimeline(item, status === 'resolved' ? 'closed' : 'reopened', item.updatedAt);
       if (status === 'resolved') {
         removeNotificationsForItems(store, itemId);
         rejectPendingClaims(store, item);
@@ -1081,6 +1100,10 @@ async function handler(req, res) {
       item.returnedAt = new Date().toISOString();
       item.updatedAt = item.returnedAt;
       item.returnConfirmedBy = user.id;
+      addItemTimeline(item, 'returned', item.returnedAt);
+      if (item.type === 'found' && !store.pointLedger.some((entry) => entry.itemId === item.id)) {
+        store.pointLedger.push({ id: crypto.randomUUID(), userId: item.ownerId, itemId: item.id, itemName: item.itemName, points: 10, reason: 'ช่วยเก็บและส่งคืนของจนยืนยันสำเร็จ', createdAt: item.returnedAt });
+      }
       item.returnTokenHash = null;
       item.returnTokenExpiresAt = null;
       for (const claim of store.claims.filter((entry) => entry.itemId === item.id && entry.fromId === user.id && entry.status === 'approved')) {
@@ -1347,6 +1370,7 @@ async function handler(req, res) {
         status: 'open',
         assignedTo: '',
         createdAt: new Date().toISOString(),
+        timeline: [{ type: 'reported', at: new Date().toISOString() }],
       };
       if (Array.isArray(body.photos)) {
         if (body.photos.length > 6) return json(res, 400, { error: 'เพิ่มรูปได้ไม่เกิน 6 รูป' });
@@ -1433,6 +1457,7 @@ async function handler(req, res) {
         return json(res, 409, { error: 'คุณมีคำขอที่กำลังรอพิจารณาอยู่แล้ว' });
       const claim = { id: crypto.randomUUID(), itemId, itemName: item.itemName, fromId: user.id, fromName: user.name, ownerId: item.ownerId, proof, status: 'pending', createdAt: new Date().toISOString() };
       store.claims.push(claim);
+      addItemTimeline(item, 'claim_requested', claim.createdAt);
       store.notifications.push({ id: crypto.randomUUID(), userId: item.ownerId, type: 'claim_request', claimId: claim.id, fromId: user.id, itemName: item.itemName, fromName: user.name, targetItemId: item.id, createdAt: claim.createdAt, readAt: null });
       await writeStore(store);
       return json(res, 201, { claim });
@@ -1450,6 +1475,7 @@ async function handler(req, res) {
       if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้แล้ว' });
       claim.status = 'cancelled';
       claim.updatedAt = new Date().toISOString();
+      addItemTimeline(item, 'claim_cancelled', claim.updatedAt);
       store.notifications = store.notifications.filter((notification) =>
         !(notification.type === 'claim_request' && notification.userId === claim.ownerId && notification.targetItemId === claim.itemId &&
           (notification.claimId === claim.id || (!notification.claimId && (notification.fromId === user.id || (!notification.fromId && notification.fromName === claim.fromName))))),
@@ -1495,6 +1521,7 @@ async function handler(req, res) {
       if (item.status === 'resolved' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ปิดแล้วหรือหมดอายุ' });
       claim.status = body.status;
       claim.updatedAt = new Date().toISOString();
+      addItemTimeline(item, body.status === 'approved' ? 'claim_approved' : 'claim_rejected', claim.updatedAt);
       store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: claim.status, targetItemId: claim.itemId, createdAt: claim.updatedAt, readAt: null });
       if (body.status === 'approved') rejectPendingClaims(store, item, claim.id, claim.updatedAt);
       await writeStore(store);

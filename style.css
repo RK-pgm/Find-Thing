@@ -1813,6 +1813,31 @@ textarea {
   border-radius: 6px;
   object-fit: cover;
 }
+.natural-search-hint {
+  margin: -4px 0 10px;
+  padding: 8px 12px;
+  border-left: 3px solid #2d805e;
+  border-radius: 0 10px 10px 0;
+  background: #edf6ef;
+  color: #315f4b;
+  font-size: 12px;
+}
+.natural-search-hint.hidden { display: none; }
+.item-timeline { padding: 14px 0 4px; border-top: 1px solid var(--border-hairline); }
+.item-timeline-list { display: grid; list-style: none; margin: 0; padding: 2px 0 2px 4px; }
+.item-timeline-event { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; min-height: 58px; }
+.item-timeline-event:not(:last-child)::after { position: absolute; top: 18px; bottom: -1px; left: 8px; width: 2px; background: #dce8df; content: ""; }
+.item-timeline-marker { z-index: 1; width: 12px; height: 12px; margin: 3px; border: 2px solid #6d9c7b; border-radius: 50%; background: #fff; }
+.item-timeline-event.is-complete .item-timeline-marker { border-color: #16815b; background: #16815b; box-shadow: inset 0 0 0 2px #fff; }
+.item-timeline-event strong { display: block; color: var(--ink-primary); font-size: 13px; }
+.item-timeline-event time { display: block; margin-top: 2px; color: var(--ink-muted); font-size: 11px; }
+.community-points-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px; border: 1px solid #d9e7dc; border-radius: 14px; background: #f4f9f4; }
+.community-points-panel h3 { margin: 2px 0 4px; color: #17372f; font-size: 16px; }
+.community-points-panel p { margin: 0; color: #64756b; font-size: 12px; line-height: 1.5; }
+.community-points-panel > strong { color: #167351; font-size: 22px; white-space: nowrap; }
+.community-points-history { grid-column: 1 / -1; display: grid; gap: 7px; list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid #dce8df; }
+.community-points-history li { display: flex; justify-content: space-between; gap: 10px; color: #596c60; font-size: 12px; }
+.community-points-history li strong { color: #167351; white-space: nowrap; }
 @media (max-width: 520px) {
   .photo-gallery-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .detail-photo-gallery .detail-photo { height: 240px; }

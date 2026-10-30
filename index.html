@@ -7,8 +7,8 @@
     <meta name="application-name" content="KhongHai" />
     <meta name="description" content="KhongHai ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหา แจ้ง และช่วยกันส่งคืนของที่พบ" />
     <title>KhongHai — ศูนย์ของหายและของที่พบในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=khonghai-gallery-2" />
-    <script src="script.js?v=khonghai-gallery-2" defer></script>
+    <link rel="stylesheet" href="style.css?v=khonghai-features-1" />
+    <script src="script.js?v=khonghai-features-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -191,7 +191,7 @@
           <div class="board-heading">
             <div>
               <h2 id="board-title">ประกาศล่าสุด</h2>
-              <p>ค้นหาตามชื่อ หมวดหมู่ หรือสถานที่ที่พบ</p>
+              <p>พิมพ์เป็นประโยคได้ทั้งไทยและอังกฤษ เช่น ชนิดของ สี สถานที่ และวันที่</p>
             </div>
             <span class="live-label" id="community-label"><i></i> กระดานสาธารณะ · เลือกโรงเรียนในโปรไฟล์</span>
           </div>
@@ -201,7 +201,7 @@
               ><input
                 id="search-input"
                 type="search"
-                placeholder="ลองค้นหา เช่น กระบอกน้ำสีฟ้า"
+                placeholder="พิมพ์ตามที่นึกได้ เช่น กระเป๋าสีดำที่เจอแถวโรงอาหารเมื่อวาน"
                 aria-label="ค้นหาสิ่งของ" /></label
             ><select id="category-filter" aria-label="กรองตามหมวดหมู่">
               <option value="">ทุกหมวดหมู่</option>
@@ -230,6 +230,7 @@
             <button class="button small filter-tool filter-alert" id="save-search-button" type="button"><span class="filter-icon" aria-hidden="true">🔔</span>รับแจ้งเตือนเมื่อพบ</button>
             <button class="button small filter-tool filter-manage" id="manage-saved-searches" type="button"><span class="filter-icon" aria-hidden="true">≡</span>คำค้นหาที่บันทึก</button>
           </div>
+          <p id="natural-search-hint" class="natural-search-hint hidden" aria-live="polite"></p>
           <div id="map-location-status" class="map-location-status hidden" aria-live="polite"><span id="map-location-status-text"></span><button id="map-location-clear" class="button small" type="button">ล้างจุดที่เลือก</button></div>
           <p id="image-search-status" class="form-hint hidden" aria-live="polite"></p>
           <p class="form-hint">ค้นหาด้วยรูปจะเปรียบเทียบลักษณะภาพในเบราว์เซอร์ และส่งเฉพาะข้อมูลสำหรับจับคู่ภาพ</p>
@@ -468,6 +469,7 @@
         <div id="detail-photo-gallery" class="detail-photo-gallery hidden" aria-label="ภาพประกอบประกาศ"></div>
         <p id="detail-description" class="detail-description"></p>
         <div id="detail-facts" class="detail-facts"></div>
+        <section class="item-timeline" aria-labelledby="item-timeline-title"><div class="detail-comments-heading"><div><h3 id="item-timeline-title">เส้นทางการติดตาม</h3><p class="form-hint">บันทึกความคืบหน้าของประกาศตั้งแต่แจ้งจนถึงการส่งคืน</p></div></div><ol id="item-timeline-list" class="item-timeline-list"></ol></section>
         <div class="detail-owner-actions"><button class="button primary hidden" id="resolve-item" type="button"></button><button class="button hidden" id="return-qr-button" type="button">สร้าง QR ยืนยันรับคืน</button><button class="button danger-button hidden" id="delete-item" type="button">ลบประกาศนี้</button></div>
         <div class="detail-owner-actions"><button class="button hidden" id="edit-item" type="button">แก้ไขประกาศ</button><button class="button hidden" id="claim-item" type="button">ขอรับของคืน</button><button class="button small" id="report-item" type="button">รายงานประกาศ</button></div>
         <section id="claim-section" class="detail-comments hidden"><h3>คำขอรับของคืน</h3><form id="claim-form" class="comment-form"><label for="claim-proof">ยืนยันความเป็นเจ้าของ</label><textarea id="claim-proof" rows="3" maxlength="1000" required placeholder="บอกรายละเอียดเฉพาะที่ช่วยยืนยันว่าเป็นของคุณ"></textarea><p id="claim-status" class="form-message" aria-live="polite"></p><button class="button primary" type="submit">ส่งคำขอ</button></form><div id="claim-list" class="message-list"></div></section>
@@ -546,6 +548,7 @@
           </div>
         </div>
         <p class="form-hint">ฟีดจะแสดงโพสต์สาธารณะและโพสต์ของโรงเรียนที่เลือก เปลี่ยนได้ทุกเมื่อ</p>
+        <section class="community-points-panel" aria-labelledby="community-points-title"><div><span class="eyebrow">ช่วยกันตามหาและส่งคืน</span><h3 id="community-points-title">แต้มพลเมืองดี</h3><p>เจ้าของประกาศของที่พบรับ 10 แต้ม เมื่อผู้รับยืนยันการคืนผ่าน QR</p></div><strong id="community-points-total">—</strong><ul id="community-points-history" class="community-points-history"></ul></section>
         <button class="button claim-history-open" id="open-my-claims" type="button">ติดตามคำขอรับของคืน</button>
         <button class="button claim-history-open" id="open-change-password" type="button">เปลี่ยนรหัสผ่าน</button>
         <p id="profile-status" class="form-message" aria-live="polite"></p>
