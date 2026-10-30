@@ -594,7 +594,7 @@ function makeMatchPreview(match, compact = false) {
   const content = document.createElement('div');
   content.className = 'match-preview-content';
   const heading = document.createElement('strong');
-  heading.textContent = `${match.score}% ตรงกัน · ${candidate.itemName}`;
+  heading.textContent = `${match.score}% คะแนนความคล้ายโดยประมาณ · ${candidate.itemName}`;
   const caption = document.createElement('span');
   caption.textContent = `${candidate.type === 'lost' ? 'ของหาย' : 'เก็บได้'} · ${categoryDisplayName(candidate.category)} · ${locationLabel(candidate.location)}`;
   const meter = document.createElement('span');
@@ -610,11 +610,11 @@ function makeMatchPreview(match, compact = false) {
   const reasons = document.createElement('span');
   reasons.className = 'match-reasons';
   const labels = [...(match.reasons || [])];
-  reasons.textContent = labels.length ? `ตรงกัน: ${labels.slice(0, 4).join(' · ')}` : 'ยังไม่มีปัจจัยเด่นที่ตรงกัน';
+  reasons.textContent = labels.length ? `ปัจจัยที่สนับสนุนคะแนน: ${labels.slice(0, 4).join(' · ')}` : 'ยังไม่พบปัจจัยเด่นจากข้อมูลที่มี';
   const evidence = document.createElement('div');
   evidence.className = 'match-evidence';
   const evidenceTitle = document.createElement('strong');
-  evidenceTitle.textContent = 'รายละเอียดที่นำมาเปรียบเทียบ';
+  evidenceTitle.textContent = 'เหตุผลประกอบคะแนนความคล้าย';
   const factorList = document.createElement('div');
   factorList.className = 'match-factor-list';
   const factors = (match.factorScores || []).slice().sort((left, right) => right.score - left.score);
@@ -638,9 +638,20 @@ function makeMatchPreview(match, compact = false) {
     row.append(label, meter);
     factorList.append(row);
   });
-  evidence.append(evidenceTitle, factorList);
-  content.append(heading, caption, meter, coverage, reasons);
-  if (!compact && factors.length) content.append(evidence);
+  content.append(heading, caption, meter, coverage);
+  if (!compact) {
+    content.append(reasons);
+    if (factors.length) {
+      const explanation = document.createElement('p');
+      explanation.className = 'match-method-note';
+      explanation.textContent = 'คะแนนคำนวณจากข้อมูลที่มีของทั้งสองประกาศ โดยให้น้ำหนักกับชื่อสิ่งของ (25%) หมวดหมู่ (16%) สถานที่ (11%) สี/ลักษณะ (10%) รายละเอียด (14%) ภาพ (20%) และวันที่ (4%) ข้อมูลที่ไม่มีจะไม่นำมาคิดคะแนน';
+      const caution = document.createElement('p');
+      caution.className = 'match-caution-note';
+      caution.textContent = 'คะแนนนี้เป็นเพียงการประเมินความคล้ายจากข้อความ สี วันที่ และคุณลักษณะภาพ ไม่ได้ยืนยันว่าเป็นสิ่งของชิ้นเดียวกัน โปรดตรวจสอบรายละเอียดและยืนยันกับผู้แจ้งก่อนรับคืน';
+      evidence.append(evidenceTitle, factorList, explanation, caution);
+      content.append(evidence);
+    }
+  }
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'button match-open';

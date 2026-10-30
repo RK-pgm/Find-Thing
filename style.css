@@ -2919,6 +2919,16 @@ textarea {
   border-radius: inherit;
   background: linear-gradient(90deg, #10b981, #3b82f6);
 }
+.match-method-note,
+.match-caution-note {
+  margin: 2px 0 0;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.match-method-note { background: #edf6ef; color: #526b5e; }
+.match-caution-note { border: 1px solid #eadfbd; background: #fff9e9; color: #715b2a; }
 
 /* Compact cards and center the crop on the photographed subject. */
 .item-grid {
