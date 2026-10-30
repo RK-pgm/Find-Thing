@@ -38,8 +38,7 @@ const state = {
   items: [],
   schools: FALLBACK_SCHOOLS,
   favoriteIds: [],
-  photo: null,
-  previewUrl: null,
+  photoEntries: [],
   cameraStream: null,
   notificationTimer: null,
   unreadNotifications: 0,
@@ -710,10 +709,11 @@ function makeItemCard(item) {
   });
 
   const art = document.createElement('div');
-  art.className = `item-art ${item.type}${item.photo ? ' has-photo' : ''}`;
-  if (item.photo) {
+  const itemPhotos = Array.isArray(item.photos) && item.photos.length ? item.photos : item.photo ? [item.photo] : [];
+  art.className = `item-art ${item.type}${itemPhotos.length ? ' has-photo' : ''}`;
+  if (itemPhotos.length) {
     const image = document.createElement('img');
-    image.src = item.photo;
+    image.src = itemPhotos[0];
     image.alt = item.itemName;
     image.loading = 'lazy';
     art.append(image);
@@ -973,9 +973,18 @@ async function openItemDetails(itemId, replyToId = null) {
   byId('claim-proof').value = '';
   byId('report-item').classList.toggle('hidden', item.ownerId === state.user.id);
   loadClaimsForItem(item);
-  const photo = byId('detail-photo');
-  photo.classList.toggle('hidden', !item.photo);
-  if (item.photo) photo.src = item.photo;
+  const photoGallery = byId('detail-photo-gallery');
+  const itemPhotos = Array.isArray(item.photos) && item.photos.length ? item.photos : item.photo ? [item.photo] : [];
+  photoGallery.replaceChildren();
+  photoGallery.classList.toggle('hidden', itemPhotos.length === 0);
+  itemPhotos.forEach((url, index) => {
+    const photo = document.createElement('img');
+    photo.className = 'detail-photo';
+    photo.src = url;
+    photo.alt = `รูปสิ่งของภาพที่ ${index + 1} จาก ${itemPhotos.length}`;
+    photo.loading = index > 0 ? 'lazy' : 'eager';
+    photoGallery.append(photo);
+  });
   const facts = byId('detail-facts');
   facts.replaceChildren();
   const rows = [
@@ -1508,7 +1517,6 @@ function updateStats() {
 function openReport(type) {
   state.reportType = type;
   state.editingItemId = null;
-  state.photo = null;
   byId('item-form').reset();
   const schoolAudience = byId('item-audience').querySelector('option[value="school"]');
   schoolAudience.disabled = !state.user?.schoolId;
@@ -1542,7 +1550,6 @@ function openReport(type) {
 function editItem(item) {
   state.editingItemId = item.id;
   state.reportType = item.type;
-  state.photo = null;
   byId('item-form').reset();
   byId('item-audience').value = item.visibility || 'public';
   byId('item-audience').disabled = true;
@@ -1570,19 +1577,20 @@ function editItem(item) {
   byId('item-time').value = item.eventTime || '';
   byId('item-contact').value = item.contact || '';
   byId('item-contact-public').checked = item.contactPublic !== false;
-  byId('item-message').textContent = 'รูปภาพเดิมจะคงอยู่';
+  const photos = Array.isArray(item.photos) && item.photos.length ? item.photos : item.photo ? [item.photo] : [];
+  state.photoEntries = photos.map((url) => ({ url, existing: true }));
+  renderPhotoPreviews();
+  byId('item-message').textContent = 'เพิ่ม เปลี่ยน หรือลบรูปได้ (สูงสุด 6 รูป)';
   byId('item-date-label').textContent = item.type === 'lost' ? 'วันที่หาย' : 'วันที่พบ';
   byId('item-dialog').showModal();
 }
 function clearPhoto() {
   stopCamera();
-  state.photo = null;
-  if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-  state.previewUrl = null;
-  byId('photo-preview').removeAttribute('src');
-  byId('photo-preview').hidden = true;
+  state.photoEntries.forEach((entry) => { if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl); });
+  state.photoEntries = [];
+  renderPhotoPreviews();
   byId('photo-file').value = '';
-  byId('camera-status').textContent = 'หลีกเลี่ยงการติดใบหน้าหรือข้อมูลส่วนตัวของนักเรียนในภาพ';
+  byId('camera-status').textContent = 'เพิ่มรูปได้สูงสุด 6 รูป · หลีกเลี่ยงใบหน้าและข้อมูลส่วนตัวในภาพ';
 }
 function stopCamera() {
   if (state.cameraStream) {
@@ -1617,12 +1625,65 @@ async function startCamera() {
       'ไม่ได้รับอนุญาตให้ใช้กล้อง หรือกล้องไม่พร้อมใช้งาน กรุณาเลือกรูปภาพแทน';
   }
 }
-function setPhoto(blob) {
-  if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-  state.photo = blob;
-  state.previewUrl = URL.createObjectURL(blob);
-  byId('photo-preview').src = state.previewUrl;
-  byId('photo-preview').hidden = false;
+function renderPhotoPreviews() {
+  const container = byId('photo-preview');
+  container.replaceChildren();
+  container.hidden = state.photoEntries.length === 0;
+  state.photoEntries.forEach((entry, index) => {
+    const tile = document.createElement('div');
+    tile.className = 'photo-preview-tile';
+    const image = document.createElement('img');
+    image.src = entry.previewUrl || entry.url;
+    image.alt = `ภาพที่ ${index + 1}`;
+    const actions = document.createElement('div');
+    actions.className = 'photo-preview-actions';
+    const replace = document.createElement('button');
+    replace.type = 'button';
+    replace.className = 'button small';
+    replace.textContent = 'เปลี่ยนรูป';
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'image/jpeg,image/png,image/webp';
+    picker.hidden = true;
+    picker.addEventListener('change', () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showToast('รองรับไฟล์ JPG, PNG หรือ WebP');
+      if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+      entry.file = file;
+      entry.previewUrl = URL.createObjectURL(file);
+      entry.existing = false;
+      renderPhotoPreviews();
+    });
+    replace.addEventListener('click', () => picker.click());
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'button small danger-button';
+    remove.textContent = 'ลบ';
+    remove.addEventListener('click', () => {
+      if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+      state.photoEntries.splice(index, 1);
+      renderPhotoPreviews();
+    });
+    actions.append(replace, remove, picker);
+    tile.append(image, actions);
+    container.append(tile);
+  });
+  byId('photo-pick').textContent = state.photoEntries.length ? `เพิ่มรูป (${state.photoEntries.length}/6)` : 'เลือกรูปภาพ';
+  byId('photo-pick').disabled = state.photoEntries.length >= 6;
+}
+function addPhoto(blob) {
+  if (state.photoEntries.length >= 6) {
+    byId('camera-status').textContent = 'เพิ่มได้สูงสุด 6 รูป';
+    return false;
+  }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(blob.type)) {
+    byId('camera-status').textContent = 'รองรับไฟล์ JPG, PNG หรือ WebP';
+    return false;
+  }
+  state.photoEntries.push({ file: blob, previewUrl: URL.createObjectURL(blob), existing: false });
+  renderPhotoPreviews();
+  return true;
 }
 function capturePhoto() {
   const video = byId('camera-preview');
@@ -1637,7 +1698,7 @@ function capturePhoto() {
         byId('camera-status').textContent = 'ถ่ายภาพไม่สำเร็จ กรุณาลองอีกครั้ง';
         return;
       }
-      setPhoto(blob);
+      addPhoto(blob);
       byId('camera-status').textContent = 'เลือกรูปภาพเรียบร้อยแล้ว';
       stopCamera();
     },
@@ -1653,17 +1714,35 @@ function fileAsDataUrl(file) {
     reader.readAsDataURL(file);
   });
 }
+async function optimizePhoto(file) {
+  const bitmap = await createImageBitmap(file);
+  let scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+  let blob = null;
+  while (scale >= 0.35) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d', { alpha: false }).drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.82, 0.72, 0.62, 0.52]) {
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+      if (blob && blob.size <= 400 * 1024) {
+        bitmap.close();
+        return blob;
+      }
+    }
+    scale *= 0.82;
+  }
+  bitmap.close();
+  if (!blob) throw new Error('ลดขนาดรูปภาพไม่สำเร็จ กรุณาเลือกรูปใหม่');
+  if (blob.size > 500 * 1024) throw new Error('รูปภาพมีขนาดใหญ่เกินไป กรุณาเลือกรูปที่เล็กลง');
+  return blob;
+}
 async function submitItem(event) {
   event.preventDefault();
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
-  const photo = state.photo;
-  if (photo && photo.size > 3 * 1024 * 1024) {
-    byId('item-message').textContent = 'รูปภาพต้องมีขนาดไม่เกิน 3 MB';
-    return;
-  }
-  if (photo && !['image/jpeg', 'image/png', 'image/webp'].includes(photo.type)) {
-    byId('item-message').textContent = 'กรุณาเลือกรูปแบบ JPG, PNG หรือ WebP';
+  if (state.photoEntries.length > 6) {
+    byId('item-message').textContent = 'เพิ่มรูปได้ไม่เกิน 6 รูป';
     return;
   }
   const payload = {
@@ -1684,9 +1763,24 @@ async function submitItem(event) {
     date: byId('item-date').value,
     eventTime: byId('item-time').value,
   };
-  if (photo) {
-    payload.imageFeatures = await analyzePhoto(photo);
-    payload.photo = await fileAsDataUrl(photo);
+  try {
+    payload.photos = [];
+    for (const entry of state.photoEntries) {
+      if (entry.existing) {
+        payload.photos.push({ url: entry.url });
+      } else {
+        const optimized = await optimizePhoto(entry.file);
+        const imageFeatures = await analyzePhoto(optimized);
+        payload.photos.push({ data: await fileAsDataUrl(optimized), imageFeatures });
+      }
+    }
+    const firstEntry = state.photoEntries[0];
+    if (firstEntry && !firstEntry.existing) payload.imageFeatures = payload.photos[0].imageFeatures;
+    else if (state.editingItemId) payload.imageFeatures = state.items.find((item) => item.id === state.editingItemId)?.imageFeatures || null;
+    else payload.imageFeatures = null;
+  } catch (error) {
+    byId('item-message').textContent = error.message || 'เตรียมรูปภาพไม่สำเร็จ';
+    return;
   }
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
@@ -2174,10 +2268,14 @@ function bindEvents() {
   byId('camera-stop').addEventListener('click', stopCamera);
   byId('photo-pick').addEventListener('click', () => byId('photo-file').click());
   byId('photo-file').addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    setPhoto(file);
-    byId('camera-status').textContent = 'เลือกรูปภาพเรียบร้อยแล้ว';
+    const files = [...(event.currentTarget.files || [])];
+    event.currentTarget.value = '';
+    if (!files.length) return;
+    const invalid = files.find((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type));
+    if (invalid) return showToast('รองรับไฟล์ JPG, PNG หรือ WebP');
+    if (state.photoEntries.length + files.length > 6) return showToast(`เลือกเพิ่มได้อีกไม่เกิน ${6 - state.photoEntries.length} รูป`);
+    files.forEach(addPhoto);
+    byId('camera-status').textContent = `เลือกรูปแล้ว ${state.photoEntries.length}/6 รูป`;
   });
   byId('search-input').addEventListener('input', renderItems);
   byId('image-search-button').addEventListener('click', () => byId('image-search-file').click());

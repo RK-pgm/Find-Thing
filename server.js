@@ -411,6 +411,39 @@ function normalizeImageFeatures(features) {
   if (histogram.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) return null;
   return { version: 1, dhash: features.dhash, histogram };
 }
+function itemPhotoList(item) {
+  return Array.isArray(item?.photos) && item.photos.length ? item.photos : item?.photo ? [item.photo] : [];
+}
+function itemPhotoFeatureList(item) {
+  if (Array.isArray(item?.photoFeatures)) return item.photoFeatures.map(normalizeImageFeatures);
+  return item?.imageFeatures ? [normalizeImageFeatures(item.imageFeatures)] : [];
+}
+async function storeItemPhoto(data) {
+  const photo = mimeFromData(data);
+  if (!photo) throw Object.assign(new Error('รูปภาพต้องเป็นไฟล์ JPG, PNG หรือ WebP และมีขนาดไม่เกิน 3 MB'), { status: 400 });
+  const ext = photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
+  const filename = crypto.randomUUID() + ext;
+  if (process.env.VERCEL) {
+    const { put } = require('@vercel/blob');
+    const blob = await put(`found-it/${filename}`, photo.bytes, { access: 'public', contentType: photo.type, addRandomSuffix: false, cacheControlMaxAge: 31536000 });
+    return blob.url;
+  }
+  fs.writeFileSync(path.join(PHOTO_DIR, filename), photo.bytes, { flag: 'wx' });
+  return '/uploads/' + filename;
+}
+async function deleteItemPhotos(urls) {
+  const unique = [...new Set((urls || []).filter((url) => typeof url === 'string'))];
+  for (const url of unique) {
+    try {
+      if (url.startsWith('https://') && process.env.VERCEL) {
+        const { del } = require('@vercel/blob');
+        await del(url);
+      } else if (url.startsWith('/uploads/')) {
+        fs.unlinkSync(path.join(PHOTO_DIR, path.basename(url)));
+      }
+    } catch (error) { if (error.code !== 'ENOENT') console.error('Could not remove item photo:', error); }
+  }
+}
 function imageSimilarity(left, right) {
   const a = normalizeImageFeatures(left);
   const b = normalizeImageFeatures(right);
@@ -423,6 +456,18 @@ function imageSimilarity(left, right) {
     histogramDistance += Math.abs(a.histogram[index] - b.histogram[index]);
   const colorScore = 1 - Math.min(1, histogramDistance / 6);
   return hashScore * 0.55 + colorScore * 0.45;
+}
+function itemImageSimilarity(left, right) {
+  const leftFeatures = itemPhotoFeatureList(left).filter(Boolean);
+  const rightFeatures = itemPhotoFeatureList(right).filter(Boolean);
+  if (!leftFeatures.length && left?.imageFeatures) leftFeatures.push(normalizeImageFeatures(left.imageFeatures));
+  if (!rightFeatures.length && right?.imageFeatures) rightFeatures.push(normalizeImageFeatures(right.imageFeatures));
+  let best = null;
+  for (const a of leftFeatures) for (const b of rightFeatures) {
+    const score = imageSimilarity(a, b);
+    if (score !== null && (best === null || score > best)) best = score;
+  }
+  return best;
 }
 function matchAnalysis(a, b, allowSameType = false) {
   const evidenceTotal = 7;
@@ -448,7 +493,7 @@ function matchAnalysis(a, b, allowSameType = false) {
   const dateScore = Number.isFinite(leftDate) && Number.isFinite(rightDate)
     ? Math.max(0, 1 - Math.abs(leftDate - rightDate) / (45 * 86400000))
     : null;
-  const imageScore = imageSimilarity(a.imageFeatures, b.imageFeatures);
+  const imageScore = itemImageSimilarity(a, b);
   const factors = [
     { label: 'ชื่อสิ่งของคล้ายกัน', value: textSimilarity(a.itemName, b.itemName), weight: 0.25, threshold: 0.52 },
     { label: 'หมวดหมู่ตรงกัน', value: sameCategory, weight: 0.16, threshold: 1 },
@@ -485,7 +530,7 @@ function withMatches(items, viewerId = null) {
       .filter((match) => match.score >= 28)
       .sort((left, right) => right.score - left.score)
       .slice(0, 3);
-    const { imageFeatures, ...publicItem } = item;
+    const { imageFeatures, photoFeatures, ...publicItem } = item;
     if (item.ownerId !== viewerId && item.contactPublic === false) delete publicItem.contact;
     return { ...publicItem, possibleMatches };
   });
@@ -876,19 +921,7 @@ async function handler(req, res) {
         }));
       await writeStore(store);
       for (const item of removedItems) {
-        if (typeof item.photo !== 'string') continue;
-        try {
-          if (item.photo.startsWith('https://')) {
-            const { del } = require('@vercel/blob');
-            await del(item.photo);
-          } else if (item.photo.startsWith('/uploads/')) {
-            const filename = path.basename(item.photo);
-            if (/^[\da-f-]{36}\.(?:jpg|png|webp)$/i.test(filename))
-              fs.unlinkSync(path.join(PHOTO_DIR, filename));
-          }
-        } catch (error) {
-          if (error.code !== 'ENOENT') console.error('Could not remove deleted account photo:', error);
-        }
+        await deleteItemPhotos(itemPhotoList(item));
       }
       return json(res, 200, { ok: true });
     }
@@ -942,34 +975,45 @@ async function handler(req, res) {
       item.returnTokenHash = null;
       item.returnTokenExpiresAt = null;
       item.updatedAt = new Date().toISOString();
-      let oldPhoto = null;
-      if (body.photo) {
-        const photo = mimeFromData(body.photo);
-        if (!photo) return json(res, 400, { error: 'รูปภาพต้องเป็นไฟล์ JPG, PNG หรือ WebP และมีขนาดไม่เกิน 3 MB' });
-        const ext = photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
-        const filename = crypto.randomUUID() + ext;
-        oldPhoto = item.photo;
-        if (process.env.VERCEL) {
-          const { put } = require('@vercel/blob');
-          const blob = await put(`found-it/${filename}`, photo.bytes, { access: 'public', contentType: photo.type, addRandomSuffix: false, cacheControlMaxAge: 31536000 });
-          item.photo = blob.url;
-        } else {
-          fs.writeFileSync(path.join(PHOTO_DIR, filename), photo.bytes, { flag: 'wx' });
-          item.photo = '/uploads/' + filename;
+      const oldPhotos = itemPhotoList(item);
+      if (Array.isArray(body.photos)) {
+        if (body.photos.length > 6) return json(res, 400, { error: 'เพิ่มรูปได้ไม่เกิน 6 รูป' });
+        for (const entry of body.photos) {
+          if (!entry || typeof entry !== 'object' || (entry.url && !oldPhotos.includes(entry.url)) || (!entry.url && !mimeFromData(entry.data)))
+            return json(res, 400, { error: 'ข้อมูลรูปภาพไม่ถูกต้อง กรุณาเลือกรูปใหม่' });
         }
+        const previousFeatures = itemPhotoFeatureList(item);
+        const nextPhotos = [];
+        const nextFeatures = [];
+        for (const entry of body.photos) {
+          if (entry.url) {
+            const oldIndex = oldPhotos.indexOf(entry.url);
+            nextPhotos.push(entry.url);
+            nextFeatures.push(previousFeatures[oldIndex] || (entry.url === item.photo ? normalizeImageFeatures(item.imageFeatures) : null));
+          } else {
+            nextPhotos.push(await storeItemPhoto(entry.data));
+            nextFeatures.push(normalizeImageFeatures(entry.imageFeatures));
+          }
+        }
+        item.photos = nextPhotos;
+        item.photo = nextPhotos[0] || null;
+        item.photoFeatures = nextFeatures;
+        item.imageFeatures = nextFeatures[0] || null;
+        await writeStore(store);
+        await deleteItemPhotos(oldPhotos.filter((url) => !nextPhotos.includes(url)));
+        return json(res, 200, { ok: true, item });
+      }
+      if (body.photo) {
+        const oldPhoto = item.photo;
+        item.photo = await storeItemPhoto(body.photo);
+        item.photos = [item.photo];
         item.imageFeatures = normalizeImageFeatures(body.imageFeatures);
+        item.photoFeatures = [item.imageFeatures];
+        await writeStore(store);
+        await deleteItemPhotos(oldPhoto ? [oldPhoto] : []);
+        return json(res, 200, { ok: true, item });
       }
       await writeStore(store);
-      if (oldPhoto) {
-        try {
-          if (oldPhoto.startsWith('https://') && process.env.VERCEL) {
-            const { del } = require('@vercel/blob');
-            await del(oldPhoto);
-          } else if (oldPhoto.startsWith('/uploads/')) {
-            fs.unlinkSync(path.join(PHOTO_DIR, path.basename(oldPhoto)));
-          }
-        } catch (error) { if (error.code !== 'ENOENT') console.error('Could not remove replaced item photo:', error); }
-      }
       return json(res, 200, { ok: true, item });
     }
     if (req.method === 'DELETE' && route.startsWith('/api/items/')) {
@@ -990,20 +1034,7 @@ async function handler(req, res) {
       store.itemReports = store.itemReports.filter((report) => report.itemId !== itemId);
       removeNotificationsForItems(store, itemId);
       await writeStore(store);
-      if (typeof item.photo === 'string') {
-        try {
-          if (item.photo.startsWith('https://')) {
-            const { del } = require('@vercel/blob');
-            await del(item.photo);
-          } else if (item.photo.startsWith('/uploads/')) {
-            const filename = path.basename(item.photo);
-            if (/^[\da-f-]{36}\.(?:jpg|png|webp)$/i.test(filename))
-              fs.unlinkSync(path.join(PHOTO_DIR, filename));
-          }
-        } catch (error) {
-          if (error.code !== 'ENOENT') console.error('Could not remove deleted report photo:', error);
-        }
-      }
+      await deleteItemPhotos(itemPhotoList(item));
       return json(res, 200, { ok: true, itemId });
     }
     if (req.method === 'POST' && route.startsWith('/api/items/') && route.endsWith('/return-qr')) {
@@ -1306,6 +1337,8 @@ async function handler(req, res) {
         date,
         eventTime: /^\d{2}:\d{2}$/.test(String(body.eventTime || '')) ? body.eventTime : '',
         photo: null,
+        photos: [],
+        photoFeatures: [],
         ownerId: user.id,
         ownerName: user.name,
         schoolId: user.schoolId || '',
@@ -1315,27 +1348,23 @@ async function handler(req, res) {
         assignedTo: '',
         createdAt: new Date().toISOString(),
       };
-      if (body.photo) {
-        const photo = mimeFromData(body.photo);
-        if (!photo)
-          return json(res, 400, { error: 'รูปภาพต้องเป็นไฟล์ JPG, PNG หรือ WebP และมีขนาดไม่เกิน 3 MB' });
-        item.imageFeatures = normalizeImageFeatures(body.imageFeatures);
-        const ext =
-          photo.type === 'image/jpeg' ? '.jpg' : photo.type === 'image/png' ? '.png' : '.webp';
-        const filename = crypto.randomUUID() + ext;
-        if (process.env.VERCEL) {
-          const { put } = require('@vercel/blob');
-          const blob = await put(`found-it/${filename}`, photo.bytes, {
-            access: 'public',
-            contentType: photo.type,
-            addRandomSuffix: false,
-            cacheControlMaxAge: 31536000,
-          });
-          item.photo = blob.url;
-        } else {
-          fs.writeFileSync(path.join(PHOTO_DIR, filename), photo.bytes, { flag: 'wx' });
-          item.photo = '/uploads/' + filename;
+      if (Array.isArray(body.photos)) {
+        if (body.photos.length > 6) return json(res, 400, { error: 'เพิ่มรูปได้ไม่เกิน 6 รูป' });
+        for (const entry of body.photos) {
+          if (!entry || typeof entry !== 'object' || entry.url || !mimeFromData(entry.data))
+            return json(res, 400, { error: 'ข้อมูลรูปภาพไม่ถูกต้อง กรุณาเลือกรูปใหม่' });
         }
+        for (const entry of body.photos) {
+          item.photos.push(await storeItemPhoto(entry.data));
+          item.photoFeatures.push(normalizeImageFeatures(entry.imageFeatures));
+        }
+        item.photo = item.photos[0] || null;
+        item.imageFeatures = item.photoFeatures[0] || null;
+      } else if (body.photo) {
+        item.photo = await storeItemPhoto(body.photo);
+        item.photos = [item.photo];
+        item.imageFeatures = normalizeImageFeatures(body.imageFeatures);
+        item.photoFeatures = [item.imageFeatures];
       }
       const store = await readStore();
       const matches = visibleItemsFor(user, store.items)

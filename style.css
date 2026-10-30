@@ -1744,6 +1744,47 @@ textarea {
   margin-bottom: 12px;
 }
 
+.photo-gallery-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.photo-gallery-preview[hidden] { display: none; }
+.photo-preview-tile {
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 13px;
+  background: #fff;
+}
+.photo-preview-tile img {
+  width: 100%;
+  height: 112px;
+  margin: 0 0 7px;
+  object-fit: cover;
+}
+.photo-preview-actions { display: flex; gap: 5px; }
+.photo-preview-actions .button { flex: 1; min-width: 0; padding-inline: 7px; }
+.photo-preview-actions .danger-button { color: #b42318; }
+.detail-photo-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 10px;
+}
+.detail-photo-gallery[hidden] { display: none; }
+.detail-photo-gallery .detail-photo {
+  width: 100%;
+  height: 220px;
+  margin: 0;
+  object-fit: contain;
+}
+@media (max-width: 520px) {
+  .photo-gallery-preview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail-photo-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail-photo-gallery .detail-photo { height: 150px; }
+}
+
 .camera-actions {
   display: flex;
   gap: 8px;
