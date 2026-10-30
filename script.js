@@ -620,7 +620,7 @@ function makeMatchPreview(match, compact = false) {
     .map((factor) => factor.label + ' ' + factor.score + '%')
     .join(' · ');
   content.append(heading, caption, meter, coverage, reasons);
-  if (evidence.textContent) content.append(evidence);
+  if (!compact && evidence.textContent) content.append(evidence);
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'button match-open';
