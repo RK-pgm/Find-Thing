@@ -4994,3 +4994,78 @@ html[data-theme="dark"] :focus-visible { outline-color: #a6e5b5; }
   .admin-stat strong { font-size: 25px; }
   .admin-card { padding: 18px 14px; }
 }
+
+/* Dark mode overrides for late-loaded secondary screen accents. */
+html[data-theme="dark"] #points-rules-dialog .points-rule-list li {
+  border-color: #3a4b40;
+  background: #202c25;
+}
+html[data-theme="dark"] #points-rules-dialog .points-rule-value {
+  border-color: #635833;
+  background: #38311f;
+  color: #efda98;
+}
+html[data-theme="dark"] #points-rules-dialog .points-rule-mark {
+  border-color: #435849;
+  background: #29382d;
+  color: #d5e8d7;
+}
+html[data-theme="dark"] #points-rules-dialog .points-rules-note {
+  border-color: #635832;
+  background: #342e1f;
+  color: #e7d79f;
+}
+html[data-theme="dark"] #help-dialog .form-hint {
+  border-color: #635832;
+  background: #342e1f;
+  color: #e7d79f;
+}
+html[data-theme="dark"] .dialog:not(#item-dialog) .eyebrow,
+html[data-theme="dark"] .dialog:not(#item-dialog) .subtext,
+html[data-theme="dark"] .dialog:not(#item-dialog) label {
+  color: #d2dfd4;
+}
+html[data-theme="dark"] .dialog:not(#item-dialog) input:not([type="checkbox"]),
+html[data-theme="dark"] .dialog:not(#item-dialog) select,
+html[data-theme="dark"] .dialog:not(#item-dialog) textarea {
+  border-color: #405247;
+  background: #141d17;
+  color: #edf4ee;
+  box-shadow: none;
+}
+html[data-theme="dark"] .dialog:not(#item-dialog) input::placeholder,
+html[data-theme="dark"] .dialog:not(#item-dialog) textarea::placeholder { color: #a6b5a9; opacity: 1; }
+html[data-theme="dark"] .dialog:not(#item-dialog) input:focus,
+html[data-theme="dark"] .dialog:not(#item-dialog) select:focus,
+html[data-theme="dark"] .dialog:not(#item-dialog) textarea:focus {
+  border-color: #85c794;
+  box-shadow: 0 0 0 3px rgba(126, 198, 144, .2);
+}
+html[data-theme="dark"] .dialog:not(#item-dialog) .dialog-close:hover {
+  border-color: #5a785f;
+  background: #2a3a2e;
+  color: #f5faf5;
+}
+html[data-theme="dark"] #detail-dialog .comment-card,
+html[data-theme="dark"] #detail-dialog .comment-card.comment-reply,
+html[data-theme="dark"] #detail-dialog .comment-form,
+html[data-theme="dark"] #detail-dialog .claim-history-card {
+  border-color: #3e5044;
+  background: #202d25;
+  color: #e4ece5;
+  box-shadow: none;
+}
+html[data-theme="dark"] #detail-dialog .comment-card > p,
+html[data-theme="dark"] #detail-dialog .comment-head strong,
+html[data-theme="dark"] #detail-dialog .claim-history-card p { color: #d5e1d7; }
+html[data-theme="dark"] #detail-dialog .comment-head time { color: #aebdaf; }
+html[data-theme="dark"] #map-search-dialog .campus-map-selected { color: #c8ead0; }
+html[data-theme="dark"] #map-search-dialog .campus-map { border-color: #506456; }
+html[data-theme="dark"] #map-search-dialog .map-place-option[aria-pressed="false"] {
+  border-color: #405247;
+  background: #243128;
+  color: #e0eae1;
+}
+html[data-theme="dark"] #my-claims-dialog .claim-history-status.pending { color: #f0d994; }
+html[data-theme="dark"] #my-claims-dialog .claim-history-status.rejected { color: #ffaaa7; }
+html[data-theme="dark"] #my-claims-dialog .claim-history-card small { color: #aebdaf; }
