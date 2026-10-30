@@ -2037,7 +2037,7 @@ textarea {
 
 .admin-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -2307,7 +2307,7 @@ textarea {
   }
 
   .admin-summary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -2782,6 +2782,9 @@ textarea {
   background: #202f46;
   color: #e7eef8;
 }
+
+.match-coverage { color: #91a99a; font-size: 11px; font-weight: 700; }
+.match-evidence { color: #aab8cc; font-size: 10.5px; line-height: 1.45; }
 
 /* Return the report cards to the original light green school palette. */
 .item-card {

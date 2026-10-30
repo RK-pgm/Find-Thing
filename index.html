@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f3f6f2" />
-    <meta name="description" content="ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหาและแจ้งของหายหรือของที่พบได้ที่นี่" />
-    <title>ศูนย์ติดตามของหายในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=ux-refresh-6" />
-    <script src="script.js?v=optional-reward-1" defer></script>
+    <meta name="application-name" content="KhongHai" />
+    <meta name="description" content="KhongHai ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหา แจ้ง และช่วยกันส่งคืนของที่พบ" />
+    <title>KhongHai — ศูนย์ของหายและของที่พบในโรงเรียน</title>
+    <link rel="stylesheet" href="style.css?v=khonghai-match-1" />
+    <script src="script.js?v=khonghai-match-1" defer></script>
 </head>
 <body>
     <div class="falling-items" aria-hidden="true">
@@ -29,8 +30,8 @@
       <span style="--x:89%;--delay:-12s;--duration:19s;--size:22px;--drift:34px">🖍️</span>
     </div>
     <header class="topbar">
-      <a class="brand" href="#home" aria-label="หน้าหลักศูนย์ติดตามของหาย"
-        ><span class="brand-mark" aria-hidden="true">🏫</span><span>ศูนย์ติดตามของหายในโรงเรียน <small class="brand-caption">ระบบแจ้งของหายและของที่พบ</small></span></a
+      <a class="brand" href="#home" aria-label="หน้าหลัก KhongHai"
+        ><span class="brand-mark" aria-hidden="true">🏫</span><span>KhongHai <small class="brand-caption">ศูนย์ของหายและของที่พบในโรงเรียน</small></span></a
       >
       <nav class="nav" id="nav" aria-label="เมนูหลัก"></nav>
   </header>
@@ -278,6 +279,10 @@
             <article class="admin-stat">
               <span>ประกาศเก็บได้</span>
               <strong id="admin-found-count">0</strong>
+            </article>
+            <article class="admin-stat">
+              <span>ยืนยันคืนด้วย QR</span>
+              <strong id="admin-return-count">0</strong>
             </article>
             <article class="admin-stat">
               <span>บัญชีสมาชิก</span>

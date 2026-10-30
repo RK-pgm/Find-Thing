@@ -425,13 +425,24 @@ function imageSimilarity(left, right) {
   return hashScore * 0.55 + colorScore * 0.45;
 }
 function matchAnalysis(a, b, allowSameType = false) {
-  if (a.type === b.type && !allowSameType) return { score: 0, imageScore: null, reasons: [] };
+  const evidenceTotal = 7;
+  if (a.type === b.type && !allowSameType)
+    return { score: 0, imageScore: null, reasons: [], evidenceCount: 0, evidenceTotal, factorScores: [] };
   const sameCategory = normalizedMatchText(a.category) && normalizedMatchText(b.category)
     ? Number(normalizedMatchText(a.category) === normalizedMatchText(b.category))
     : null;
-  const sameLocation = normalizedMatchText(a.location) && normalizedMatchText(b.location)
-    ? Number(normalizedMatchText(a.location) === normalizedMatchText(b.location))
-    : null;
+  let siteScore = textSimilarity(a.location, b.location);
+  const schoolA = normalizedMatchText(a.schoolId || a.school);
+  const schoolB = normalizedMatchText(b.schoolId || b.school);
+  const placeA = normalizedMatchText(a.placeId);
+  const placeB = normalizedMatchText(b.placeId);
+  if (schoolA && schoolB) {
+    if (schoolA !== schoolB) siteScore = 0;
+    else if (placeA && placeB) siteScore = placeA === placeB ? 1 : Math.min(siteScore ?? 0, 0.25);
+    else if (siteScore === null) siteScore = 0.65;
+  } else if (placeA && placeB) {
+    siteScore = placeA === placeB ? 1 : 0;
+  }
   const leftDate = Date.parse(`${a.date || ''}T00:00:00Z`);
   const rightDate = Date.parse(`${b.date || ''}T00:00:00Z`);
   const dateScore = Number.isFinite(leftDate) && Number.isFinite(rightDate)
@@ -441,7 +452,7 @@ function matchAnalysis(a, b, allowSameType = false) {
   const factors = [
     { label: 'ชื่อสิ่งของคล้ายกัน', value: textSimilarity(a.itemName, b.itemName), weight: 0.25, threshold: 0.52 },
     { label: 'หมวดหมู่ตรงกัน', value: sameCategory, weight: 0.16, threshold: 1 },
-    { label: 'สถานที่ตรงกัน', value: sameLocation, weight: 0.11, threshold: 1 },
+    { label: 'โรงเรียน/บริเวณใกล้กัน', value: siteScore, weight: 0.11, threshold: 0.72 },
     { label: 'สี/ลักษณะคล้ายกัน', value: textSimilarity(a.color, b.color), weight: 0.10, threshold: 0.52 },
     { label: 'รายละเอียดคล้ายกัน', value: textSimilarity(a.description, b.description), weight: 0.14, threshold: 0.48 },
     { label: 'รูปภาพมีลักษณะใกล้กัน', value: imageScore, weight: 0.20, threshold: 0.58 },
@@ -457,7 +468,14 @@ function matchAnalysis(a, b, allowSameType = false) {
     .map((factor) => factor.label);
   const coreLabels = new Set(['ชื่อสิ่งของคล้ายกัน', 'สี/ลักษณะคล้ายกัน', 'รายละเอียดคล้ายกัน', 'รูปภาพมีลักษณะใกล้กัน']);
   const hasCoreSignal = factors.some((factor) => coreLabels.has(factor.label) && factor.value >= 0.3);
-  return { score: hasCoreSignal ? score : 0, imageScore: imageScore === null ? null : Math.round(imageScore * 100), reasons };
+  return {
+    score: hasCoreSignal ? score : 0,
+    imageScore: imageScore === null ? null : Math.round(imageScore * 100),
+    reasons,
+    evidenceCount: factors.length,
+    evidenceTotal,
+    factorScores: factors.map((factor) => ({ label: factor.label, score: Math.round(factor.value * 100) })),
+  };
 }
 function withMatches(items, viewerId = null) {
   return items.map((item) => {
@@ -495,6 +513,13 @@ function removeNotificationsForItems(store, itemIds) {
       !ids.has(notification.matchItemId) &&
       !ids.has(notification.targetItemId),
   );
+}
+function rejectPendingClaims(store, item, exceptClaimId = null, updatedAt = item.updatedAt || new Date().toISOString()) {
+  for (const claim of store.claims.filter((entry) => entry.itemId === item.id && entry.id !== exceptClaimId && entry.status === 'pending')) {
+    claim.status = 'rejected';
+    claim.updatedAt = updatedAt;
+    store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: 'rejected', targetItemId: item.id, createdAt: updatedAt, readAt: null });
+  }
 }
 function sendFile(res, filename) {
   const ext = path.extname(filename).toLowerCase();
@@ -731,6 +756,7 @@ async function handler(req, res) {
       return json(res, 200, {
         lostCount: store.items.filter((item) => item.type === 'lost').length,
         foundCount: store.items.filter((item) => item.type === 'found').length,
+        returnedCount: store.items.filter((item) => item.status === 'resolved' && item.returnedAt).length,
         userCount: store.users.length,
         supportCount: store.staffMessages.length,
       });
@@ -758,8 +784,9 @@ async function handler(req, res) {
       item.status = status;
       item.assignedTo = assignedTo;
       item.updatedAt = new Date().toISOString();
-      if (status === 'resolved') {
+      if (status === 'resolved' || status === 'expired') {
         removeNotificationsForItems(store, itemId);
+        rejectPendingClaims(store, item);
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
       }
@@ -784,8 +811,9 @@ async function handler(req, res) {
         return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่เปลี่ยนสถานะได้' });
       item.status = status;
       item.updatedAt = new Date().toISOString();
-      if (status === 'resolved') removeNotificationsForItems(store, itemId);
       if (status === 'resolved') {
+        removeNotificationsForItems(store, itemId);
+        rejectPendingClaims(store, item);
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
       }
@@ -1020,14 +1048,16 @@ async function handler(req, res) {
       if (item.ownerId === user.id) return json(res, 403, { error: 'ให้ผู้รับสิ่งของเป็นผู้สแกน QR เพื่อยืนยัน' });
       item.status = 'resolved';
       item.returnedAt = new Date().toISOString();
+      item.updatedAt = item.returnedAt;
       item.returnConfirmedBy = user.id;
       item.returnTokenHash = null;
       item.returnTokenExpiresAt = null;
-      for (const claim of store.claims.filter((entry) => entry.itemId === item.id)) {
-        if (claim.fromId === user.id && claim.status === 'approved') claim.status = 'fulfilled';
-        else if (claim.status === 'pending') claim.status = 'rejected';
+      for (const claim of store.claims.filter((entry) => entry.itemId === item.id && entry.fromId === user.id && entry.status === 'approved')) {
+        claim.status = 'fulfilled';
+        claim.updatedAt = item.returnedAt;
       }
       removeNotificationsForItems(store, item.id);
+      rejectPendingClaims(store, item);
       store.notifications.push({ id: crypto.randomUUID(), type: 'return_confirmed', userId: item.ownerId, itemName: item.itemName, targetItemId: item.id, createdAt: item.returnedAt, readAt: null });
       await writeStore(store);
       return json(res, 200, { ok: true, itemId: item.id, itemName: item.itemName });
@@ -1437,9 +1467,7 @@ async function handler(req, res) {
       claim.status = body.status;
       claim.updatedAt = new Date().toISOString();
       store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: claim.status, targetItemId: claim.itemId, createdAt: claim.updatedAt, readAt: null });
-      if (body.status === 'approved') {
-        for (const other of store.claims.filter((entry) => entry.itemId === claim.itemId && entry.id !== claim.id && entry.status === 'pending')) other.status = 'rejected';
-      }
+      if (body.status === 'approved') rejectPendingClaims(store, item, claim.id, claim.updatedAt);
       await writeStore(store);
       return json(res, 200, { claim });
     }

@@ -604,12 +604,24 @@ function makeMatchPreview(match, compact = false) {
   const fill = document.createElement('span');
   fill.style.width = `${Math.max(0, Math.min(100, match.score))}%`;
   meter.append(fill);
+  const coverage = document.createElement('span');
+  coverage.className = 'match-coverage';
+  coverage.textContent = 'เปรียบเทียบได้ ' + (match.evidenceCount || 0) + '/' + (match.evidenceTotal || 7) + ' ด้าน · คะแนนเป็นค่าประมาณ';
   const reasons = document.createElement('span');
   reasons.className = 'match-reasons';
   const labels = [...(match.reasons || [])];
   if (match.imageScore !== null && match.imageScore !== undefined) labels.unshift(`ภาพ ${match.imageScore}%`);
   reasons.textContent = labels.length ? `ตรงกัน: ${labels.slice(0, 4).join(' · ')}` : 'คะแนนจากข้อมูลที่มีของทั้งสองประกาศ';
-  content.append(heading, caption, meter, reasons);
+  const evidence = document.createElement('span');
+  evidence.className = 'match-evidence';
+  evidence.textContent = (match.factorScores || [])
+    .slice()
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 3)
+    .map((factor) => factor.label + ' ' + factor.score + '%')
+    .join(' · ');
+  content.append(heading, caption, meter, coverage, reasons);
+  if (evidence.textContent) content.append(evidence);
   const action = document.createElement('button');
   action.type = 'button';
   action.className = 'button match-open';
@@ -2041,6 +2053,7 @@ async function loadAdminData() {
     ]);
     byId('admin-lost-count').textContent = overview.lostCount;
     byId('admin-found-count').textContent = overview.foundCount;
+    byId('admin-return-count').textContent = overview.returnedCount ?? 0;
     byId('admin-user-count').textContent = overview.userCount;
     byId('admin-support-count').textContent = overview.supportCount;
     renderAdminUsers(accounts.users);
