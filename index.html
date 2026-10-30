@@ -7,28 +7,15 @@
     <meta name="application-name" content="KhongHai" />
     <meta name="description" content="KhongHai ศูนย์ติดตามและส่งคืนของหายในโรงเรียน ค้นหา แจ้ง และช่วยกันส่งคืนของที่พบ" />
     <title>KhongHai — ศูนย์ของหายและของที่พบในโรงเรียน</title>
-    <link rel="stylesheet" href="style.css?v=school-rewards-1" />
-    <script src="script.js?v=school-rewards-1" defer></script>
+    <script>
+      try {
+        if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
+      } catch {}
+    </script>
+    <link rel="stylesheet" href="style.css?v=theme-mode-2" />
+    <script src="script.js?v=theme-mode-2" defer></script>
 </head>
 <body>
-    <div class="falling-items" aria-hidden="true">
-      <span style="--x:5%;--delay:-11s;--duration:18s;--size:24px;--drift:38px">🎒</span>
-      <span style="--x:14%;--delay:-3s;--duration:21s;--size:20px;--drift:-25px">🔑</span>
-      <span style="--x:25%;--delay:-19s;--duration:19s;--size:22px;--drift:30px">📘</span>
-      <span style="--x:37%;--delay:-8s;--duration:22s;--size:19px;--drift:-34px">✏️</span>
-      <span style="--x:49%;--delay:-23s;--duration:20s;--size:23px;--drift:24px">👟</span>
-      <span style="--x:61%;--delay:-14s;--duration:23s;--size:20px;--drift:-29px">🧴</span>
-      <span style="--x:72%;--delay:-5s;--duration:18s;--size:24px;--drift:35px">👛</span>
-      <span style="--x:84%;--delay:-17s;--duration:21s;--size:19px;--drift:-22px">📏</span>
-      <span style="--x:94%;--delay:-27s;--duration:20s;--size:22px;--drift:28px">🎧</span>
-      <span style="--x:31%;--delay:-26s;--duration:23s;--size:18px;--drift:21px">🧢</span>
-      <span style="--x:79%;--delay:-9s;--duration:22s;--size:21px;--drift:-31px">📓</span>
-      <span style="--x:56%;--delay:-2s;--duration:24s;--size:18px;--drift:26px">🖊️</span>
-      <span style="--x:9%;--delay:-16s;--duration:20s;--size:21px;--drift:-32px">🪪</span>
-      <span style="--x:43%;--delay:-6s;--duration:17s;--size:23px;--drift:32px">🧸</span>
-      <span style="--x:67%;--delay:-21s;--duration:22s;--size:19px;--drift:-26px">🧦</span>
-      <span style="--x:89%;--delay:-12s;--duration:19s;--size:22px;--drift:34px">🖍️</span>
-    </div>
     <header class="topbar">
       <a class="brand" href="#home" aria-label="หน้าหลัก KhongHai"
         ><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 10.5 12 4l9 6.5M5.5 10v9.5h13V10M9 19.5v-6h6v6M8 10h.01M12 10h.01M16 10h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>KhongHai <small class="brand-caption">ศูนย์ของหายและของที่พบในโรงเรียน</small></span></a
@@ -191,19 +178,19 @@
           <div class="board-heading">
             <div>
               <h2 id="board-title">ประกาศล่าสุด</h2>
-              <p>พิมพ์เป็นประโยคได้ทั้งไทยและอังกฤษ เช่น ชนิดของ สี สถานที่ และวันที่</p>
+              <p>ค้นหาด้วยชื่อสิ่งของ สี สถานที่ หรือวันที่ ทั้งภาษาไทยและอังกฤษ</p>
             </div>
             <span class="live-label" id="community-label"><i></i> กระดานสาธารณะ · เลือกโรงเรียนในโปรไฟล์</span>
           </div>
           <div class="filters">
-            <label class="search-box"
-              ><span aria-hidden="true">⌕</span
-              ><input
-                id="search-input"
-                type="search"
-                placeholder="พิมพ์ตามที่นึกได้ เช่น กระเป๋าสีดำที่เจอแถวโรงอาหารเมื่อวาน"
-                aria-label="ค้นหาสิ่งของ" /></label
-            ><select id="category-filter" aria-label="กรองตามหมวดหมู่">
+            <div class="filter-main-search">
+              <label class="filter-row-title" for="search-input">ค้นหาประกาศ</label>
+              <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="เช่น กระเป๋าสีดำที่โรงอาหาร" aria-label="ค้นหาสิ่งของ" /></label>
+            </div>
+            <div class="filter-row" role="group" aria-label="ตัวกรองประกาศ">
+              <span class="filter-row-title">เลือกดูให้ตรงขึ้น</span>
+              <div class="filter-controls">
+                <label class="filter-field"><span>หมวดหมู่</span><select id="category-filter" aria-label="กรองตามหมวดหมู่">
               <option value="">ทุกหมวดหมู่</option>
               <option value="School supplies">อุปกรณ์การเรียน</option>
               <option value="Stationery">เครื่องเขียน</option>
@@ -212,23 +199,30 @@
               <option value="Bags">กระเป๋า</option>
               <option value="Phones">โทรศัพท์</option>
               <option value="Electronics">อุปกรณ์อิเล็กทรอนิกส์</option>
-              <option value="Other">อื่น ๆ</option></select
-            ><select id="location-filter" aria-label="กรองตามสถานที่">
+              <option value="Other">อื่น ๆ</option></select></label>
+                <label class="filter-field"><span>สถานที่</span><select id="location-filter" aria-label="กรองตามสถานที่">
               <option value="">ทุกสถานที่</option>
               <option value="Classroom">ห้องเรียน</option>
               <option value="Library">ห้องสมุด</option>
               <option value="Cafeteria">โรงอาหาร</option>
               <option value="Sports area">สนามกีฬา</option>
               <option value="Other">อื่น ๆ</option>
-            </select>
-            <label class="date-filter">วันที่ <input id="date-filter" type="date" aria-label="กรองตามวันที่หายหรือพบ" /></label>
+                </select></label>
+                <label class="filter-field"><span>วันที่</span><input id="date-filter" type="date" aria-label="กรองตามวันที่หายหรือพบ" /></label>
             <button class="button small filter-tool map-search-button" id="map-search-open" type="button"><span class="filter-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="m3.5 6.5 5-2 7 2 5-2v13l-5 2-7-2-5 2v-13ZM8.5 4.5v13m7-11v13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>ค้นหาบนแผนที่</button>
+              </div>
+            </div>
+            <div class="filter-row filter-tools-row" role="group" aria-label="เครื่องมือช่วยค้นหา">
+              <span class="filter-row-title">เครื่องมือช่วยค้นหา</span>
+              <div class="filter-actions">
             <button class="button small filter-tool filter-mine" id="my-items-filter" type="button" aria-pressed="false"><span class="filter-icon" aria-hidden="true">▣</span>ประกาศของฉัน</button>
             <input id="image-search-file" type="file" accept="image/jpeg,image/png,image/webp" hidden />
             <button class="button small filter-tool filter-image" id="image-search-button" type="button"><span class="filter-icon" aria-hidden="true">⌕</span>ค้นหาด้วยรูป</button>
             <button class="button small filter-tool filter-clear hidden" id="clear-image-search" type="button"><span class="filter-icon" aria-hidden="true">×</span>ล้างผลค้นหารูป</button>
             <button class="button small filter-tool filter-alert" id="save-search-button" type="button"><span class="filter-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M18 9a6 6 0 0 0-12 0c0 7-2.5 7-2.5 9h17C20.5 16 18 16 18 9ZM10 21h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>รับแจ้งเตือนเมื่อพบ</button>
             <button class="button small filter-tool filter-manage" id="manage-saved-searches" type="button"><span class="filter-icon" aria-hidden="true">≡</span>คำค้นหาที่บันทึก</button>
+              </div>
+            </div>
           </div>
           <p id="natural-search-hint" class="natural-search-hint hidden" aria-live="polite"></p>
           <div id="map-location-status" class="map-location-status hidden" aria-live="polite"><span id="map-location-status-text"></span><button id="map-location-clear" class="button small" type="button">ล้างจุดที่เลือก</button></div>
@@ -333,9 +327,13 @@
         <button class="icon-button dialog-close" id="close-dialog" type="button" aria-label="ปิดหน้าต่าง">
           ×
         </button>
-        <div class="eyebrow" id="dialog-kind">แจ้งรายการใหม่</div>
-        <h2 id="dialog-title">แจ้งข้อมูลสิ่งของ</h2>
-        <p class="subtext">กรอกรายละเอียดให้ครบถ้วน เพื่อช่วยให้เจ้าของหรือผู้พบเห็นระบุสิ่งของได้ง่ายขึ้น</p>
+        <header class="report-form-header">
+          <div class="eyebrow" id="dialog-kind">แจ้งรายการใหม่</div>
+          <h2 id="dialog-title">แจ้งข้อมูลสิ่งของ</h2>
+          <p class="subtext">กรอกรายละเอียดที่ทราบ เพื่อช่วยให้ตามหาหรือส่งคืนได้ง่ายขึ้น</p>
+        </header>
+        <section class="report-section" aria-labelledby="report-owner-heading">
+          <div class="report-section-heading"><h3 id="report-owner-heading">ข้อมูลผู้แจ้ง</h3><p>ชื่อและกลุ่มคนที่จะเห็นประกาศ</p></div>
         <label for="item-reporter">ชื่อผู้แจ้ง</label
         ><input id="item-reporter" name="reporterName" required maxlength="80" placeholder="ชื่อ–นามสกุลผู้แจ้ง" />
         <p class="form-hint">ระบบเติมชื่อจากบัญชีที่เข้าสู่ระบบให้อัตโนมัติ แก้ไขได้ก่อนส่ง และชื่อนี้จะแสดงบนประกาศ</p>
@@ -345,6 +343,9 @@
           <option value="public">สาธารณะ · ทุกโรงเรียนมองเห็น</option>
         </select>
         <p class="form-hint" id="item-audience-hint">โพสต์จะผูกกับโรงเรียนในโปรไฟล์ ณ เวลาที่ลงประกาศ</p>
+        </section>
+        <section class="report-section" aria-labelledby="report-item-heading">
+          <div class="report-section-heading"><h3 id="report-item-heading">รายละเอียดสิ่งของ</h3><p>ระบุลักษณะที่ช่วยให้จำได้</p></div>
         <label for="item-name">ชื่อสิ่งของ</label
         ><input
           id="item-name"
@@ -381,6 +382,9 @@
           maxlength="500"
           placeholder="ระบุลักษณะเด่น ตำหนิ หรือสิ่งที่ช่วยยืนยันความเป็นเจ้าของ"
         ></textarea>
+        </section>
+        <section class="report-section" aria-labelledby="report-where-heading">
+          <div class="report-section-heading"><h3 id="report-where-heading">สถานที่และเวลา</h3><p>จำได้คร่าว ๆ ก็ช่วยให้ค้นหาได้เร็วขึ้น</p></div>
         <div class="two-col">
           <div>
             <label for="item-location">สถานที่</label
@@ -411,14 +415,18 @@
           <input id="item-deposit-location" name="depositLocation" type="text" maxlength="120" placeholder="เช่น ห้องธุรการหรือห้องกิจการนักเรียน" />
           <p class="form-hint">ระบุจุดที่เจ้าของสามารถไปรับสิ่งของคืนได้</p>
         </div>
-        <div id="reward-options" hidden>
+        </section>
+        <section class="report-section report-reward-section" id="reward-options" hidden aria-labelledby="report-reward-heading">
+          <div class="report-section-heading"><h3 id="report-reward-heading">สินน้ำใจ</h3><p>เลือกให้ได้ตามความสมัครใจ</p></div>
           <label class="privacy-option" for="item-reward-offered"><input id="item-reward-offered" name="rewardOffered" type="checkbox" /><span>มีสินน้ำใจให้ผู้พบ (ไม่บังคับ)</span></label>
           <div id="reward-amount-field" hidden>
             <label for="item-reward-amount">จำนวนสินน้ำใจ (บาท) <span class="optional">(ไม่บังคับ)</span></label>
             <input id="item-reward-amount" name="rewardAmount" type="number" min="1" max="1000000" step="1" inputmode="numeric" placeholder="เว้นว่างได้ หากยังไม่กำหนดจำนวน" disabled />
           </div>
           <p class="form-hint">การให้สินน้ำใจเป็นความสมัครใจ จะระบุจำนวนหรือไม่ก็ได้</p>
-        </div>
+        </section>
+        <section class="report-section" aria-labelledby="report-contact-heading">
+          <div class="report-section-heading"><h3 id="report-contact-heading">การติดต่อ</h3><p>เลือกเปิดเผยช่องทางติดต่อหรือใช้ข้อความส่วนตัว</p></div>
         <label for="item-contact">ช่องทางติดต่อ <span class="optional">(ไม่บังคับ)</span></label>
         <input
           id="item-contact"
@@ -429,6 +437,9 @@
         />
         <label class="privacy-option" for="item-contact-public"><input id="item-contact-public" name="contactPublic" type="checkbox" /><span>แสดงช่องทางติดต่อนี้ให้สมาชิกคนอื่นเห็น</span></label>
         <p class="form-hint">หากไม่เลือก ระบบจะซ่อนข้อมูลติดต่อและให้สมาชิกส่งข้อความส่วนตัวแทน</p>
+        </section>
+        <section class="report-section report-photo-section" aria-labelledby="report-photo-heading">
+          <div class="report-section-heading"><h3 id="report-photo-heading">รูปภาพประกอบ</h3><p>ไม่บังคับ · เพิ่มได้สูงสุด 6 รูป</p></div>
         <label for="photo-file">รูปภาพสิ่งของ <span class="optional">(ไม่บังคับ)</span></label>
         <div class="camera-box">
           <video id="camera-preview" autoplay playsinline hidden></video
@@ -452,6 +463,7 @@
           />
           <p id="camera-status" class="camera-status" aria-live="polite">เพิ่มได้สูงสุด 6 รูป กด “เปลี่ยนรูป” หรือ “ลบ” ที่ภาพเดิมได้ · หลีกเลี่ยงใบหน้าและข้อมูลส่วนตัวในภาพ</p>
         </div>
+        </section>
         <p id="item-message" class="form-message" aria-live="polite"></p>
         <div class="dialog-actions">
           <button class="button" id="cancel-report" type="button">ยกเลิก</button
@@ -548,7 +560,7 @@
           </div>
         </div>
         <p class="form-hint">ฟีดจะแสดงโพสต์สาธารณะและโพสต์ของโรงเรียนที่เลือก เปลี่ยนได้ทุกเมื่อ</p>
-        <section class="community-points-panel" aria-labelledby="community-points-title"><div><span class="eyebrow">ช่วยกันตามหาและส่งคืน</span><h3 id="community-points-title">แต้มพลเมืองดี</h3><p>รับ 10 แต้มเมื่อผู้รับยืนยันคืนของที่พบผ่าน QR แล้วนำแต้มมาแลกของในโรงเรียน</p></div><strong id="community-points-total">—</strong>
+        <section class="community-points-panel" aria-labelledby="community-points-title"><div><span class="eyebrow">ช่วยกันตามหาและส่งคืน</span><h3 id="community-points-title">แต้มพลเมืองดี</h3><p>รับ 10 แต้มเมื่อผู้รับยืนยันคืนของที่พบผ่าน QR แล้วนำแต้มมาแลกของในโรงเรียน</p><button class="button small points-rules-button" id="open-points-rules" type="button">อ่านกติกาแต้ม</button></div><strong id="community-points-total">—</strong>
           <div class="reward-shop"><div class="reward-shop-heading"><h4>ร้านแลกของจำลอง</h4><span>ทดลองระบบ · ยังไม่ใช่การสั่งซื้อจริง</span></div><div id="reward-catalog" class="reward-catalog" aria-live="polite"></div><p id="reward-shop-status" class="form-message" aria-live="polite"></p><p class="form-hint">หลังแลก ระบบจะแสดงรหัสรับของตัวอย่าง ใช้สำหรับสาธิตเท่านั้น</p></div>
           <div class="reward-history"><h4>ประวัติแต้มและการแลก</h4><ul id="community-points-history" class="community-points-history"></ul></div>
         </section>
@@ -557,6 +569,22 @@
         <p id="profile-status" class="form-message" aria-live="polite"></p>
         <div class="dialog-actions"><button class="button" id="cancel-profile" type="button">ยกเลิก</button><button class="button primary" type="submit">บันทึกโปรไฟล์</button></div>
       </form>
+    </dialog>
+    <dialog class="dialog" id="points-rules-dialog" aria-labelledby="points-rules-title">
+      <section class="dialog-card points-rules-card">
+        <button class="icon-button dialog-close" id="close-points-rules" type="button" aria-label="ปิดกติกาแต้ม">×</button>
+        <div class="eyebrow">แต้มพลเมืองดี</div>
+        <h2 id="points-rules-title">กติกาแต้มความดี</h2>
+        <p class="subtext">แต้มมีไว้ขอบคุณนักเรียนที่ช่วยเก็บและส่งคืนสิ่งของให้เจ้าของ</p>
+        <ul class="points-rule-list">
+          <li><span class="points-rule-value">+10</span><div><h3>ได้แต้มเมื่อส่งคืนของที่พบ</h3><p>ผู้แจ้งว่าเก็บของได้จะได้รับ 10 แต้ม เมื่อผู้รับสแกน QR เพื่อยืนยันการรับคืนสำเร็จ</p></div></li>
+          <li><span class="points-rule-mark" aria-hidden="true">ผู้แจ้ง</span><div><h3>แต้มเข้าบัญชีผู้แจ้งของที่พบ</h3><p>ผู้สแกน QR คือผู้รับของคืน ส่วนแต้มจะเข้าบัญชีของนักเรียนที่ลงประกาศว่าเก็บของได้</p></div></li>
+          <li><span class="points-rule-mark" aria-hidden="true">1 ครั้ง</span><div><h3>หนึ่งประกาศรับแต้มได้ครั้งเดียว</h3><p>QR ใช้ยืนยันได้ครั้งเดียวและหมดอายุภายใน 60 นาที หากหมดอายุให้เจ้าของประกาศสร้าง QR ใหม่</p></div></li>
+          <li><span class="points-rule-mark" aria-hidden="true">ส่งคืนจริง</span><div><h3>ยืนยันหลังส่งมอบของจริงเท่านั้น</h3><p>กรอกข้อมูลตามจริง ไม่ลงประกาศซ้ำหรือสร้างรายการเท็จ และอย่าสแกน QR ล่วงหน้าหรือช่วยกันทำรายการเพื่อรับแต้ม</p></div></li>
+        </ul>
+        <p class="points-rules-note"><strong>หมายเหตุ:</strong> ร้านแลกของและรหัสรับของในระบบนี้เป็นการจำลอง ยังไม่ใช่การสั่งซื้อหรือรับสินค้าจริง</p>
+        <div class="dialog-actions"><button class="button primary" id="done-points-rules" type="button">เข้าใจกติกาแล้ว</button></div>
+      </section>
     </dialog>
     <dialog class="dialog" id="my-claims-dialog" aria-labelledby="my-claims-title">
       <section class="dialog-card">

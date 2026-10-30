@@ -134,6 +134,31 @@ function showToast(text) {
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => toast.classList.remove('show'), 2800);
 }
+function updateThemeToggle(button) {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  setNavButton(button, 'theme', dark ? 'ธีมสว่าง' : 'ธีมมืด', dark ? 'sun' : 'moon');
+  button.setAttribute('aria-pressed', String(dark));
+  button.setAttribute('aria-label', dark ? 'เปลี่ยนเป็นธีมสว่าง' : 'เปลี่ยนเป็นธีมมืด');
+  button.title = dark ? 'เปลี่ยนเป็นธีมสว่าง' : 'เปลี่ยนเป็นธีมมืด';
+}
+function applyTheme(theme) {
+  const nextTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = nextTheme;
+  try { localStorage.setItem('khonghai-theme', nextTheme); } catch {}
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.content = nextTheme === 'dark' ? '#111914' : '#f3f6f2';
+  const toggle = document.querySelector('.nav-theme');
+  if (toggle) updateThemeToggle(toggle);
+}
+function addThemeToggle(nav) {
+  const button = document.createElement('button');
+  button.id = 'theme-toggle-button';
+  updateThemeToggle(button);
+  button.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  });
+  nav.append(button);
+}
 function setNavButton(button, role, label, iconName) {
   const paths = {
     board: ['M5 4.5h14v15H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
@@ -145,6 +170,8 @@ function setNavButton(button, role, label, iconName) {
     admin: ['M12 3 20 6v5.5c0 5.1-3.4 8.2-8 9.5-4.6-1.3-8-4.4-8-9.5V6l8-3Z', 'm8.7 12 2.2 2.2 4.6-4.7'],
     signup: ['M12 5v14', 'M5 12h14'],
     login: ['M13 5h5.5v14H13', 'm10 8-4 4 4 4', 'M6 12h11'],
+    moon: ['M20.5 15.3A8.5 8.5 0 0 1 8.7 3.5 8.6 8.6 0 1 0 20.5 15.3Z'],
+    sun: ['M12 3v2', 'M12 19v2', 'm4.9 4.9 1.4 1.4', 'm17.7 17.7 1.4 1.4', 'M3 12h2', 'M19 12h2', 'm4.9 19.1 1.4-1.4', 'm17.7 6.3 1.4-1.4', 'M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z'],
   };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
@@ -178,6 +205,7 @@ function renderNav() {
     setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
     help.addEventListener('click', openHelp);
     nav.append(signup, login, help);
+    addThemeToggle(nav);
     return;
   }
   const board = document.createElement('button');
@@ -204,6 +232,7 @@ function renderNav() {
   messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
   messageTools.append(inbox, notifications);
   nav.append(board, messageTools, help);
+  addThemeToggle(nav);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
     setNavButton(adminPanel, 'admin', 'แผงควบคุม', 'admin');
@@ -753,20 +782,20 @@ function makeItemCard(item) {
   }
   const badge = document.createElement('span');
   badge.className = `badge ${item.type}`;
-  badge.textContent = item.type === 'lost' ? '🔴 ของหาย' : '🟢 เก็บได้';
+  badge.textContent = item.type === 'lost' ? 'ของหาย' : 'เก็บได้';
   if (item.status === 'resolved') {
     const resolvedBadge = document.createElement('span');
-    resolvedBadge.className = 'badge resolved';
+    resolvedBadge.className = 'badge returned';
     resolvedBadge.textContent = 'ปิดประกาศแล้ว';
     art.append(resolvedBadge);
   } else if (item.status === 'expired') {
     const expiredBadge = document.createElement('span');
-    expiredBadge.className = 'badge resolved';
+    expiredBadge.className = 'badge expired';
     expiredBadge.textContent = 'หมดอายุ';
     art.append(expiredBadge);
   } else if (item.type === 'found' && item.status === 'open') {
     const unclaimedBadge = document.createElement('span');
-    unclaimedBadge.className = 'badge resolved';
+    unclaimedBadge.className = 'badge unclaimed';
     unclaimedBadge.textContent = 'ยังไม่มีผู้รับ';
     art.append(unclaimedBadge);
   }
@@ -1623,7 +1652,7 @@ function parseNaturalSearch(rawQuery) {
     [['สีดำ', 'ดำ', 'black'], ['ดำ', 'black']],
     [['สีขาว', 'ขาว', 'white'], ['ขาว', 'white']],
     [['สีแดง', 'แดง', 'red'], ['แดง', 'red']],
-    [['สีน้ำเงิน', 'สีน้ำเงิน', 'น้ำเงิน', 'ฟ้า', 'blue', 'navy'], ['น้ำเงิน', 'ฟ้า', 'blue', 'navy']],
+    [['สีน้ำเงิน', 'สีฟ้า', 'น้ำเงิน', 'ฟ้า', 'blue', 'navy'], ['น้ำเงิน', 'ฟ้า', 'blue', 'navy']],
     [['สีเขียว', 'เขียว', 'green'], ['เขียว', 'green']],
     [['สีเหลือง', 'เหลือง', 'yellow'], ['เหลือง', 'yellow']],
     [['สีชมพู', 'ชมพู', 'pink'], ['ชมพู', 'pink']],
@@ -1655,6 +1684,11 @@ function renderItems() {
   const query = parsedQuery.terms.join(' ').toLocaleLowerCase();
   const category = byId('category-filter').value;
   const locationValue = byId('location-filter').value;
+  [
+    ['category-filter', category],
+    ['location-filter', locationValue],
+    ['date-filter', byId('date-filter').value],
+  ].forEach(([id, value]) => byId(id).closest('.filter-field')?.classList.toggle('has-value', Boolean(value)));
   const selectedPlaceId = locationValue.startsWith('place:') ? locationValue.slice(6) : '';
   const location = selectedPlaceId ? '' : locationValue;
   const date = byId('date-filter').value;
@@ -1772,6 +1806,8 @@ function updateStats() {
 function openReport(type) {
   state.reportType = type;
   state.editingItemId = null;
+  byId('item-dialog').classList.toggle('is-lost-report', type === 'lost');
+  byId('item-dialog').classList.toggle('is-found-report', type === 'found');
   byId('item-form').reset();
   const schoolAudience = byId('item-audience').querySelector('option[value="school"]');
   schoolAudience.disabled = !state.user?.schoolId;
@@ -1805,6 +1841,8 @@ function openReport(type) {
 function editItem(item) {
   state.editingItemId = item.id;
   state.reportType = item.type;
+  byId('item-dialog').classList.toggle('is-lost-report', item.type === 'lost');
+  byId('item-dialog').classList.toggle('is-found-report', item.type === 'found');
   byId('item-form').reset();
   byId('item-audience').value = item.visibility || 'public';
   byId('item-audience').disabled = true;
@@ -2474,6 +2512,9 @@ function bindEvents() {
   byId('profile-form').addEventListener('submit', saveProfile);
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
   byId('cancel-profile').addEventListener('click', () => byId('profile-dialog').close());
+  byId('open-points-rules').addEventListener('click', () => byId('points-rules-dialog').showModal());
+  byId('close-points-rules').addEventListener('click', () => byId('points-rules-dialog').close());
+  byId('done-points-rules').addEventListener('click', () => byId('points-rules-dialog').close());
   byId('open-my-claims').addEventListener('click', openMyClaims);
   byId('close-my-claims').addEventListener('click', () => byId('my-claims-dialog').close());
   byId('open-change-password').addEventListener('click', openChangePassword);
