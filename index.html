@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=nav-buttons-1" />
-    <script src="script.js?v=nav-buttons-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=admin-sections-1" />
+    <script src="script.js?v=admin-sections-1" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -340,7 +340,16 @@
               <button class="button primary" id="admin-open-inbox" type="button">กล่องข้อความเจ้าหน้าที่</button>
             </div>
           </div>
-          <div class="admin-summary" aria-label="สรุปข้อมูลโรงเรียน">
+          <div class="admin-view-tabs" role="group" aria-label="เลือกหมวดแผงควบคุม">
+            <button class="admin-view-button is-active" type="button" data-admin-view="overview" aria-pressed="true"><span>ภาพรวม</span></button>
+            <button class="admin-view-button" type="button" data-admin-view="announcements" aria-pressed="false"><span>ประกาศทั้งหมด</span><b id="admin-nav-count-announcements">0</b></button>
+            <button class="admin-view-button" type="button" data-admin-view="lost" aria-pressed="false"><span>ของหาย</span><b id="admin-nav-count-lost">0</b></button>
+            <button class="admin-view-button" type="button" data-admin-view="found" aria-pressed="false"><span>ของที่พบ</span><b id="admin-nav-count-found">0</b></button>
+            <button class="admin-view-button" type="button" data-admin-view="issues" aria-pressed="false"><span>แจ้งปัญหา</span><b id="admin-nav-count-issues">0</b></button>
+            <button class="admin-view-button" type="button" data-admin-view="members" aria-pressed="false"><span>สมาชิก</span><b id="admin-nav-count-members">0</b></button>
+            <button class="admin-view-button" type="button" data-admin-view="reports" aria-pressed="false"><span>รายงานประกาศ</span><b id="admin-nav-count-reports">0</b></button>
+          </div>
+          <div class="admin-summary" data-admin-view-panel="overview" aria-label="สรุปข้อมูลโรงเรียน">
             <article class="admin-stat">
               <span>ประกาศของหาย</span>
               <strong id="admin-lost-count">0</strong>
@@ -362,11 +371,11 @@
               <strong id="admin-support-count">0</strong>
             </article>
           </div>
-          <section class="admin-attention" aria-labelledby="admin-attention-title">
+          <section class="admin-attention" data-admin-view-panel="overview" aria-labelledby="admin-attention-title">
             <div class="admin-attention-heading"><div><span class="admin-attention-kicker">คิวงานแนะนำ</span><h2 id="admin-attention-title">รายการที่ควรตรวจสอบ</h2><p>เรียงงานที่ยังไม่เสร็จและรายงานที่ยังไม่ได้ตรวจไว้ให้จัดการต่อได้ทันที</p></div><span class="admin-attention-total" id="admin-attention-total">0 งาน</span></div>
             <div class="admin-attention-list" id="admin-attention-list" aria-live="polite"></div>
           </section>
-          <section class="admin-card admin-work-card" id="admin-items-card" aria-labelledby="admin-work-title">
+          <section class="admin-card admin-work-card" id="admin-items-card" data-admin-view-panel="announcements lost found" aria-labelledby="admin-work-title">
             <div class="admin-card-heading">
               <div>
                 <h2 id="admin-work-title">รายการติดตามงาน</h2>
@@ -384,12 +393,12 @@
               </table>
             </div>
           </section>
-          <section class="admin-card" id="admin-workorders-card" aria-labelledby="admin-workorders-title">
+          <section class="admin-card" id="admin-workorders-card" data-admin-view-panel="issues" aria-labelledby="admin-workorders-title">
             <div class="admin-card-heading"><div><h2 id="admin-workorders-title">งานแจ้งปัญหาโรงเรียน</h2><p>ตรวจสอบ มอบหมาย และเลื่อนสถานะตามลำดับ พร้อมบันทึกผู้ดำเนินการทุกครั้ง</p></div><span class="admin-table-count" id="admin-workorder-count">0 เรื่อง</span></div>
             <p id="admin-workorder-message" class="form-message" aria-live="polite"></p>
             <div id="admin-workorder-list" class="admin-workorder-list" aria-live="polite"></div>
           </section>
-          <section class="admin-card" id="admin-accounts-card" aria-labelledby="admin-accounts-title">
+          <section class="admin-card" id="admin-accounts-card" data-admin-view-panel="members" aria-labelledby="admin-accounts-title">
             <div class="admin-card-heading">
               <div>
                 <h2 id="admin-accounts-title">บัญชีที่สมัครใช้งาน</h2>
@@ -399,7 +408,7 @@
             <p id="admin-message" class="form-message" aria-live="polite"></p>
             <div id="admin-user-list" class="admin-user-list" aria-live="polite"></div>
           </section>
-          <section class="admin-card" id="admin-item-reports-card" aria-labelledby="admin-item-reports-title"><div class="admin-card-heading"><div><h2 id="admin-item-reports-title">รายงานประกาศจากนักเรียน</h2><p>ตรวจสอบประกาศที่ถูกรายงานว่าไม่ถูกต้องหรือไม่เหมาะสม</p></div></div><div id="admin-item-report-list" class="admin-user-list" aria-live="polite"></div></section>
+          <section class="admin-card" id="admin-item-reports-card" data-admin-view-panel="reports" aria-labelledby="admin-item-reports-title"><div class="admin-card-heading"><div><h2 id="admin-item-reports-title">รายงานประกาศจากนักเรียน</h2><p>ตรวจสอบประกาศที่ถูกรายงานว่าไม่ถูกต้องหรือไม่เหมาะสม</p></div></div><div id="admin-item-report-list" class="admin-user-list" aria-live="polite"></div></section>
         </section>
       </div>
   </main>

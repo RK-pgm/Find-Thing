@@ -36,6 +36,8 @@ const state = {
   returnToken: null,
   activeFilter: 'all',
   items: [],
+  adminItems: [],
+  adminView: 'overview',
   workOrders: [],
   schools: FALLBACK_SCHOOLS,
   favoriteIds: [],
@@ -261,6 +263,26 @@ function canManageSupport() {
 function openHelp() {
   byId('help-dialog').showModal();
 }
+function setAdminView(view) {
+  const allowedViews = ['overview', 'announcements', 'lost', 'found', 'issues', 'members', 'reports'];
+  if (!allowedViews.includes(view)) return;
+  state.adminView = view;
+  document.querySelectorAll('[data-admin-view]').forEach((button) => {
+    const active = button.dataset.adminView === view;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  document.querySelectorAll('[data-admin-view-panel]').forEach((panel) => {
+    const availableViews = panel.dataset.adminViewPanel.split(/\s+/);
+    panel.classList.toggle('hidden', !availableViews.includes(view));
+  });
+  if (['announcements', 'lost', 'found'].includes(view)) {
+    const items = view === 'lost' || view === 'found'
+      ? state.adminItems.filter((item) => item.type === view)
+      : state.adminItems;
+    renderAdminReports(items);
+  }
+}
 function showPortal() {
   byId('app').classList.remove('admin-mode', 'issue-mode');
   byId('app').classList.add('portal-mode');
@@ -279,6 +301,7 @@ async function openAdminPanel() {
   byId('app').classList.remove('portal-mode', 'issue-mode');
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
+  setAdminView(state.adminView);
   byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-admin')?.setAttribute('aria-current', 'page');
   await loadAdminData();
@@ -2846,16 +2869,24 @@ async function loadAdminData() {
       api('/api/admin/item-reports'),
       api('/api/admin/work-orders'),
     ]);
+    state.adminItems = reports.items || [];
     byId('admin-lost-count').textContent = overview.lostCount;
     byId('admin-found-count').textContent = overview.foundCount;
     byId('admin-return-count').textContent = overview.returnedCount ?? 0;
     byId('admin-user-count').textContent = overview.userCount;
     byId('admin-support-count').textContent = overview.supportCount;
+    byId('admin-nav-count-announcements').textContent = state.adminItems.length;
+    byId('admin-nav-count-lost').textContent = state.adminItems.filter((item) => item.type === 'lost').length;
+    byId('admin-nav-count-found').textContent = state.adminItems.filter((item) => item.type === 'found').length;
+    byId('admin-nav-count-issues').textContent = (workOrders.workOrders || []).filter((order) => order.status !== 'resolved').length;
+    byId('admin-nav-count-members').textContent = accounts.users.length;
+    byId('admin-nav-count-reports').textContent = (itemReports.reports || []).filter((report) => report.status !== 'reviewed').length;
     renderAdminUsers(accounts.users);
     renderAdminReports(reports.items);
     renderAdminWorkOrders(workOrders.workOrders || []);
     renderAdminItemReports(itemReports.reports);
     renderAdminAttention(workOrders.workOrders || [], itemReports.reports || []);
+    setAdminView(state.adminView);
   } catch (error) {
     setMessage('admin-message', error.message);
   }
@@ -2903,6 +2934,10 @@ function bindEvents() {
   byId('signup-name').addEventListener('input', updateAdminSetupVisibility);
   byId('signup-id').addEventListener('input', updateAdminSetupVisibility);
   byId('admin-refresh').addEventListener('click', loadAdminData);
+  byId('admin-panel').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-admin-view]');
+    if (button) setAdminView(button.dataset.adminView);
+  });
   byId('profile-school').addEventListener('change', renderProfileSchoolMap);
   byId('profile-form').addEventListener('submit', saveProfile);
   byId('close-profile').addEventListener('click', () => byId('profile-dialog').close());
