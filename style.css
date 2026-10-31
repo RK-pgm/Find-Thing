@@ -5092,3 +5092,67 @@ html[data-theme="dark"] .sample-done { --sample-color: #9fb0a5; }
 }
 html[data-theme="dark"] .admin-link { border: none; background: none; font-weight: 500; }
 .admin-link { font-weight: 500; }
+
+/* School issue reports and their auditable, two-sided progress history. */
+.hero-actions .school-issue-action {
+  border-color: #d8e5d8; background: #fffefa; color: #245b46;
+}
+.hero-actions .school-issue-action:hover { background: #edf5ee; border-color: #a9c9b0; }
+.student-workorders { margin: 30px 0 38px; padding: clamp(18px, 3vw, 28px); border: 1px solid #dce7dc; border-radius: 20px; background: linear-gradient(135deg, #fffefa 0%, #f3f8f1 100%); box-shadow: 0 8px 24px rgba(33, 76, 53, .06); }
+.workorders-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
+.workorders-heading h2 { margin: 4px 0; color: var(--ink-primary, #183a31); font-size: clamp(20px, 2.5vw, 26px); }
+.workorders-heading p { margin: 0; color: var(--ink-muted, #68796e); font-size: 14px; }
+.workorder-count { flex: 0 0 auto; padding: 7px 12px; border: 1px solid #d6e4d7; border-radius: 999px; background: #fff; color: #27634b; font-size: 13px; font-weight: 700; }
+.student-workorder-list, .admin-workorder-list { display: grid; gap: 14px; }
+.student-workorder-card, .admin-workorder-row { min-width: 0; padding: 18px; border: 1px solid #dce7dc; border-radius: 15px; background: #fff; }
+.student-workorder-card-head, .admin-workorder-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.student-workorder-card h3, .admin-workorder-row h3 { margin: 5px 0; color: var(--ink-primary, #183a31); font-size: 17px; line-height: 1.4; }
+.workorder-kind { display: inline-flex; color: #27634b; font-size: 12px; font-weight: 700; }
+.workorder-status { flex: 0 0 auto; padding: 6px 10px; border: 1px solid #dce5df; border-radius: 999px; background: #f3f6f2; color: #52645a; font-size: 12px; font-weight: 700; }
+.workorder-status.status-received { border-color: #d5e4eb; background: #eff6f8; color: #3e6879; }
+.workorder-status.status-inspection { border-color: #eadbb9; background: #fff8e9; color: #826125; }
+.workorder-status.status-assigned { border-color: #d9d2ee; background: #f4f1fc; color: #65558d; }
+.workorder-status.status-in_progress { border-color: #c8dfd0; background: #edf7f0; color: #24694d; }
+.workorder-status.status-resolved { border-color: #b9dfca; background: #e8f6ed; color: #17633f; }
+.student-workorder-detail { margin: 10px 0; color: var(--ink-secondary, #596b61); font-size: 14px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.student-workorder-meta, .admin-workorder-row > p { margin: 8px 0; color: var(--ink-muted, #68796e); font-size: 13px; }
+.workorder-timeline { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin: 18px 0 10px; padding: 0; list-style: none; }
+.workorder-step { position: relative; min-width: 0; padding-top: 19px; color: #89958d; }
+.workorder-step::before { position: absolute; top: 5px; left: 4px; right: -7px; height: 2px; background: #e0e7e1; content: ""; }
+.workorder-step:last-child::before { display: none; }
+.workorder-step-marker { position: absolute; z-index: 1; top: 0; left: 0; width: 12px; height: 12px; border: 2px solid #c5d1c7; border-radius: 50%; background: #fff; }
+.workorder-step.is-complete { color: #476052; }
+.workorder-step.is-complete::before { background: #a9cdb3; }
+.workorder-step.is-complete .workorder-step-marker { border-color: #57906c; background: #57906c; }
+.workorder-step.is-current .workorder-step-marker { box-shadow: 0 0 0 4px #e1f0e5; }
+.workorder-step strong { display: block; font-size: 12px; line-height: 1.35; }
+.workorder-step small, .workorder-step > div > span { display: block; margin-top: 4px; color: var(--ink-muted, #68796e); font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.workorder-created { color: #7a887f; font-size: 12px; }
+.admin-workorder-row { display: grid; gap: 10px; }
+.admin-workorder-head h3 { margin: 4px 0; }
+.admin-workorder-head p { margin: 4px 0 0; color: #68796e; font-size: 13px; }
+.admin-workorder-controls { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(200px, 1fr) auto; align-items: end; gap: 10px; padding: 13px; border-radius: 12px; background: #f5f8f4; }
+.admin-workorder-controls label { display: grid; gap: 5px; color: #52645a; font-size: 12px; font-weight: 700; }
+.admin-workorder-controls .button { min-height: 42px; }
+.workorder-form > label { margin-top: 12px; }
+html[data-theme="dark"] .student-workorders { border-color: #384a3d; background: linear-gradient(135deg, #17231c, #1d2a21); }
+html[data-theme="dark"] .student-workorder-card, html[data-theme="dark"] .admin-workorder-row { border-color: #3c4d41; background: #1b2720; }
+html[data-theme="dark"] .workorders-heading h2, html[data-theme="dark"] .student-workorder-card h3, html[data-theme="dark"] .admin-workorder-row h3 { color: #edf4ee; }
+html[data-theme="dark"] .workorders-heading p, html[data-theme="dark"] .student-workorder-detail, html[data-theme="dark"] .student-workorder-meta, html[data-theme="dark"] .admin-workorder-head p { color: #bdcabe; }
+html[data-theme="dark"] .workorder-count { border-color: #405646; background: #243329; color: #b9e2c4; }
+html[data-theme="dark"] .admin-workorder-controls { background: #202d24; }
+html[data-theme="dark"] .admin-workorder-controls label { color: #c2d0c5; }
+html[data-theme="dark"] .workorder-step-marker { border-color: #627567; background: #1b2720; }
+html[data-theme="dark"] .workorder-step.is-complete { color: #d3e4d6; }
+html[data-theme="dark"] .workorder-step small, html[data-theme="dark"] .workorder-step > div > span, html[data-theme="dark"] .workorder-created { color: #aab9ad; }
+@media (max-width: 680px) {
+  .workorders-heading { align-items: flex-start; }
+  .student-workorder-card-head, .admin-workorder-head { flex-direction: column; }
+  .workorder-timeline { grid-template-columns: 1fr; gap: 0; margin: 14px 0 8px 2px; }
+  .workorder-step { min-height: 48px; padding: 0 0 12px 25px; }
+  .workorder-step::before { top: 11px; bottom: -1px; left: 5px; right: auto; width: 2px; height: auto; }
+  .workorder-step:last-child::before { display: none; }
+  .workorder-step-marker { top: 2px; }
+  .admin-workorder-controls { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .hero-actions .school-issue-action { scroll-behavior: auto; } }

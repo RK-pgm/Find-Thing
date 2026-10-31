@@ -36,6 +36,7 @@ const state = {
   returnToken: null,
   activeFilter: 'all',
   items: [],
+  workOrders: [],
   schools: FALLBACK_SCHOOLS,
   favoriteIds: [],
   photoEntries: [],
@@ -280,7 +281,8 @@ function enterApp(user) {
   renderCommunityLabel();
   refreshNotificationCount();
   clearInterval(state.notificationTimer);
-  state.notificationTimer = setInterval(refreshNotificationCount, 60000);
+  state.notificationTimer = setInterval(() => { refreshNotificationCount(); loadWorkOrders(); }, 60000);
+  loadWorkOrders();
   if (user.role === 'admin') openAdminPanel();
   else loadItems();
   if (state.pendingReturnToken) prepareReturnConfirmation();
@@ -894,6 +896,145 @@ function makeItemCard(item) {
   article.append(art, body);
   return article;
 }
+const WORK_ORDER_LABELS = { facility: 'อาคารหรืออุปกรณ์ชำรุด', cleanliness: 'ความสะอาด', safety: 'ปัญหาความปลอดภัย' };
+const WORK_ORDER_STAGES = [
+  { id: 'received', label: 'รับเรื่อง' }, { id: 'inspection', label: 'ตรวจสอบ' },
+  { id: 'assigned', label: 'มอบหมาย' }, { id: 'in_progress', label: 'กำลังแก้ไข' }, { id: 'resolved', label: 'แก้ไขแล้ว' },
+];
+function renderWorkOrderTimeline(order) {
+  const list = document.createElement('ol');
+  list.className = 'workorder-timeline';
+  const currentIndex = WORK_ORDER_STAGES.findIndex((stage) => stage.id === order.status);
+  for (const [index, stage] of WORK_ORDER_STAGES.entries()) {
+    const event = [...(order.history || [])].reverse().find((entry) => entry.status === stage.id);
+    const row = document.createElement('li');
+    row.className = `workorder-step${index <= currentIndex ? ' is-complete' : ''}${index === currentIndex ? ' is-current' : ''}`;
+    const marker = document.createElement('span'); marker.className = 'workorder-step-marker'; marker.setAttribute('aria-hidden', 'true');
+    const content = document.createElement('div');
+    const label = document.createElement('strong'); label.textContent = stage.label;
+    content.append(label);
+    const guidance = order.workflowDetails?.[stage.id];
+    if (guidance) { const hint = document.createElement('span'); hint.className = 'workorder-step-guidance'; hint.textContent = guidance; content.append(hint); }
+    if (event) {
+      const meta = document.createElement('small');
+      meta.textContent = `${event.actorName || 'ระบบ'} · ${formatPostedDate(event.at)}`;
+      content.append(meta);
+      if (event.note) { const note = document.createElement('span'); note.textContent = event.note; content.append(note); }
+    }
+    row.append(marker, content); list.append(row);
+  }
+  return list;
+}
+function renderStudentWorkOrders(orders = state.workOrders) {
+  const list = byId('student-workorder-list');
+  if (!list) return;
+  list.replaceChildren();
+  byId('student-workorder-count').textContent = `${orders.length} รายการ`;
+  byId('student-workorders-empty').classList.toggle('hidden', orders.length > 0);
+  for (const order of orders) {
+    const card = document.createElement('article'); card.className = 'student-workorder-card';
+    const head = document.createElement('div'); head.className = 'student-workorder-card-head';
+    const identity = document.createElement('div');
+    const kind = document.createElement('span'); kind.className = 'workorder-kind'; kind.textContent = WORK_ORDER_LABELS[order.type] || order.typeLabel || 'แจ้งปัญหา';
+    const title = document.createElement('h3'); title.textContent = order.title;
+    identity.append(kind, title);
+    const status = document.createElement('span'); status.className = `workorder-status status-${order.status}`;
+    status.textContent = WORK_ORDER_STAGES.find((stage) => stage.id === order.status)?.label || 'รับเรื่อง';
+    head.append(identity, status);
+    const detail = document.createElement('p'); detail.className = 'student-workorder-detail'; detail.textContent = order.description;
+    const meta = document.createElement('p'); meta.className = 'student-workorder-meta';
+    meta.textContent = `📍 ${order.location} · ${order.department}${order.assignedTo ? ` · ผู้รับผิดชอบ ${order.assignedTo}` : ''}`;
+    const timeline = renderWorkOrderTimeline(order);
+    const created = document.createElement('small'); created.className = 'workorder-created'; created.textContent = `รับเรื่องเมื่อ ${formatPostedDate(order.createdAt)}`;
+    card.append(head, detail, meta, timeline, created); list.append(card);
+  }
+}
+async function loadWorkOrders() {
+  if (!state.user) return;
+  try {
+    const result = await api('/api/work-orders');
+    state.workOrders = result.workOrders || [];
+    renderStudentWorkOrders();
+    byId('student-workorders-error').textContent = '';
+  } catch (error) {
+    if (byId('student-workorders-error')) byId('student-workorders-error').textContent = error.message;
+  }
+}
+function openSchoolIssue() {
+  byId('school-issue-form').reset();
+  byId('school-issue-status').textContent = '';
+  byId('school-issue-dialog').showModal();
+}
+async function submitSchoolIssue(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  submit.textContent = 'กำลังส่งเรื่อง…';
+  byId('school-issue-status').textContent = '';
+  try {
+    await api('/api/work-orders', { method: 'POST', body: JSON.stringify({
+      type: byId('school-issue-type').value,
+      title: byId('school-issue-title-input').value.trim(),
+      location: byId('school-issue-location').value.trim(),
+      description: byId('school-issue-description').value.trim(),
+    }) });
+    byId('school-issue-dialog').close();
+    form.reset();
+    await loadWorkOrders();
+    document.getElementById('student-workorders').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('ส่งเรื่องแล้ว คุณติดตามความคืบหน้าได้ด้านล่าง');
+  } catch (error) {
+    byId('school-issue-status').textContent = error.message;
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'ส่งเรื่องให้โรงเรียน';
+  }
+}
+function renderAdminWorkOrders(orders) {
+  const list = byId('admin-workorder-list');
+  if (!list) return;
+  list.replaceChildren();
+  byId('admin-workorder-count').textContent = `${orders.length} เรื่อง`;
+  if (!orders.length) {
+    const empty = document.createElement('p'); empty.className = 'admin-empty'; empty.textContent = 'ยังไม่มีเรื่องแจ้งปัญหา'; list.append(empty); return;
+  }
+  const nextStage = { received: 'inspection', inspection: 'assigned', assigned: 'in_progress', in_progress: 'resolved' };
+  for (const order of orders) {
+    const card = document.createElement('article'); card.className = 'admin-workorder-row';
+    const head = document.createElement('div'); head.className = 'admin-workorder-head';
+    const titleWrap = document.createElement('div');
+    const kind = document.createElement('span'); kind.className = 'workorder-kind'; kind.textContent = `${WORK_ORDER_LABELS[order.type] || order.typeLabel} · ${order.department}`;
+    const title = document.createElement('h3'); title.textContent = order.title;
+    const meta = document.createElement('p'); meta.textContent = `${order.reporterName} · ${order.schoolName || 'ยังไม่เลือกโรงเรียน'} · ${order.location}`;
+    titleWrap.append(kind, title, meta);
+    const current = document.createElement('span'); current.className = `workorder-status status-${order.status}`; current.textContent = WORK_ORDER_STAGES.find((stage) => stage.id === order.status)?.label || order.status;
+    head.append(titleWrap, current);
+    const description = document.createElement('p'); description.className = 'student-workorder-detail'; description.textContent = order.description;
+    const controls = document.createElement('div'); controls.className = 'admin-workorder-controls';
+    const statusLabel = document.createElement('label'); statusLabel.textContent = 'สถานะถัดไป';
+    const select = document.createElement('select'); select.setAttribute('aria-label', `ขั้นตอนถัดไป ${order.title}`);
+    for (const stage of WORK_ORDER_STAGES.filter((entry) => entry.id === order.status || entry.id === nextStage[order.status])) select.add(new Option(stage.label, stage.id));
+    select.value = order.status;
+    statusLabel.append(select);
+    const assigneeLabel = document.createElement('label'); assigneeLabel.textContent = 'ผู้รับผิดชอบ';
+    const assignee = document.createElement('input'); assignee.maxLength = 80; assignee.placeholder = 'ชื่อผู้รับผิดชอบ'; assignee.value = order.assignedTo || ''; assignee.setAttribute('aria-label', `ชื่อผู้รับผิดชอบ ${order.title}`); assigneeLabel.append(assignee);
+    const save = document.createElement('button'); save.type = 'button'; save.className = 'button primary'; save.textContent = 'บันทึกความคืบหน้า';
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try {
+        await api('/api/admin/work-orders/update', { method: 'POST', body: JSON.stringify({ orderId: order.id, status: select.value, assignedTo: assignee.value.trim() }) });
+        showToast('บันทึกความคืบหน้าและแจ้งผู้รายงานแล้ว');
+        await loadAdminData();
+      } catch (error) { setMessage('admin-workorder-message', error.message); }
+      finally { save.disabled = false; }
+    });
+    controls.append(statusLabel, assigneeLabel, save);
+    const timeline = renderWorkOrderTimeline(order);
+    card.append(head, description, controls, timeline); list.append(card);
+  }
+}
 async function loadItems() {
   try {
     const result = await api('/api/items');
@@ -953,7 +1094,9 @@ async function loadNotificationPage(offset, append) {
     const card = document.createElement('article');
     card.className = 'message-card';
     const title = document.createElement('strong');
-    title.textContent = notification.type === 'claim_request'
+    title.textContent = notification.type === 'work_order_update'
+      ? 'อัปเดตเรื่องที่คุณแจ้ง'
+      : notification.type === 'claim_request'
       ? 'มีคำขอรับของคืน'
       : notification.type === 'claim_cancelled'
         ? 'ยกเลิกคำขอรับของคืน'
@@ -969,7 +1112,9 @@ async function loadNotificationPage(offset, append) {
           ? 'พบประกาศใหม่ตามคำค้นหา'
           : 'พบประกาศที่อาจตรงกัน';
     const body = document.createElement('p');
-    body.textContent = notification.type === 'claim_request'
+    body.textContent = notification.type === 'work_order_update'
+      ? `“${notification.itemName}” อยู่ในขั้น ${notification.workOrderStatusLabel}${notification.assignedTo ? ` · ผู้รับผิดชอบ ${notification.assignedTo}` : ''}`
+      : notification.type === 'claim_request'
       ? `${notification.fromName} ขอรับ “${notification.itemName}”`
       : notification.type === 'claim_cancelled'
         ? `${notification.fromName} ยกเลิกคำขอรับ “${notification.itemName}”`
@@ -989,10 +1134,11 @@ async function loadNotificationPage(offset, append) {
     const open = document.createElement('button');
     open.className = 'button small';
     open.type = 'button';
-    open.textContent = 'ดูประกาศ';
+    open.textContent = notification.type === 'work_order_update' ? 'ติดตามงาน' : 'ดูประกาศ';
     open.addEventListener('click', () => {
       byId('notifications-dialog').close();
-      openItemDetails(notification.targetItemId);
+      if (notification.type === 'work_order_update') { loadWorkOrders(); byId('student-workorders').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      else openItemDetails(notification.targetItemId);
     });
     card.append(title, body, date, open);
     list.append(card);
@@ -2588,12 +2734,14 @@ function renderAdminReports(items) {
 async function loadAdminData() {
   setMessage('admin-message', '');
   setMessage('admin-report-message', '');
+  setMessage('admin-workorder-message', '');
   try {
-    const [overview, accounts, reports, itemReports] = await Promise.all([
+    const [overview, accounts, reports, itemReports, workOrders] = await Promise.all([
       api('/api/admin/overview'),
       api('/api/admin/users'),
       api('/api/items'),
       api('/api/admin/item-reports'),
+      api('/api/admin/work-orders'),
     ]);
     byId('admin-lost-count').textContent = overview.lostCount;
     byId('admin-found-count').textContent = overview.foundCount;
@@ -2602,6 +2750,7 @@ async function loadAdminData() {
     byId('admin-support-count').textContent = overview.supportCount;
     renderAdminUsers(accounts.users);
     renderAdminReports(reports.items);
+    renderAdminWorkOrders(workOrders.workOrders || []);
     renderAdminItemReports(itemReports.reports);
   } catch (error) {
     setMessage('admin-message', error.message);
@@ -2678,6 +2827,10 @@ function bindEvents() {
   updateAdminSetupVisibility();
   byId('report-lost').addEventListener('click', () => openReport('lost'));
   byId('report-found').addEventListener('click', () => openReport('found'));
+  byId('report-school-issue').addEventListener('click', openSchoolIssue);
+  byId('school-issue-form').addEventListener('submit', submitSchoolIssue);
+  byId('close-school-issue').addEventListener('click', () => byId('school-issue-dialog').close());
+  byId('cancel-school-issue').addEventListener('click', () => byId('school-issue-dialog').close());
   byId('item-form').addEventListener('submit', submitItem);
   byId('item-reward-offered').addEventListener('change', (event) => {
     byId('reward-amount-field').hidden = !event.currentTarget.checked || state.reportType !== 'lost';

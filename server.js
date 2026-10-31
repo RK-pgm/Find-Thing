@@ -23,6 +23,28 @@ const ADMIN_STUDENT_ID = 'T36699';
 const ADMIN_LOGIN_ID = process.env.ADMIN_LOGIN_ID || 'A1010';
 const ADMIN_LOGIN_PASSWORD = process.env.ADMIN_LOGIN_PASSWORD || '';
 const loginAttempts = new Map();
+const WORK_ORDER_TYPES = {
+  facility: { label: 'อาคารหรืออุปกรณ์ชำรุด', department: 'ฝ่ายอาคารสถานที่', workflowDetails: {
+    received: 'รับข้อมูลอาคารและอุปกรณ์ที่ได้รับผลกระทบ', inspection: 'ตรวจจุดชำรุดและประเมินความเร่งด่วน',
+    assigned: 'ระบุช่างหรือเจ้าหน้าที่อาคารผู้รับผิดชอบ', in_progress: 'ซ่อมแซมหรือเปลี่ยนอุปกรณ์ พร้อมบันทึกผล', resolved: 'ทดลองใช้งานและตรวจรับก่อนปิดงาน',
+  } },
+  cleanliness: { label: 'ความสะอาด', department: 'งานอนามัยและสิ่งแวดล้อม', workflowDetails: {
+    received: 'รับข้อมูลพื้นที่และลักษณะปัญหาความสะอาด', inspection: 'ตรวจพื้นที่ ขอบเขต และความเสี่ยงด้านสุขอนามัย',
+    assigned: 'ระบุทีมทำความสะอาดหรือผู้ดูแลพื้นที่', in_progress: 'ทำความสะอาดและจัดการจุดเสี่ยง', resolved: 'ตรวจพื้นที่ซ้ำและยืนยันความเรียบร้อย',
+  } },
+  safety: { label: 'ปัญหาความปลอดภัย', department: 'งานปกครองและความปลอดภัย', workflowDetails: {
+    received: 'รับข้อมูลเหตุและตำแหน่งเพื่อประเมินเบื้องต้น', inspection: 'ประเมินความเสี่ยงและความเร่งด่วนของเหตุ',
+    assigned: 'ประสานผู้ดูแลหรือเจ้าหน้าที่รักษาความปลอดภัย', in_progress: 'ดูแลพื้นที่และดำเนินมาตรการแก้ไข', resolved: 'ตรวจยืนยันว่าพื้นที่ปลอดภัยและบันทึกผล',
+  } },
+};
+const WORK_ORDER_STAGES = [
+  { id: 'received', label: 'รับเรื่อง' },
+  { id: 'inspection', label: 'ตรวจสอบ' },
+  { id: 'assigned', label: 'มอบหมาย' },
+  { id: 'in_progress', label: 'กำลังแก้ไข' },
+  { id: 'resolved', label: 'แก้ไขแล้ว' },
+];
+const NEXT_WORK_ORDER_STAGE = { received: 'inspection', inspection: 'assigned', assigned: 'in_progress', in_progress: 'resolved' };
 const REWARD_CATALOG = [
   { id: 'water', name: 'น้ำดื่ม', detail: 'น้ำดื่ม 1 ขวด', points: 10, icon: '💧' },
   { id: 'snack', name: 'ขนม', detail: 'ขนม 1 ชิ้น', points: 15, icon: '🍪' },
@@ -94,11 +116,11 @@ function assertDeploymentConfig() {
   }
 }
 function emptyStore() {
-  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [], pointLedger: [] };
+  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [], pointLedger: [], workOrders: [] };
 }
 function normalizeStore(value) {
   const store = { ...emptyStore(), ...(value && typeof value === 'object' ? value : {}) };
-  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches', 'pointLedger']) {
+  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches', 'pointLedger', 'workOrders']) {
     if (!Array.isArray(store[key])) store[key] = [];
   }
   const schoolForUser = (user) => SCHOOLS.find((school) => school.id === user?.schoolId) || SCHOOLS.find((school) => school.name === user?.school);
@@ -879,6 +901,56 @@ async function handler(req, res) {
         { 'Set-Cookie': clearSessionCookie() },
       );
     }
+    if (req.method === 'GET' && route === '/api/admin/work-orders') {
+      if (!(await requireAdmin(req, res))) return;
+      const workOrders = (await readStore()).workOrders
+        .slice().sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+      return json(res, 200, { workOrders });
+    }
+    if (req.method === 'POST' && route === '/api/admin/work-orders/update') {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const orderId = String(body.orderId || '');
+      const status = String(body.status || '');
+      const assignedTo = String(body.assignedTo || '').trim();
+      if (!/^[\da-f-]{36}$/i.test(orderId)) return json(res, 400, { error: 'รหัสงานไม่ถูกต้อง' });
+      if (!WORK_ORDER_STAGES.some((stage) => stage.id === status)) return json(res, 400, { error: 'กรุณาเลือกสถานะงานที่ถูกต้อง' });
+      if (assignedTo.length > 80) return json(res, 400, { error: 'ชื่อผู้รับผิดชอบต้องไม่เกิน 80 ตัวอักษร' });
+      const store = await readStore();
+      const order = store.workOrders.find((entry) => entry.id === orderId);
+      if (!order) return json(res, 404, { error: 'ไม่พบเรื่องที่แจ้ง' });
+      const nextStatus = NEXT_WORK_ORDER_STAGE[order.status];
+      if (status !== order.status && status !== nextStatus)
+        return json(res, 409, { error: 'กรุณาดำเนินงานตามลำดับ รับเรื่อง → ตรวจสอบ → มอบหมาย → กำลังแก้ไข → แก้ไขแล้ว' });
+      if (status === 'assigned' && !assignedTo)
+        return json(res, 400, { error: 'กรุณาระบุชื่อผู้รับผิดชอบก่อนมอบหมายงาน' });
+      if (status === order.status && status !== 'assigned')
+        return json(res, 409, { error: 'เปลี่ยนผู้รับผิดชอบได้ในขั้นมอบหมาย เพื่อคงลำดับการติดตามงาน' });
+      if (status === order.status && assignedTo === (order.assignedTo || ''))
+        return json(res, 400, { error: 'ยังไม่มีข้อมูลที่เปลี่ยนแปลง' });
+      const updatedAt = new Date().toISOString();
+      const changedStage = status !== order.status;
+      const previousAssignee = order.assignedTo || '';
+      order.status = status;
+      order.assignedTo = assignedTo;
+      order.updatedAt = updatedAt;
+      const stageLabel = WORK_ORDER_STAGES.find((stage) => stage.id === status).label;
+      const historyEntry = {
+        status, label: changedStage ? stageLabel : 'เปลี่ยนผู้รับผิดชอบ',
+        actorId: admin.id, actorName: admin.name, at: updatedAt,
+      };
+      if (!changedStage) historyEntry.note = previousAssignee ? `เปลี่ยนจาก ${previousAssignee} เป็น ${assignedTo || 'ยังไม่ระบุ'}` : `มอบหมายให้ ${assignedTo}`;
+      order.history.push(historyEntry);
+      store.notifications.push({
+        id: crypto.randomUUID(), type: 'work_order_update', userId: order.reporterId,
+        workOrderId: order.id, itemName: order.title, workOrderStatus: status,
+        workOrderStatusLabel: stageLabel, assignedTo: order.assignedTo,
+        createdAt: updatedAt, readAt: null,
+      });
+      await writeStore(store);
+      return json(res, 200, { ok: true, workOrder: order });
+    }
     if (req.method === 'GET' && route === '/api/admin/overview') {
       if (!(await requireAdmin(req, res))) return;
       const store = await readStore();
@@ -1003,6 +1075,9 @@ async function handler(req, res) {
       const removedItems = store.items.filter((item) => item.ownerId === targetId);
       store.users = store.users.filter((user) => user.id !== targetId);
       store.items = store.items.filter((item) => item.ownerId !== targetId);
+      for (const order of store.workOrders) {
+        if (order.reporterId === targetId) { order.reporterId = ''; order.reporterName = 'บัญชีที่ลบแล้ว'; }
+      }
       const removedItemIds = new Set(removedItems.map((item) => item.id));
       store.notifications = store.notifications.filter((notification) => notification.userId !== targetId);
       removeNotificationsForItems(store, removedItemIds);
@@ -1268,6 +1343,40 @@ async function handler(req, res) {
       store.savedSearches = store.savedSearches.filter((entry) => entry.id !== id);
       await writeStore(store);
       return json(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && route === '/api/work-orders') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const orders = (await readStore()).workOrders
+        .filter((order) => order.reporterId === user.id)
+        .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)));
+      return json(res, 200, { workOrders: orders });
+    }
+    if (req.method === 'POST' && route === '/api/work-orders') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const type = String(body.type || '');
+      const definition = WORK_ORDER_TYPES[type];
+      const title = String(body.title || '').trim();
+      const description = String(body.description || '').trim();
+      const location = String(body.location || '').trim();
+      if (!definition) return json(res, 400, { error: 'กรุณาเลือกประเภทปัญหาที่ถูกต้อง' });
+      if (title.length < 3 || title.length > 100) return json(res, 400, { error: 'หัวข้อต้องมีความยาว 3–100 ตัวอักษร' });
+      if (description.length < 10 || description.length > 1200) return json(res, 400, { error: 'รายละเอียดต้องมีความยาว 10–1,200 ตัวอักษร' });
+      if (location.length < 2 || location.length > 160) return json(res, 400, { error: 'กรุณาระบุบริเวณที่พบปัญหา 2–160 ตัวอักษร' });
+      const store = await readStore();
+      const createdAt = new Date().toISOString();
+      const order = {
+        id: crypto.randomUUID(), type, typeLabel: definition.label, department: definition.department,
+        title, description, location, reporterId: user.id, reporterName: user.name, workflowDetails: definition.workflowDetails,
+        schoolId: user.schoolId || '', schoolName: user.school || '', status: 'received', assignedTo: '',
+        createdAt, updatedAt: createdAt,
+        history: [{ status: 'received', label: 'รับเรื่อง', actorId: user.id, actorName: user.name, at: createdAt }],
+      };
+      store.workOrders.push(order);
+      await writeStore(store);
+      return json(res, 201, { workOrder: order });
     }
     if (req.method === 'GET' && route === '/api/items') {
       const viewer = await requireUser(req, res);
