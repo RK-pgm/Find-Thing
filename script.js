@@ -163,7 +163,7 @@ function addThemeToggle(nav) {
 function setNavButton(button, role, label, iconName) {
   const paths = {
     board: ['M5 4.5h14v15H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
-    issue: ['M12 3 22 20H2L12 3Z', 'M12 9v5', 'M12 17h.01'],
+    home: ['M3 10.5 12 4l9 6.5', 'M5.5 10v9h13v-9', 'M9 19v-6h6v6'],
     help: ['M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z', 'M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1.2-1.8 1.3-1.8 2.8', 'M12 16.5h.01'],
     inbox: ['M4 5.5h16v13H4z', 'm4.5 7 7.5 6 7.5-6', 'M4.5 14h4l1.5 2h4l1.5-2h4'],
     notifications: ['M18 9a6 6 0 0 0-12 0c0 7-2.5 7-2.5 9h17C20.5 16 18 16 18 9Z', 'M10 21h4'],
@@ -214,11 +214,7 @@ function renderNav() {
   const home = document.createElement('button');
   setNavButton(home, 'home', 'เลือกเมนู', 'home');
   home.addEventListener('click', showPortal);
-  const issue = document.createElement('button');
-  setNavButton(issue, 'issue', 'แจ้งปัญหา', 'issue');
-  if (byId('app').classList.contains('issue-mode')) issue.setAttribute('aria-current', 'page');
-  else if (byId('app').classList.contains('portal-mode')) home.setAttribute('aria-current', 'page');
-  issue.addEventListener('click', openSchoolIssue);
+  if (byId('app').classList.contains('portal-mode')) home.setAttribute('aria-current', 'page');
   const help = document.createElement('button');
   setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
   help.addEventListener('click', openHelp);
@@ -238,7 +234,7 @@ function renderNav() {
   messageTools.setAttribute('role', 'group');
   messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
   messageTools.append(inbox, notifications);
-  nav.append(home, issue, messageTools, help);
+  nav.append(home, messageTools, help);
   addThemeToggle(nav);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
@@ -277,7 +273,6 @@ function showBoard() {
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelector('.nav-admin')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
-  byId('nav')?.querySelector('.nav-issue')?.removeAttribute('aria-current');
 }
 async function openAdminPanel() {
   if (state.user?.role !== 'admin') return;
@@ -285,7 +280,6 @@ async function openAdminPanel() {
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
   byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
-  byId('nav')?.querySelector('.nav-issue')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-admin')?.setAttribute('aria-current', 'page');
   await loadAdminData();
 }
@@ -1027,7 +1021,6 @@ function openSchoolIssue() {
   byId('app').classList.add('issue-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
-  byId('nav')?.querySelector('.nav-issue')?.setAttribute('aria-current', 'page');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 async function submitSchoolIssue(event) {
