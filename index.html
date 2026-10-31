@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=admin-queue-1" />
-    <script src="script.js?v=admin-queue-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=admin-queue-2" />
+    <script src="script.js?v=admin-queue-2" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -149,9 +149,25 @@
       </aside>
 </section>
         <div id="app" class="hidden">
+          <section id="portal-home" class="portal-home" aria-labelledby="portal-title">
+            <div class="portal-intro"><div class="eyebrow">ศูนย์บริการชุมชนโรงเรียน</div><h1 id="portal-title">สวัสดี <span id="portal-welcome-name">สมาชิก</span></h1><p id="portal-school-name">เลือกสิ่งที่ต้องการทำ แล้วเริ่มได้เลย</p></div>
+            <div class="portal-choices" role="group" aria-label="เลือกบริการ">
+              <button class="portal-choice portal-choice-search" id="portal-open-board" type="button">
+                <span class="portal-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="10.8" cy="10.8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m15.5 15.5 4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 10.8h5.6M10.8 8v5.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+                <span class="portal-choice-copy"><span class="portal-choice-kicker">ของหายและของที่พบ</span><strong>ค้นหาของหาย</strong><span>ดูประกาศของที่พบ ค้นหาด้วยชื่อ รูปภาพ หรือสถานที่ และแจ้งของที่เก็บได้</span></span>
+                <span class="portal-choice-cta">ไปหน้าค้นหา <span aria-hidden="true">→</span></span>
+              </button>
+              <button class="portal-choice portal-choice-report" id="portal-open-issue" type="button">
+                <span class="portal-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M12 3 21 19H3L12 3Zm0 6v4m0 3h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span class="portal-choice-copy"><span class="portal-choice-kicker">แจ้งให้โรงเรียนช่วยดูแล</span><strong>แจ้งปัญหา</strong><span>แจ้งอาคารหรืออุปกรณ์ชำรุด ความสะอาด หรือปัญหาความปลอดภัย พร้อมติดตามจนแก้ไข</span></span>
+                <span class="portal-choice-cta">แจ้งเรื่องใหม่ <span aria-hidden="true">→</span></span>
+              </button>
+            </div>
+            <p class="portal-private-note"><span aria-hidden="true">✓</span> ติดตามประกาศและเรื่องที่แจ้งได้จากบัญชีของคุณ</p>
+          </section>
         <section id="issue-page" class="issue-page" aria-labelledby="issue-page-title">
           <header class="issue-page-header">
-            <button class="button issue-page-back" id="close-school-issue" type="button"><span aria-hidden="true">←</span> กลับไปหาของหาย</button>
+            <button class="button issue-page-back" id="close-school-issue" type="button"><span aria-hidden="true">←</span> กลับไปหน้าเมนู</button>
             <div class="eyebrow">ระบบแจ้งและติดตามงานโรงเรียน</div>
             <h1 id="issue-page-title">แจ้งปัญหาโรงเรียน</h1>
             <p>ส่งเรื่องถึงหน่วยงานที่รับผิดชอบ แล้วติดตามความคืบหน้าได้จนแก้ไขเรียบร้อย</p>
