@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=portal-1" />
-    <script src="script.js?v=portal-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=issue-page-1" />
+    <script src="script.js?v=issue-page-1" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -150,6 +150,33 @@
             </div>
             <p class="portal-private-note"><span aria-hidden="true">✓</span> ติดตามประกาศและเรื่องที่แจ้งได้จากบัญชีของคุณ</p>
           </section>
+        <section id="issue-page" class="issue-page" aria-labelledby="issue-page-title">
+          <header class="issue-page-header">
+            <button class="button issue-page-back" id="close-school-issue" type="button"><span aria-hidden="true">←</span> กลับไปเลือกเมนู</button>
+            <div class="eyebrow">ระบบแจ้งและติดตามงานโรงเรียน</div>
+            <h1 id="issue-page-title">แจ้งปัญหาโรงเรียน</h1>
+            <p>ส่งเรื่องถึงหน่วยงานที่รับผิดชอบ แล้วติดตามความคืบหน้าได้จนแก้ไขเรียบร้อย</p>
+          </header>
+<form id="school-issue-form" class="issue-page-form workorder-form" novalidate>
+        <h2 id="school-issue-form-title">รายละเอียดเรื่องที่พบ</h2>
+        <div class="eyebrow">แจ้งปัญหาเพื่อให้โรงเรียนดำเนินการ</div>
+        <p class="subtext">เลือกประเภท ระบุจุดเกิดเหตุ และรายละเอียด เพื่อส่งต่อหน่วยงานที่เกี่ยวข้อง</p>
+        <label for="school-issue-type">ประเภทเรื่อง</label>
+        <select id="school-issue-type" name="type" required><option value="facility">อาคารหรืออุปกรณ์ชำรุด · ฝ่ายอาคารสถานที่</option><option value="cleanliness">ความสะอาด · งานอนามัยและสิ่งแวดล้อม</option><option value="safety">ปัญหาความปลอดภัย · งานปกครองและความปลอดภัย</option></select>
+        <label for="school-issue-title-input">หัวข้อ</label><input id="school-issue-title-input" name="title" required minlength="3" maxlength="100" placeholder="เช่น พัดลมห้องเรียนไม่ทำงาน" />
+        <label for="school-issue-location">บริเวณที่พบ</label><input id="school-issue-location" name="location" required minlength="2" maxlength="160" placeholder="เช่น อาคาร 4 ชั้น 2 ห้อง 421" />
+        <label for="school-issue-description">รายละเอียด</label><textarea id="school-issue-description" name="description" rows="4" required minlength="10" maxlength="1200" placeholder="อธิบายปัญหาและข้อมูลที่ช่วยให้เจ้าหน้าที่ตรวจสอบได้"></textarea>
+        <p class="form-hint">เรื่องที่แจ้งจะแสดงเฉพาะบัญชีของคุณและผู้ดูแลที่มีสิทธิ์จัดการ ไม่แสดงในฟีดสาธารณะ · ของหาย/ของที่พบใช้ปุ่มแจ้งประกาศเดิม</p>
+        <p id="school-issue-status" class="form-message" aria-live="polite"></p>
+        <div class="dialog-actions"><button class="button" id="cancel-school-issue" type="button">ยกเลิก</button><button class="button primary" type="submit">ส่งเรื่องให้โรงเรียน</button></div>
+      </form>
+        <section id="student-workorders" class="student-workorders" aria-labelledby="student-workorders-title">
+          <div class="workorders-heading"><div><div class="eyebrow">ติดตามได้จนปิดงาน</div><h2 id="student-workorders-title">เรื่องที่ฉันแจ้ง</h2><p>เห็นสถานะล่าสุด พร้อมชื่อผู้ดำเนินการและเวลาที่อัปเดต</p></div><span class="workorder-count" id="student-workorder-count">0 รายการ</span></div>
+          <div id="student-workorder-list" class="student-workorder-list" aria-live="polite"></div>
+          <p id="student-workorders-empty" class="empty-message">ยังไม่มีเรื่องที่แจ้ง ระบบจะบันทึกความคืบหน้าไว้ที่นี่</p>
+          <p id="student-workorders-error" class="form-message" aria-live="polite"></p>
+        </section>
+        </section>
           <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
               <div class="eyebrow">ศูนย์ของหายและของที่พบ · ร่วมใจช่วยกัน</div>
@@ -189,7 +216,6 @@
             <div class="hero-actions" aria-label="แจ้งข้อมูลสิ่งของ">
               <button class="button primary" id="report-lost" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="10.8" cy="10.8" r="6.3" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 4.2 4.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>แจ้งของหาย</button>
               <button class="button found-action" id="report-found" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>แจ้งเก็บของได้</button>
-              <button class="button school-issue-action" id="report-school-issue" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 21 19H3L12 3Zm0 6v4m0 3h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>แจ้งปัญหาโรงเรียน</button>
             </div>
           </section>
         <section class="stats" aria-label="สรุปรายการของหายและของที่พบ">
@@ -287,12 +313,6 @@
           </div>
           <button class="button" id="contact-staff" type="button">ติดต่อเจ้าหน้าที่</button>
         </section>
-        <section id="student-workorders" class="student-workorders" aria-labelledby="student-workorders-title">
-          <div class="workorders-heading"><div><div class="eyebrow">ติดตามได้จนปิดงาน</div><h2 id="student-workorders-title">เรื่องที่ฉันแจ้ง</h2><p>เห็นสถานะล่าสุด พร้อมชื่อผู้ดำเนินการและเวลาที่อัปเดต</p></div><span class="workorder-count" id="student-workorder-count">0 รายการ</span></div>
-          <div id="student-workorder-list" class="student-workorder-list" aria-live="polite"></div>
-          <p id="student-workorders-empty" class="empty-message">ยังไม่มีเรื่องที่แจ้ง ระบบจะบันทึกความคืบหน้าไว้ที่นี่</p>
-          <p id="student-workorders-error" class="form-message" aria-live="polite"></p>
-        </section>
         <section id="admin-panel" class="admin-panel hidden" aria-labelledby="admin-title">
           <div class="admin-panel-heading">
             <div>
@@ -365,21 +385,7 @@
       </div>
   </main>
 
-    <dialog class="dialog" id="school-issue-dialog" aria-labelledby="school-issue-title">
-      <form id="school-issue-form" class="dialog-card workorder-form" novalidate>
-        <button class="icon-button dialog-close" id="close-school-issue" type="button" aria-label="ปิดหน้าต่าง">×</button>
-        <div class="eyebrow">แจ้งปัญหาเพื่อให้โรงเรียนดำเนินการ</div><h2 id="school-issue-title">แจ้งปัญหาโรงเรียน</h2>
-        <p class="subtext">เลือกประเภทและระบุจุดให้ชัดเจน ระบบจะส่งต่อหน่วยงานที่เกี่ยวข้องและติดตามจนแก้ไขแล้ว</p>
-        <label for="school-issue-type">ประเภทเรื่อง</label>
-        <select id="school-issue-type" name="type" required><option value="facility">อาคารหรืออุปกรณ์ชำรุด · ฝ่ายอาคารสถานที่</option><option value="cleanliness">ความสะอาด · งานอนามัยและสิ่งแวดล้อม</option><option value="safety">ปัญหาความปลอดภัย · งานปกครองและความปลอดภัย</option></select>
-        <label for="school-issue-title-input">หัวข้อ</label><input id="school-issue-title-input" name="title" required minlength="3" maxlength="100" placeholder="เช่น พัดลมห้องเรียนไม่ทำงาน" />
-        <label for="school-issue-location">บริเวณที่พบ</label><input id="school-issue-location" name="location" required minlength="2" maxlength="160" placeholder="เช่น อาคาร 4 ชั้น 2 ห้อง 421" />
-        <label for="school-issue-description">รายละเอียด</label><textarea id="school-issue-description" name="description" rows="4" required minlength="10" maxlength="1200" placeholder="อธิบายปัญหาและข้อมูลที่ช่วยให้เจ้าหน้าที่ตรวจสอบได้"></textarea>
-        <p class="form-hint">เรื่องที่แจ้งจะแสดงเฉพาะบัญชีของคุณและผู้ดูแลที่มีสิทธิ์จัดการ ไม่แสดงในฟีดสาธารณะ · ของหาย/ของที่พบใช้ปุ่มแจ้งประกาศเดิม</p>
-        <p id="school-issue-status" class="form-message" aria-live="polite"></p>
-        <div class="dialog-actions"><button class="button" id="cancel-school-issue" type="button">ยกเลิก</button><button class="button primary" type="submit">ส่งเรื่องให้โรงเรียน</button></div>
-      </form>
-    </dialog>
+
     <dialog class="dialog" id="item-dialog" aria-labelledby="dialog-title">
       <form id="item-form" class="dialog-card">
         <button class="icon-button dialog-close" id="close-dialog" type="button" aria-label="ปิดหน้าต่าง">

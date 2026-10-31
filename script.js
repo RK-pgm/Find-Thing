@@ -257,14 +257,14 @@ function openHelp() {
   byId('help-dialog').showModal();
 }
 function showPortal() {
-  byId('app').classList.remove('admin-mode');
+  byId('app').classList.remove('admin-mode', 'issue-mode');
   byId('app').classList.add('portal-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
   byId('nav')?.querySelector('.nav-home')?.setAttribute('aria-current', 'page');
 }
 function showBoard() {
-  byId('app').classList.remove('admin-mode', 'portal-mode');
+  byId('app').classList.remove('admin-mode', 'portal-mode', 'issue-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelector('.nav-admin')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
@@ -272,7 +272,7 @@ function showBoard() {
 }
 async function openAdminPanel() {
   if (state.user?.role !== 'admin') return;
-  byId('app').classList.remove('portal-mode');
+  byId('app').classList.remove('portal-mode', 'issue-mode');
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
   byId('nav')?.querySelector('.nav-board')?.removeAttribute('aria-current');
@@ -989,7 +989,11 @@ async function loadWorkOrders() {
 function openSchoolIssue() {
   byId('school-issue-form').reset();
   byId('school-issue-status').textContent = '';
-  byId('school-issue-dialog').showModal();
+  byId('app').classList.remove('portal-mode', 'admin-mode');
+  byId('app').classList.add('issue-mode');
+  byId('admin-panel').classList.add('hidden');
+  byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 async function submitSchoolIssue(event) {
   event.preventDefault();
@@ -1006,9 +1010,7 @@ async function submitSchoolIssue(event) {
       location: byId('school-issue-location').value.trim(),
       description: byId('school-issue-description').value.trim(),
     }) });
-    byId('school-issue-dialog').close();
     form.reset();
-    showBoard();
     await loadWorkOrders();
     document.getElementById('student-workorders').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('ส่งเรื่องแล้ว คุณติดตามความคืบหน้าได้ด้านล่าง');
@@ -1164,7 +1166,7 @@ async function loadNotificationPage(offset, append) {
     open.textContent = notification.type === 'work_order_update' ? 'ติดตามงาน' : 'ดูประกาศ';
     open.addEventListener('click', () => {
       byId('notifications-dialog').close();
-      if (notification.type === 'work_order_update') { loadWorkOrders(); byId('student-workorders').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      if (notification.type === 'work_order_update') { openSchoolIssue(); loadWorkOrders(); byId('student-workorders').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       else openItemDetails(notification.targetItemId);
     });
     card.append(title, body, date, open);
@@ -2860,10 +2862,9 @@ function bindEvents() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   byId('portal-open-issue').addEventListener('click', openSchoolIssue);
-  byId('report-school-issue').addEventListener('click', openSchoolIssue);
   byId('school-issue-form').addEventListener('submit', submitSchoolIssue);
-  byId('close-school-issue').addEventListener('click', () => byId('school-issue-dialog').close());
-  byId('cancel-school-issue').addEventListener('click', () => byId('school-issue-dialog').close());
+  byId('close-school-issue').addEventListener('click', showPortal);
+  byId('cancel-school-issue').addEventListener('click', showPortal);
   byId('item-form').addEventListener('submit', submitItem);
   byId('item-reward-offered').addEventListener('change', (event) => {
     byId('reward-amount-field').hidden = !event.currentTarget.checked || state.reportType !== 'lost';

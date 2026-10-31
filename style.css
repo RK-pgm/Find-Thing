@@ -5159,7 +5159,7 @@ html[data-theme="dark"] .workorder-step small, html[data-theme="dark"] .workorde
 
 
 /* Post-login service chooser: two clear paths into the existing workflows. */
-.portal-home { position: relative; isolation: isolate; overflow: hidden; margin: 18px 0 36px; padding: clamp(28px, 5vw, 58px); border: 1px solid #dce7dc; border-radius: 26px; background: radial-gradient(circle at 92% 8%, rgba(232,198,117,.27), transparent 25rem), radial-gradient(circle at 0 100%, rgba(111,163,123,.15), transparent 28rem), linear-gradient(135deg, #fffefa 0%, #f2f7f0 100%); box-shadow: 0 14px 38px rgba(32,68,50,.08); }
+.portal-home { display: none; position: relative; isolation: isolate; overflow: hidden; margin: 18px 0 36px; padding: clamp(28px, 5vw, 58px); border: 1px solid #dce7dc; border-radius: 26px; background: radial-gradient(circle at 92% 8%, rgba(232,198,117,.27), transparent 25rem), radial-gradient(circle at 0 100%, rgba(111,163,123,.15), transparent 28rem), linear-gradient(135deg, #fffefa 0%, #f2f7f0 100%); box-shadow: 0 14px 38px rgba(32,68,50,.08); }
 .portal-home::after { position: absolute; z-index: -1; right: -58px; bottom: -94px; width: 250px; height: 250px; border: 1px solid rgba(70,120,84,.13); border-radius: 50%; box-shadow: 0 0 0 24px rgba(70,120,84,.035), 0 0 0 52px rgba(70,120,84,.025); content: ""; pointer-events: none; }
 .portal-intro { position: relative; z-index: 1; max-width: 680px; margin: 0 auto 28px; text-align: center; }
 .portal-intro .eyebrow { color: #387454; font-weight: 700; letter-spacing: .04em; }
@@ -5192,9 +5192,33 @@ html[data-theme="dark"] .portal-choice-icon { border-color: #3b5843; background:
 html[data-theme="dark"] .portal-choice-report .portal-choice-icon { border-color: #66543a; background: #342d20; color: #e9be76; }
 html[data-theme="dark"] .portal-choice-cta { border-color: #3a4b3d; color: #a4d6ae; }
 html[data-theme="dark"] .portal-private-note span { color: #a4d6ae; }
-#app.portal-mode > .hero, #app.portal-mode > .stats, #app.portal-mode > .board, #app.portal-mode > .privacy-note, #app.portal-mode > .contact-strip, #app.portal-mode > .student-workorders, #app.portal-mode > .admin-panel { display: none !important; }
+#app.portal-mode > .hero, #app.portal-mode > .stats, #app.portal-mode > .board, #app.portal-mode > .privacy-note, #app.portal-mode > .contact-strip, #app.portal-mode > .student-workorders, #app.portal-mode > .issue-page, #app.portal-mode > .admin-panel { display: none !important; }
 #app.portal-mode > .portal-home { display: block; }
-#app.admin-mode > .portal-home { display: none !important; }
+#app.admin-mode > .portal-home, #app.admin-mode > .issue-page { display: none !important; }
+#app.issue-mode > .portal-home, #app.issue-mode > .hero, #app.issue-mode > .stats, #app.issue-mode > .board, #app.issue-mode > .privacy-note, #app.issue-mode > .contact-strip, #app.issue-mode > .admin-panel { display: none !important; }
+#app.issue-mode > .issue-page { display: block; }
+.issue-page { display: none; max-width: 1080px; margin: 18px auto 42px; padding: clamp(18px, 3vw, 34px); border: 1px solid #dce7dc; border-radius: 24px; background: linear-gradient(145deg,#fffefa,#f4f8f2); box-shadow: 0 12px 34px rgba(32,68,50,.07); }
+.issue-page-header { max-width: 760px; margin: 0 auto 24px; text-align: center; }
+.issue-page-back { display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 0 22px; padding: 8px 13px; border-color: #dce7dc; color: #286b4a; }
+.issue-page-back span { font-size: 20px; }
+.issue-page-header .eyebrow { color: #387454; font-weight: 700; }
+.issue-page-header h1 { margin: 8px 0; color: #183a31; font-size: clamp(28px,4vw,40px); line-height: 1.2; }
+.issue-page-header p { margin: 0; color: #65776a; }
+.issue-page-form { display: grid; gap: 9px; max-width: 760px; margin: 0 auto 28px; padding: clamp(18px,3vw,28px); border: 1px solid #dce7dc; border-radius: 18px; background: #fff; box-shadow: 0 5px 18px rgba(31,70,48,.045); }
+.issue-page-form h2 { margin: 0 0 6px; color: #183a31; font-size: 21px; }
+.issue-page-form > label { margin: 4px 0 0; color: #314d3c; font-size: 14px; font-weight: 700; }
+.issue-page-form input, .issue-page-form select, .issue-page-form textarea { width: 100%; min-height: 46px; border: 1px solid #d5e2d7; border-radius: 11px; background: #fbfcfa; color: #20392c; font: inherit; padding: 10px 12px; }
+.issue-page-form textarea { resize: vertical; min-height: 120px; }
+.issue-page-form input:focus-visible, .issue-page-form select:focus-visible, .issue-page-form textarea:focus-visible { outline: 3px solid rgba(57,137,88,.22); border-color: #4c9a69; }
+.issue-page-form .form-hint { margin: 3px 0; }
+html[data-theme="dark"] .issue-page { border-color: #3a4d40; background: linear-gradient(145deg,#17231c,#1d2a21); }
+html[data-theme="dark"] .issue-page-header h1, html[data-theme="dark"] .issue-page-form h2 { color: #edf4ee; }
+html[data-theme="dark"] .issue-page-header p { color: #bdcabe; }
+html[data-theme="dark"] .issue-page-form { border-color: #3c4d41; background: #1b2720; }
+html[data-theme="dark"] .issue-page-form > label { color: #d4e2d6; }
+html[data-theme="dark"] .issue-page-form input, html[data-theme="dark"] .issue-page-form select, html[data-theme="dark"] .issue-page-form textarea { border-color: #435648; background: #202d24; color: #edf4ee; }
+@media (max-width:700px) { .issue-page { margin: 10px 0 24px; padding: 17px 12px; border-radius: 19px; } .issue-page-header { margin-bottom: 19px; } .issue-page-back { margin-bottom: 17px; } .issue-page-form { padding: 18px 14px; } }
+
 @media (max-width: 700px) {
   .portal-home { margin: 10px 0 24px; padding: 26px 17px; border-radius: 20px; }
   .portal-intro { margin-bottom: 21px; }
