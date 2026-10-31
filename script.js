@@ -37,6 +37,12 @@ const state = {
   activeFilter: 'all',
   items: [],
   adminItems: [],
+  restaurants: [],
+  activeRestaurantId: '',
+  restaurantCategoryFilter: 'all',
+  restaurantSearch: '',
+  restaurantRatingDraft: 0,
+  adminRestaurants: [],
   adminView: 'overview',
   workOrders: [],
   schools: FALLBACK_SCHOOLS,
@@ -265,7 +271,7 @@ function openHelp() {
   byId('help-dialog').showModal();
 }
 function setAdminView(view) {
-  const allowedViews = ['overview', 'announcements', 'lost', 'found', 'issues', 'members', 'reports'];
+  const allowedViews = ['overview', 'announcements', 'lost', 'found', 'issues', 'restaurants', 'members', 'reports'];
   if (!allowedViews.includes(view)) return;
   state.adminView = view;
   document.querySelectorAll('[data-admin-view]').forEach((button) => {
@@ -285,21 +291,21 @@ function setAdminView(view) {
   }
 }
 function showPortal() {
-  byId('app').classList.remove('admin-mode', 'issue-mode');
+  byId('app').classList.remove('admin-mode', 'issue-mode', 'restaurant-mode');
   byId('app').classList.add('portal-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
   byId('nav')?.querySelector('.nav-home')?.setAttribute('aria-current', 'page');
 }
 function showBoard() {
-  byId('app').classList.remove('admin-mode', 'portal-mode', 'issue-mode');
+  byId('app').classList.remove('admin-mode', 'portal-mode', 'issue-mode', 'restaurant-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelector('.nav-admin')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
 }
 async function openAdminPanel() {
   if (state.user?.role !== 'admin') return;
-  byId('app').classList.remove('portal-mode', 'issue-mode');
+  byId('app').classList.remove('portal-mode', 'issue-mode', 'restaurant-mode');
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
   setAdminView(state.adminView);
@@ -1038,10 +1044,225 @@ async function loadWorkOrders() {
     if (byId('student-workorders-error')) byId('student-workorders-error').textContent = error.message;
   }
 }
-function openSchoolIssue() {
+const RESTAURANT_CATEGORY_LABELS = { food: 'ร้านอาหาร', drink: 'ร้านเครื่องดื่ม', snack: 'ร้านของกินเล่น' };
+function formatRestaurantPrice(value) {
+  return new Intl.NumberFormat('th-TH', { maximumFractionDigits: 2 }).format(Number(value) || 0);
+}
+function openRestaurantPage() {
+  byId('app').classList.remove('portal-mode', 'admin-mode', 'issue-mode');
+  byId('app').classList.add('restaurant-mode');
+  byId('admin-panel').classList.add('hidden');
+  byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
+  byId('nav')?.querySelector('.nav-home')?.setAttribute('aria-current', 'page');
+  byId('restaurant-search').value = '';
+  state.restaurantSearch = '';
+  loadRestaurants();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function loadRestaurants() {
+  const list = byId('restaurants-list');
+  list.replaceChildren();
+  byId('restaurants-empty').classList.add('hidden');
+  byId('restaurants-status').textContent = '';
+  try {
+    const result = await api('/api/restaurants');
+    state.restaurants = result.restaurants || [];
+    byId('restaurants-school-name').textContent = result.requiresSchool
+      ? 'เลือกโรงเรียนในโปรไฟล์ก่อน เพื่อดูร้านและเมนูของชุมชนนั้น'
+      : `${result.schoolName || 'ชุมชนโรงเรียน'} · ราคาและร้านค้าอัปเดตโดยผู้ดูแลโรงเรียน`;
+    renderRestaurantList(result.requiresSchool);
+  } catch (error) {
+    byId('restaurants-status').textContent = error.message;
+  }
+}
+function renderRestaurantList(requiresSchool = false) {
+  const list = byId('restaurants-list');
+  list.replaceChildren();
+  const query = state.restaurantSearch.trim().toLocaleLowerCase();
+  const restaurants = state.restaurants.filter((restaurant) => {
+    const categoryMatches = state.restaurantCategoryFilter === 'all' || restaurant.category === state.restaurantCategoryFilter;
+    const searchText = `${restaurant.name} ${restaurant.location} ${restaurant.description} ${(restaurant.menus || []).map((menu) => menu.name).join(' ')}`.toLocaleLowerCase();
+    return categoryMatches && (!query || searchText.includes(query));
+  });
+  if (!restaurants.length) {
+    const empty = byId('restaurants-empty');
+    empty.textContent = requiresSchool
+      ? 'ยังไม่ผูกบัญชีกับโรงเรียน ไปที่โปรไฟล์เพื่อเลือกโรงเรียนก่อนดูร้านอาหาร'
+      : state.restaurants.length
+        ? 'ไม่พบร้านหรือเมนูที่ตรงกับคำค้นนี้ ลองเปลี่ยนหมวดหรือคำค้นหา'
+        : 'ยังไม่มีร้านอาหารในระบบสำหรับโรงเรียนนี้ ผู้ดูแลโรงเรียนสามารถเพิ่มรายชื่อ เมนู และราคาได้';
+    empty.classList.remove('hidden');
+    return;
+  }
+  for (const restaurant of restaurants) {
+    const card = document.createElement('article');
+    card.className = 'restaurant-card';
+    const top = document.createElement('div'); top.className = 'restaurant-card-top';
+    const icon = document.createElement('span'); icon.className = `restaurant-card-icon restaurant-icon-${restaurant.category}`; icon.setAttribute('aria-hidden', 'true');
+    icon.textContent = restaurant.category === 'drink' ? '◉' : restaurant.category === 'snack' ? '✦' : '♨';
+    const category = document.createElement('span'); category.className = 'restaurant-card-category'; category.textContent = RESTAURANT_CATEGORY_LABELS[restaurant.category] || 'ร้านค้า';
+    top.append(icon, category);
+    const name = document.createElement('h2'); name.textContent = restaurant.name;
+    const location = document.createElement('p'); location.className = 'restaurant-card-location'; location.textContent = restaurant.location || 'ยังไม่ระบุที่ตั้ง';
+    const desc = document.createElement('p'); desc.className = 'restaurant-card-description'; desc.textContent = restaurant.description || 'เลือกดูเมนูและราคาของร้านนี้';
+    const footer = document.createElement('div'); footer.className = 'restaurant-card-footer';
+    const rating = document.createElement('span'); rating.className = 'restaurant-card-rating';
+    rating.textContent = restaurant.ratingCount ? `★ ${restaurant.ratingAverage} · ${restaurant.ratingCount} คะแนน` : '☆ ยังไม่มีคะแนน';
+    const menuCount = document.createElement('span'); menuCount.textContent = `${(restaurant.menus || []).length} เมนู`;
+    footer.append(rating, menuCount);
+    const open = document.createElement('button'); open.type = 'button'; open.className = 'restaurant-card-open'; open.setAttribute('aria-label', `ดูเมนูและคะแนนร้าน ${restaurant.name}`); open.textContent = 'ดูเมนูและราคา →';
+    open.addEventListener('click', () => openRestaurantDetails(restaurant.id));
+    card.append(top, name, location, desc, footer, open);
+    list.append(card);
+  }
+}
+function renderRestaurantRatingStars() {
+  const stars = byId('restaurant-rating-stars');
+  stars.replaceChildren();
+  for (let value = 1; value <= 5; value += 1) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `restaurant-star${value <= state.restaurantRatingDraft ? ' is-selected' : ''}`;
+    button.textContent = '★';
+    button.setAttribute('aria-label', `ให้คะแนน ${value} ดาว`);
+    button.setAttribute('aria-pressed', String(value === state.restaurantRatingDraft));
+    button.addEventListener('click', () => {
+      state.restaurantRatingDraft = value;
+      renderRestaurantRatingStars();
+      byId('submit-restaurant-rating').disabled = false;
+    });
+    stars.append(button);
+  }
+}
+function openRestaurantDetails(restaurantId) {
+  const restaurant = state.restaurants.find((entry) => entry.id === restaurantId);
+  if (!restaurant) return;
+  state.activeRestaurantId = restaurant.id;
+  state.restaurantRatingDraft = Number(restaurant.myRating) || 0;
+  byId('restaurant-dialog-category').textContent = RESTAURANT_CATEGORY_LABELS[restaurant.category] || 'ร้านค้า';
+  byId('restaurant-dialog-title').textContent = restaurant.name;
+  byId('restaurant-dialog-location').textContent = restaurant.location ? `📍 ${restaurant.location}` : '';
+  byId('restaurant-dialog-description').textContent = restaurant.description || '';
+  byId('restaurant-rating-average').textContent = restaurant.ratingCount ? `★ ${restaurant.ratingAverage} จาก 5 · คะแนนจากสมาชิกโรงเรียน` : 'ยังไม่มีคะแนนจากสมาชิก';
+  byId('restaurant-rating-count').textContent = `${restaurant.ratingCount} คะแนน`;
+  byId('restaurant-rating-status').textContent = '';
+  byId('submit-restaurant-rating').disabled = !state.restaurantRatingDraft;
+  byId('submit-restaurant-rating').textContent = restaurant.myRating ? 'บันทึกคะแนนใหม่' : 'ส่งคะแนนร้าน';
+  const menuList = byId('restaurant-dialog-menu');
+  menuList.replaceChildren();
+  byId('restaurant-menu-empty').classList.toggle('hidden', (restaurant.menus || []).length > 0);
+  for (const menu of restaurant.menus || []) {
+    const row = document.createElement('div'); row.className = 'restaurant-menu-row';
+    const name = document.createElement('strong'); name.textContent = menu.name;
+    const price = document.createElement('span'); price.textContent = `${formatRestaurantPrice(menu.price)} บาท`;
+    row.append(name, price); menuList.append(row);
+  }
+  renderRestaurantRatingStars();
+  byId('restaurant-dialog').showModal();
+}
+async function submitRestaurantRating() {
+  const button = byId('submit-restaurant-rating');
+  if (!state.activeRestaurantId || !state.restaurantRatingDraft) return;
+  button.disabled = true;
+  byId('restaurant-rating-status').textContent = '';
+  try {
+    const result = await api('/api/restaurants/rating', { method: 'POST', body: JSON.stringify({ restaurantId: state.activeRestaurantId, value: state.restaurantRatingDraft }) });
+    const restaurant = state.restaurants.find((entry) => entry.id === state.activeRestaurantId);
+    if (restaurant) Object.assign(restaurant, result);
+    byId('restaurant-rating-average').textContent = `★ ${result.ratingAverage} จาก 5 · คะแนนจากสมาชิกโรงเรียน`;
+    byId('restaurant-rating-count').textContent = `${result.ratingCount} คะแนน`;
+    button.textContent = 'บันทึกคะแนนใหม่';
+    button.disabled = false;
+    renderRestaurantList();
+    showToast('บันทึกคะแนนร้านแล้ว');
+  } catch (error) {
+    byId('restaurant-rating-status').textContent = error.message;
+    button.disabled = false;
+  }
+}
+function adminRestaurantLabel(label, control) {
+  const wrapper = document.createElement('label');
+  wrapper.append(document.createTextNode(label), control);
+  return wrapper;
+}
+function renderAdminRestaurants(restaurants = state.adminRestaurants, requiresSchool = false) {
+  const list = byId('admin-restaurant-list');
+  list.replaceChildren();
+  byId('admin-restaurants-empty').classList.toggle('hidden', restaurants.length > 0 || requiresSchool);
+  if (requiresSchool) {
+    byId('admin-restaurants-message').textContent = 'บัญชีแอดมินยังไม่ได้เลือกโรงเรียน เข้าโปรไฟล์แล้วเลือกโรงเรียนก่อนจัดการร้าน';
+    byId('admin-restaurant-form').classList.add('hidden');
+    return;
+  }
+  byId('admin-restaurant-form').classList.remove('hidden');
+  for (const restaurant of restaurants) {
+    const card = document.createElement('article'); card.className = 'admin-restaurant-card';
+    const heading = document.createElement('div'); heading.className = 'admin-restaurant-card-heading';
+    const title = document.createElement('h3'); title.textContent = restaurant.name;
+    const score = document.createElement('span'); score.textContent = restaurant.ratingCount ? `★ ${restaurant.ratingAverage} · ${restaurant.ratingCount} คะแนน` : 'ยังไม่มีคะแนน';
+    heading.append(title, score);
+    const edit = document.createElement('form'); edit.className = 'admin-restaurant-edit-form';
+    const name = document.createElement('input'); name.required = true; name.minLength = 2; name.maxLength = 80; name.value = restaurant.name; name.setAttribute('aria-label', `ชื่อร้าน ${restaurant.name}`);
+    const category = document.createElement('select'); category.setAttribute('aria-label', `หมวดหมู่ ${restaurant.name}`);
+    for (const [value, label] of Object.entries(RESTAURANT_CATEGORY_LABELS)) category.add(new Option(label, value));
+    category.value = restaurant.category;
+    const location = document.createElement('input'); location.maxLength = 120; location.value = restaurant.location || ''; location.placeholder = 'ที่ตั้งในโรงเรียน'; location.setAttribute('aria-label', `ที่ตั้งร้าน ${restaurant.name}`);
+    const description = document.createElement('input'); description.maxLength = 240; description.value = restaurant.description || ''; description.placeholder = 'รายละเอียดสั้น ๆ'; description.setAttribute('aria-label', `รายละเอียดร้าน ${restaurant.name}`);
+    const activeLabel = document.createElement('label'); activeLabel.className = 'admin-restaurant-active';
+    const active = document.createElement('input'); active.type = 'checkbox'; active.checked = restaurant.isActive !== false;
+    activeLabel.append(active, document.createTextNode('แสดงให้สมาชิกเห็น'));
+    edit.append(adminRestaurantLabel('ชื่อร้าน', name), adminRestaurantLabel('หมวดหมู่', category), adminRestaurantLabel('ที่ตั้ง', location), adminRestaurantLabel('รายละเอียด', description), activeLabel);
+    const saveRestaurant = document.createElement('button'); saveRestaurant.type = 'submit'; saveRestaurant.className = 'button small primary'; saveRestaurant.textContent = 'บันทึกข้อมูลร้าน'; edit.append(saveRestaurant);
+    edit.addEventListener('submit', async (event) => {
+      event.preventDefault(); saveRestaurant.disabled = true;
+      try {
+        await api('/api/admin/restaurants', { method: 'POST', body: JSON.stringify({ restaurantId: restaurant.id, name: name.value.trim(), category: category.value, location: location.value.trim(), description: description.value.trim(), isActive: active.checked }) });
+        showToast('บันทึกข้อมูลร้านแล้ว'); await loadAdminRestaurants();
+      } catch (error) { setMessage('admin-restaurants-message', error.message); }
+      finally { saveRestaurant.disabled = false; }
+    });
+    const menuHeading = document.createElement('h4'); menuHeading.textContent = `เมนู (${restaurant.menus.length})`;
+    const menus = document.createElement('div'); menus.className = 'admin-restaurant-menus';
+    for (const menu of restaurant.menus) {
+      const row = document.createElement('form'); row.className = 'admin-restaurant-menu-row';
+      const menuName = document.createElement('input'); menuName.required = true; menuName.minLength = 2; menuName.maxLength = 80; menuName.value = menu.name; menuName.setAttribute('aria-label', `ชื่อเมนู ${menu.name}`);
+      const price = document.createElement('input'); price.required = true; price.inputMode = 'decimal'; price.pattern = '\\d{1,5}(?:\\.\\d{1,2})?'; price.value = String(menu.price); price.setAttribute('aria-label', `ราคาของ ${menu.name} บาท`);
+      const saveMenu = document.createElement('button'); saveMenu.type = 'submit'; saveMenu.className = 'button small'; saveMenu.textContent = 'บันทึก';
+      const removeMenu = document.createElement('button'); removeMenu.type = 'button'; removeMenu.className = 'button small danger-button'; removeMenu.textContent = 'ลบ'; removeMenu.setAttribute('aria-label', `ลบเมนู ${menu.name}`);
+      row.append(adminRestaurantLabel('เมนู', menuName), adminRestaurantLabel('ราคา (บาท)', price), saveMenu, removeMenu);
+      row.addEventListener('submit', async (event) => { event.preventDefault(); saveMenu.disabled = true; try { await saveAdminMenu(restaurant.id, { menuId: menu.id, name: menuName.value.trim(), price: price.value }); } catch (error) { setMessage('admin-restaurants-message', error.message); } finally { saveMenu.disabled = false; } });
+      removeMenu.addEventListener('click', async () => { if (!window.confirm(`ลบเมนู “${menu.name}” ใช่หรือไม่?`)) return; try { await api('/api/admin/restaurants/menu', { method: 'POST', body: JSON.stringify({ restaurantId: restaurant.id, menuId: menu.id, action: 'delete' }) }); await loadAdminRestaurants(); } catch (error) { setMessage('admin-restaurants-message', error.message); } });
+      menus.append(row);
+    }
+    const addMenu = document.createElement('form'); addMenu.className = 'admin-restaurant-menu-row admin-restaurant-add-menu';
+    const newName = document.createElement('input'); newName.required = true; newName.minLength = 2; newName.maxLength = 80; newName.placeholder = 'ชื่อเมนูใหม่'; newName.setAttribute('aria-label', `เพิ่มเมนูให้ ${restaurant.name}`);
+    const newPrice = document.createElement('input'); newPrice.required = true; newPrice.inputMode = 'decimal'; newPrice.pattern = '\\d{1,5}(?:\\.\\d{1,2})?'; newPrice.placeholder = 'ราคา'; newPrice.setAttribute('aria-label', `ราคาเมนูใหม่ของ ${restaurant.name}`);
+    const addMenuButton = document.createElement('button'); addMenuButton.type = 'submit'; addMenuButton.className = 'button small'; addMenuButton.textContent = 'เพิ่มเมนู';
+    addMenu.append(adminRestaurantLabel('เมนูใหม่', newName), adminRestaurantLabel('ราคา (บาท)', newPrice), addMenuButton);
+    addMenu.addEventListener('submit', async (event) => { event.preventDefault(); addMenuButton.disabled = true; try { await saveAdminMenu(restaurant.id, { name: newName.value.trim(), price: newPrice.value }); } catch (error) { setMessage('admin-restaurants-message', error.message); } finally { addMenuButton.disabled = false; } });
+    menus.append(addMenu);
+    card.append(heading, edit, menuHeading, menus);
+    list.append(card);
+  }
+}
+async function saveAdminMenu(restaurantId, menu) {
+  await api('/api/admin/restaurants/menu', { method: 'POST', body: JSON.stringify({ restaurantId, ...menu }) });
+  showToast('บันทึกเมนูและราคาแล้ว');
+  await loadAdminRestaurants();
+}
+async function loadAdminRestaurants() {
+  try {
+    const result = await api('/api/admin/restaurants');
+    state.adminRestaurants = result.restaurants || [];
+    byId('admin-nav-count-restaurants').textContent = String(state.adminRestaurants.length);
+    byId('admin-restaurants-message').textContent = '';
+    renderAdminRestaurants(state.adminRestaurants, result.requiresSchool);
+  } catch (error) { setMessage('admin-restaurants-message', error.message); }
+}
+async function openSchoolIssue() {
   byId('school-issue-form').reset();
   byId('school-issue-status').textContent = '';
-  byId('app').classList.remove('portal-mode', 'admin-mode');
+  byId('app').classList.remove('portal-mode', 'admin-mode', 'restaurant-mode');
   byId('app').classList.add('issue-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
@@ -1947,6 +2168,7 @@ async function saveProfile(event) {
     updateStats();
     showToast('บันทึกโปรไฟล์แล้ว');
     await loadItems();
+    if (byId('app').classList.contains('restaurant-mode')) await loadRestaurants();
     refreshNotificationCount();
   } catch (error) {
     byId('profile-status').textContent = error.message;
@@ -2939,12 +3161,13 @@ async function loadAdminData() {
   setMessage('admin-report-message', '');
   setMessage('admin-workorder-message', '');
   try {
-    const [overview, accounts, reports, itemReports, workOrders] = await Promise.all([
+    const [overview, accounts, reports, itemReports, workOrders, restaurantData] = await Promise.all([
       api('/api/admin/overview'),
       api('/api/admin/users'),
       api('/api/items'),
       api('/api/admin/item-reports'),
       api('/api/admin/work-orders'),
+      api('/api/admin/restaurants'),
     ]);
     state.adminItems = reports.items || [];
     byId('admin-lost-count').textContent = overview.lostCount;
@@ -2964,6 +3187,9 @@ async function loadAdminData() {
     renderAdminWorkOrders(workOrders.workOrders || []);
     renderAdminItemReports(itemReports.reports);
     renderAdminAttention(workOrders.workOrders || [], itemReports.reports || []);
+    state.adminRestaurants = restaurantData.restaurants || [];
+    byId('admin-nav-count-restaurants').textContent = String(state.adminRestaurants.length);
+    renderAdminRestaurants(state.adminRestaurants, restaurantData.requiresSchool);
     setAdminView(state.adminView);
   } catch (error) {
     setMessage('admin-message', error.message);
@@ -3068,6 +3294,41 @@ function bindEvents() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
   byId('portal-open-issue').addEventListener('click', openSchoolIssue);
+  byId('portal-open-restaurants').addEventListener('click', openRestaurantPage);
+  byId('close-restaurants-page').addEventListener('click', showPortal);
+  byId('restaurant-search').addEventListener('input', (event) => {
+    state.restaurantSearch = event.currentTarget.value;
+    renderRestaurantList();
+  });
+  document.querySelectorAll('[data-restaurant-category]').forEach((button) => button.addEventListener('click', () => {
+    state.restaurantCategoryFilter = button.dataset.restaurantCategory;
+    document.querySelectorAll('[data-restaurant-category]').forEach((entry) => {
+      const active = entry === button;
+      entry.classList.toggle('is-active', active);
+      entry.setAttribute('aria-pressed', String(active));
+    });
+    renderRestaurantList();
+  }));
+  byId('close-restaurant-dialog').addEventListener('click', () => byId('restaurant-dialog').close());
+  byId('submit-restaurant-rating').addEventListener('click', submitRestaurantRating);
+  byId('admin-restaurant-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    setMessage('admin-restaurants-message', '');
+    try {
+      await api('/api/admin/restaurants', { method: 'POST', body: JSON.stringify({
+        name: byId('new-restaurant-name').value.trim(), category: byId('new-restaurant-category').value,
+        location: byId('new-restaurant-location').value.trim(), description: byId('new-restaurant-description').value.trim(),
+      }) });
+      form.reset();
+      showToast('เพิ่มร้านอาหารแล้ว');
+      await loadAdminRestaurants();
+    } catch (error) { setMessage('admin-restaurants-message', error.message); }
+    finally { button.disabled = false; }
+  });
   byId('school-issue-form').addEventListener('submit', submitSchoolIssue);
   byId('close-school-issue').addEventListener('click', showPortal);
   byId('cancel-school-issue').addEventListener('click', showPortal);

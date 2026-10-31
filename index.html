@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=impact-dashboard-1" />
-    <script src="script.js?v=impact-dashboard-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=school-food-1" />
+    <script src="script.js?v=school-food-1" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -162,6 +162,11 @@
                 <span class="portal-choice-copy"><span class="portal-choice-kicker">แจ้งให้โรงเรียนช่วยดูแล</span><strong>แจ้งปัญหา</strong><span>แจ้งอาคารหรืออุปกรณ์ชำรุด ความสะอาด หรือปัญหาความปลอดภัย พร้อมติดตามจนแก้ไข</span></span>
                 <span class="portal-choice-cta">แจ้งเรื่องใหม่ <span aria-hidden="true">→</span></span>
               </button>
+              <button class="portal-choice portal-choice-food" id="portal-open-restaurants" type="button">
+                <span class="portal-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M4 3v7m3-7v7M5.5 3v18M16 3c-2 2-3 5-3 8h4v10M17 3v8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <span class="portal-choice-copy"><span class="portal-choice-kicker">ร้านค้าในโรงเรียน</span><strong>ร้านอาหาร</strong><span>ดูร้าน เมนู ราคา และคะแนนรีวิวจากสมาชิกในโรงเรียน</span></span>
+                <span class="portal-choice-cta">เลือกร้านอาหาร <span aria-hidden="true">→</span></span>
+              </button>
             </div>
             <p class="portal-private-note"><span aria-hidden="true">✓</span> ติดตามประกาศและเรื่องที่แจ้งได้จากบัญชีของคุณ</p>
           </section>
@@ -191,6 +196,26 @@
           <p id="student-workorders-empty" class="empty-message">ยังไม่มีเรื่องที่แจ้ง ระบบจะบันทึกความคืบหน้าไว้ที่นี่</p>
           <p id="student-workorders-error" class="form-message" aria-live="polite"></p>
         </section>
+        </section>
+        <section id="restaurants-page" class="restaurant-page" aria-labelledby="restaurants-title">
+          <header class="restaurant-page-header">
+            <button class="button issue-page-back" id="close-restaurants-page" type="button"><span aria-hidden="true">←</span> กลับไปหน้าเมนู</button>
+            <div class="eyebrow">ร้านค้าในชุมชนโรงเรียน</div>
+            <h1 id="restaurants-title">ร้านอาหารโรงเรียน</h1>
+            <p id="restaurants-school-name">เลือกร้าน แล้วดูเมนูและราคาก่อนตัดสินใจ</p>
+          </header>
+          <div class="restaurant-toolbar">
+            <label class="restaurant-search"><span aria-hidden="true">⌕</span><span class="sr-only">ค้นหาร้านอาหาร</span><input id="restaurant-search" type="search" placeholder="ค้นหาชื่อร้านหรือเมนู" autocomplete="off" /></label>
+            <div class="restaurant-categories" role="group" aria-label="กรองหมวดหมู่ร้านอาหาร">
+              <button class="restaurant-category is-active" type="button" data-restaurant-category="all" aria-pressed="true">ทั้งหมด</button>
+              <button class="restaurant-category" type="button" data-restaurant-category="food" aria-pressed="false">ร้านอาหาร</button>
+              <button class="restaurant-category" type="button" data-restaurant-category="drink" aria-pressed="false">เครื่องดื่ม</button>
+              <button class="restaurant-category" type="button" data-restaurant-category="snack" aria-pressed="false">ของกินเล่น</button>
+            </div>
+          </div>
+          <div id="restaurants-list" class="restaurants-list" aria-live="polite"></div>
+          <p id="restaurants-empty" class="restaurant-empty hidden"></p>
+          <p id="restaurants-status" class="form-message" aria-live="polite"></p>
         </section>
           <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
@@ -346,6 +371,7 @@
             <button class="admin-view-button" type="button" data-admin-view="lost" aria-pressed="false"><span>ของหาย</span><b id="admin-nav-count-lost">0</b></button>
             <button class="admin-view-button" type="button" data-admin-view="found" aria-pressed="false"><span>ของที่พบ</span><b id="admin-nav-count-found">0</b></button>
             <button class="admin-view-button" type="button" data-admin-view="issues" aria-pressed="false"><span>แจ้งปัญหา</span><b id="admin-nav-count-issues">0</b></button>
+            <button class="admin-view-button" type="button" data-admin-view="restaurants" aria-pressed="false"><span>ร้านอาหาร</span><b id="admin-nav-count-restaurants">0</b></button>
             <button class="admin-view-button" type="button" data-admin-view="members" aria-pressed="false"><span>สมาชิก</span><b id="admin-nav-count-members">0</b></button>
             <button class="admin-view-button" type="button" data-admin-view="reports" aria-pressed="false"><span>รายงานประกาศ</span><b id="admin-nav-count-reports">0</b></button>
           </div>
@@ -420,6 +446,22 @@
             <div class="admin-card-heading"><div><h2 id="admin-workorders-title">งานแจ้งปัญหาโรงเรียน</h2><p>ตรวจสอบ มอบหมาย และเลื่อนสถานะตามลำดับ พร้อมบันทึกผู้ดำเนินการทุกครั้ง</p></div><span class="admin-table-count" id="admin-workorder-count">0 เรื่อง</span></div>
             <p id="admin-workorder-message" class="form-message" aria-live="polite"></p>
             <div id="admin-workorder-list" class="admin-workorder-list" aria-live="polite"></div>
+          </section>
+          <section class="admin-card admin-restaurant-manager" id="admin-restaurants-card" data-admin-view-panel="restaurants" aria-labelledby="admin-restaurants-title">
+            <div class="admin-card-heading"><div><h2 id="admin-restaurants-title">จัดการร้านอาหารและเมนู</h2><p>ข้อมูลนี้จะแสดงเฉพาะสมาชิกของโรงเรียนที่แอดมินสังกัด · รีวิวเป็นคะแนนดาว ไม่มีคอมเมนต์</p></div></div>
+            <p id="admin-restaurants-message" class="form-message" aria-live="polite"></p>
+            <form id="admin-restaurant-form" class="admin-restaurant-create">
+              <h3>เพิ่มร้านใหม่</h3>
+              <div class="admin-restaurant-fields">
+                <label>ชื่อร้าน<input id="new-restaurant-name" required minlength="2" maxlength="80" placeholder="ชื่อร้านอาหาร" /></label>
+                <label>หมวดหมู่<select id="new-restaurant-category" required><option value="food">ร้านอาหาร</option><option value="drink">ร้านเครื่องดื่ม</option><option value="snack">ร้านของกินเล่น</option></select></label>
+                <label>ที่ตั้งในโรงเรียน<input id="new-restaurant-location" maxlength="120" placeholder="เช่น โรงอาหาร แถวที่ 2" /></label>
+                <label>รายละเอียดสั้น ๆ<input id="new-restaurant-description" maxlength="240" placeholder="เช่น อาหารตามสั่ง เปิดช่วงพักกลางวัน" /></label>
+              </div>
+              <button class="button primary" type="submit">เพิ่มร้านอาหาร</button>
+            </form>
+            <div id="admin-restaurant-list" class="admin-restaurant-list" aria-live="polite"></div>
+            <p id="admin-restaurants-empty" class="admin-empty hidden">ยังไม่มีร้านอาหาร เพิ่มร้านแรกของโรงเรียนได้จากแบบฟอร์มด้านบน</p>
           </section>
           <section class="admin-card" id="admin-accounts-card" data-admin-view-panel="members" aria-labelledby="admin-accounts-title">
             <div class="admin-card-heading">
@@ -585,6 +627,24 @@
           ><button class="button primary" type="submit">ลงประกาศ</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog class="dialog" id="restaurant-dialog" aria-labelledby="restaurant-dialog-title">
+      <section class="dialog-card restaurant-detail-card">
+        <button class="icon-button dialog-close" id="close-restaurant-dialog" type="button" aria-label="ปิดรายละเอียดร้าน">×</button>
+        <div class="eyebrow" id="restaurant-dialog-category">ร้านอาหาร</div>
+        <h2 id="restaurant-dialog-title"></h2>
+        <p class="restaurant-dialog-location" id="restaurant-dialog-location"></p>
+        <p class="restaurant-dialog-description" id="restaurant-dialog-description"></p>
+        <section class="restaurant-menu-section" aria-labelledby="restaurant-menu-title"><div class="detail-comments-heading"><div><h3 id="restaurant-menu-title">เมนูและราคา</h3><p class="form-hint">สอบถามร้านอีกครั้งสำหรับเมนูประจำวันหรือรายการที่หมด</p></div></div><div id="restaurant-dialog-menu" class="restaurant-dialog-menu"></div><p id="restaurant-menu-empty" class="empty-message hidden">ร้านนี้ยังไม่มีเมนู</p></section>
+        <section class="restaurant-rating-section" aria-labelledby="restaurant-rating-title">
+          <div class="restaurant-rating-summary"><div><h3 id="restaurant-rating-title">คะแนนจากสมาชิก</h3><p id="restaurant-rating-average">ยังไม่มีคะแนน</p></div><strong id="restaurant-rating-count">0 รีวิว</strong></div>
+          <p class="form-hint">ให้คะแนนร้าน 1–5 ดาวได้หนึ่งครั้ง และเปลี่ยนคะแนนของตัวเองได้ · ไม่มีช่องคอมเมนต์</p>
+          <div id="restaurant-rating-stars" class="restaurant-rating-stars" role="group" aria-label="เลือกคะแนนดาว 1 ถึง 5"></div>
+          <button class="button primary" id="submit-restaurant-rating" type="button" disabled>ส่งคะแนนร้าน</button>
+          <p id="restaurant-rating-status" class="form-message" aria-live="polite"></p>
+        </section>
+      </section>
     </dialog>
 
     <dialog class="dialog" id="detail-dialog" aria-labelledby="detail-title">

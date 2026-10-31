@@ -7,6 +7,7 @@ const QRCode = require('qrcode');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
 const { buildWorkOrderImpact } = require('./lib/work-order-impact');
+const { buildRestaurantList, saveRestaurantRating } = require('./lib/restaurant-service');
 const ROOT = process.cwd();
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'data') : path.join(ROOT, 'data'));
 const PHOTO_DIR = process.env.UPLOAD_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'uploads') : path.join(ROOT, 'uploads'));
@@ -117,11 +118,11 @@ function assertDeploymentConfig() {
   }
 }
 function emptyStore() {
-  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [], pointLedger: [], workOrders: [] };
+  return { users: [], items: [], messages: [], staffMessages: [], comments: [], notifications: [], claims: [], itemReports: [], savedSearches: [], pointLedger: [], workOrders: [], restaurants: [], restaurantRatings: [] };
 }
 function normalizeStore(value) {
   const store = { ...emptyStore(), ...(value && typeof value === 'object' ? value : {}) };
-  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches', 'pointLedger', 'workOrders']) {
+  for (const key of ['users', 'items', 'messages', 'staffMessages', 'comments', 'notifications', 'claims', 'itemReports', 'savedSearches', 'pointLedger', 'workOrders', 'restaurants', 'restaurantRatings']) {
     if (!Array.isArray(store[key])) store[key] = [];
   }
   const schoolForUser = (user) => SCHOOLS.find((school) => school.id === user?.schoolId) || SCHOOLS.find((school) => school.name === user?.school);
@@ -978,6 +979,81 @@ async function handler(req, res) {
       await writeStore(store);
       return json(res, 200, { ok: true, workOrder: order });
     }
+    if (req.method === 'GET' && route === '/api/admin/restaurants') {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      if (!admin.schoolId) return json(res, 200, { restaurants: [], requiresSchool: true });
+      const store = await readStore();
+      const restaurants = buildRestaurantList(store, { schoolId: admin.schoolId, includeInactive: true });
+      return json(res, 200, { restaurants, schoolId: admin.schoolId });
+    }
+    if (req.method === 'POST' && route === '/api/admin/restaurants') {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      if (!admin.schoolId || !SCHOOLS.some((school) => school.id === admin.schoolId))
+        return json(res, 400, { error: 'กรุณาเลือกโรงเรียนในโปรไฟล์แอดมินก่อนจัดการร้านอาหาร' });
+      const body = await readBody(req);
+      const restaurantId = String(body.restaurantId || '');
+      const name = String(body.name || '').trim();
+      const category = String(body.category || '');
+      const location = String(body.location || '').trim();
+      const description = String(body.description || '').trim();
+      if (!['food', 'drink', 'snack'].includes(category)) return json(res, 400, { error: 'กรุณาเลือกหมวดหมู่ร้านให้ถูกต้อง' });
+      if (name.length < 2 || name.length > 80) return json(res, 400, { error: 'ชื่อร้านต้องมีความยาว 2–80 ตัวอักษร' });
+      if (location.length > 120 || description.length > 240) return json(res, 400, { error: 'สถานที่หรือคำอธิบายยาวเกินกำหนด' });
+      const store = await readStore();
+      let restaurant = restaurantId ? store.restaurants.find((entry) => entry.id === restaurantId && entry.schoolId === admin.schoolId) : null;
+      if (restaurantId && !restaurant) return json(res, 404, { error: 'ไม่พบร้านอาหารในโรงเรียนของคุณ' });
+      if (!restaurantId && store.restaurants.some((entry) => entry.schoolId === admin.schoolId && entry.name.toLocaleLowerCase() === name.toLocaleLowerCase()))
+        return json(res, 409, { error: 'มีร้านชื่อนี้อยู่แล้วในโรงเรียน' });
+      if (!restaurant) {
+        restaurant = { id: crypto.randomUUID(), schoolId: admin.schoolId, schoolName: SCHOOLS.find((school) => school.id === admin.schoolId).name, menus: [], createdAt: new Date().toISOString() };
+        store.restaurants.push(restaurant);
+      }
+      restaurant.name = name;
+      restaurant.category = category;
+      restaurant.location = location;
+      restaurant.description = description;
+      restaurant.isActive = body.isActive !== false;
+      restaurant.updatedAt = new Date().toISOString();
+      await writeStore(store);
+      return json(res, 200, { ok: true, restaurant });
+    }
+    if (req.method === 'POST' && route === '/api/admin/restaurants/menu') {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      const body = await readBody(req);
+      const restaurantId = String(body.restaurantId || '');
+      const menuId = String(body.menuId || '');
+      const action = String(body.action || 'save');
+      const store = await readStore();
+      const restaurant = store.restaurants.find((entry) => entry.id === restaurantId && entry.schoolId === admin.schoolId);
+      if (!restaurant) return json(res, 404, { error: 'ไม่พบร้านอาหารในโรงเรียนของคุณ' });
+      if (!Array.isArray(restaurant.menus)) restaurant.menus = [];
+      const index = restaurant.menus.findIndex((entry) => entry.id === menuId);
+      if (action === 'delete') {
+        if (index < 0) return json(res, 404, { error: 'ไม่พบเมนูนี้' });
+        restaurant.menus.splice(index, 1);
+      } else {
+        const name = String(body.name || '').trim();
+        const rawPrice = String(body.price ?? '').trim();
+        const price = Number(rawPrice);
+        if (!menuId && restaurant.menus.length >= 100) return json(res, 400, { error: 'ร้านหนึ่งเพิ่มเมนูได้ไม่เกิน 100 รายการ' });
+        if (name.length < 2 || name.length > 80) return json(res, 400, { error: 'ชื่อเมนูต้องมีความยาว 2–80 ตัวอักษร' });
+        if (!/^\d{1,5}(?:\.\d{1,2})?$/.test(rawPrice) || !Number.isFinite(price) || price > 99999)
+          return json(res, 400, { error: 'กรุณาระบุราคาเป็นตัวเลขตั้งแต่ 0 ถึง 99,999 บาท' });
+        if (menuId && index < 0) return json(res, 404, { error: 'ไม่พบเมนูนี้' });
+        const menu = index >= 0 ? restaurant.menus[index] : { id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+        menu.name = name;
+        menu.price = price;
+        menu.updatedAt = new Date().toISOString();
+        if (index >= 0) restaurant.menus[index] = menu;
+        else restaurant.menus.push(menu);
+      }
+      restaurant.updatedAt = new Date().toISOString();
+      await writeStore(store);
+      return json(res, 200, { ok: true, restaurant });
+    }
     if (req.method === 'GET' && route === '/api/admin/overview') {
       const admin = await requireAdmin(req, res);
       if (!admin) return;
@@ -1117,6 +1193,7 @@ async function handler(req, res) {
       removeNotificationsForItems(store, removedItemIds);
       store.claims = store.claims.filter((claim) => claim.fromId !== targetId && claim.ownerId !== targetId && !removedItemIds.has(claim.itemId));
       store.itemReports = store.itemReports.filter((report) => report.fromId !== targetId && !removedItemIds.has(report.itemId));
+      store.restaurantRatings = store.restaurantRatings.filter((rating) => rating.userId !== targetId);
       store.savedSearches = store.savedSearches.filter((search) => search.userId !== targetId);
       store.messages = store.messages.filter(
         (message) => message.fromId !== targetId && message.toId !== targetId,
@@ -1377,6 +1454,25 @@ async function handler(req, res) {
       store.savedSearches = store.savedSearches.filter((entry) => entry.id !== id);
       await writeStore(store);
       return json(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && route === '/api/restaurants') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      if (!user.schoolId) return json(res, 200, { restaurants: [], requiresSchool: true, schoolName: '' });
+      const store = await readStore();
+      const restaurants = buildRestaurantList(store, { schoolId: user.schoolId, userId: user.id });
+      return json(res, 200, { restaurants, requiresSchool: false, schoolName: user.school || '' });
+    }
+    if (req.method === 'POST' && route === '/api/restaurants/rating') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const restaurantId = String(body.restaurantId || '');
+      const value = Number(body.value);
+      const store = await readStore();
+      const result = saveRestaurantRating(store, user, restaurantId, value);
+      await writeStore(store);
+      return json(res, 200, result);
     }
     if (req.method === 'GET' && route === '/api/work-orders') {
       const user = await requireUser(req, res);
