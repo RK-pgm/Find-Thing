@@ -5230,6 +5230,47 @@ html[data-theme="dark"] .issue-page-form input, html[data-theme="dark"] .issue-p
 html[data-theme="dark"] .auth-view select { border-color: #435648; background: #202d24; color: #edf4ee; }
 html[data-theme="dark"] .required-mark { color: #ff9688; }
 
+/* Keep navigation actions distinct and make service switching available from every signed-in screen. */
+.nav .nav-tool-group { gap: 8px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.nav .nav-tool-group .nav-action { margin: 0; }
+.admin-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+.admin-attention {
+  padding: 20px; border: 1px solid #d8e6d9; border-radius: 19px;
+  background: linear-gradient(135deg, #f4faf3 0%, #fffdf5 100%);
+  box-shadow: 0 8px 24px rgba(30, 76, 48, .06);
+}
+.admin-attention-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.admin-attention-kicker { color: #387454; font-size: 12px; font-weight: 800; letter-spacing: .05em; }
+.admin-attention-heading h2 { margin: 3px 0 4px; color: #183a31; font-size: 20px; }
+.admin-attention-heading p { margin: 0; color: #65776a; font-size: 13px; }
+.admin-attention-total { flex: 0 0 auto; padding: 7px 11px; border: 1px solid #d9e8d8; border-radius: 999px; background: #fff; color: #246848; font-size: 13px; font-weight: 800; }
+.admin-attention-list { display: grid; gap: 8px; }
+.admin-attention-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 14px; border: 1px solid #e1eae0; border-radius: 13px; background: rgba(255,255,255,.9); }
+.admin-attention-row > div { min-width: 0; display: grid; gap: 2px; }
+.admin-attention-kind { color: #9a6726; font-size: 11px; font-weight: 800; }
+.admin-attention-row strong { overflow-wrap: anywhere; color: #20392c; font-size: 14px; }
+.admin-attention-row p { margin: 0; overflow-wrap: anywhere; color: #6b7b70; font-size: 12px; }
+.admin-attention-link { flex: 0 0 auto; }
+.admin-attention-empty, .admin-attention-more { margin: 0; padding: 14px; border: 1px dashed #d5e2d4; border-radius: 12px; color: #607568; font-size: 13px; text-align: center; }
+.admin-attention-more { padding: 5px; border: 0; }
+.admin-attention + .admin-card, .admin-attention ~ .admin-card { scroll-margin-top: 96px; }
+html[data-theme="dark"] .admin-attention { border-color: #3a4d40; background: linear-gradient(135deg,#1b2b20,#272a20); }
+html[data-theme="dark"] .admin-attention-heading h2, html[data-theme="dark"] .admin-attention-row strong { color: #edf4ee; }
+html[data-theme="dark"] .admin-attention-heading p, html[data-theme="dark"] .admin-attention-row p, html[data-theme="dark"] .admin-attention-empty, html[data-theme="dark"] .admin-attention-more { color: #bdcabe; }
+html[data-theme="dark"] .admin-attention-total, html[data-theme="dark"] .admin-attention-row { border-color: #3c4d41; background: #1b2720; color: #d9e5da; }
+@media (max-width: 820px) {
+  .nav .nav-tool-group { align-items: stretch; }
+  .admin-heading-actions { width: 100%; justify-content: stretch; }
+  .admin-heading-actions .button { flex: 1 1 auto; }
+  .admin-attention { padding: 16px 12px; }
+  .admin-attention-row { align-items: flex-start; padding: 11px; }
+  .admin-attention-link { align-self: center; }
+}
+@media (max-width: 420px) {
+  .admin-attention-row { flex-direction: column; gap: 8px; }
+  .admin-attention-link { align-self: stretch; }
+}
+
 @media (max-width: 700px) {
   .portal-home { margin: 10px 0 24px; padding: 26px 17px; border-radius: 20px; }
   .portal-intro { margin-bottom: 21px; }

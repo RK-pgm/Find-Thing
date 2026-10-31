@@ -163,6 +163,7 @@ function addThemeToggle(nav) {
 function setNavButton(button, role, label, iconName) {
   const paths = {
     board: ['M5 4.5h14v15H5z', 'M8 8h8', 'M8 12h8', 'M8 16h5'],
+    issue: ['M12 3 22 20H2L12 3Z', 'M12 9v5', 'M12 17h.01'],
     help: ['M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17Z', 'M9.7 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1.2-1.8 1.3-1.8 2.8', 'M12 16.5h.01'],
     inbox: ['M4 5.5h16v13H4z', 'm4.5 7 7.5 6 7.5-6', 'M4.5 14h4l1.5 2h4l1.5-2h4'],
     notifications: ['M18 9a6 6 0 0 0-12 0c0 7-2.5 7-2.5 9h17C20.5 16 18 16 18 9Z', 'M10 21h4'],
@@ -210,14 +211,14 @@ function renderNav() {
     addThemeToggle(nav);
     return;
   }
-  const home = document.createElement('button');
-  setNavButton(home, 'home', 'เลือกเมนู', 'home');
-  home.addEventListener('click', showPortal);
   const board = document.createElement('button');
-  setNavButton(board, 'board', 'หน้าประกาศ', 'board');
-  if (byId('app').classList.contains('portal-mode')) home.setAttribute('aria-current', 'page');
-  else board.setAttribute('aria-current', 'page');
-  board.addEventListener('click', showBoard);
+  setNavButton(board, 'board', 'หาของหาย', 'board');
+  const issue = document.createElement('button');
+  setNavButton(issue, 'issue', 'แจ้งปัญหา', 'issue');
+  if (byId('app').classList.contains('issue-mode')) issue.setAttribute('aria-current', 'page');
+  else if (!byId('app').classList.contains('admin-mode')) board.setAttribute('aria-current', 'page');
+  board.addEventListener('click', () => { showBoard(); loadItems(); });
+  issue.addEventListener('click', openSchoolIssue);
   const help = document.createElement('button');
   setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
   help.addEventListener('click', openHelp);
@@ -237,7 +238,7 @@ function renderNav() {
   messageTools.setAttribute('role', 'group');
   messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
   messageTools.append(inbox, notifications);
-  nav.append(home, board, messageTools, help);
+  nav.append(board, issue, messageTools, help);
   addThemeToggle(nav);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
@@ -264,18 +265,11 @@ function canManageSupport() {
 function openHelp() {
   byId('help-dialog').showModal();
 }
-function showPortal() {
-  byId('app').classList.remove('admin-mode', 'issue-mode');
-  byId('app').classList.add('portal-mode');
-  byId('admin-panel').classList.add('hidden');
-  byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
-  byId('nav')?.querySelector('.nav-home')?.setAttribute('aria-current', 'page');
-}
 function showBoard() {
   byId('app').classList.remove('admin-mode', 'portal-mode', 'issue-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelector('.nav-admin')?.removeAttribute('aria-current');
-  byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
+  byId('nav')?.querySelector('.nav-issue')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-board')?.setAttribute('aria-current', 'page');
 }
 async function openAdminPanel() {
@@ -284,14 +278,13 @@ async function openAdminPanel() {
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
   byId('nav')?.querySelector('.nav-board')?.removeAttribute('aria-current');
-  byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
+  byId('nav')?.querySelector('.nav-issue')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-admin')?.setAttribute('aria-current', 'page');
   await loadAdminData();
 }
 function enterApp(user) {
   state.user = user;
   loadSchools();
-  renderPortalWelcome();
   try {
     state.favoriteIds = JSON.parse(localStorage.getItem(`found-it:favorites:${user.id}`) || '[]');
   } catch {
@@ -299,25 +292,15 @@ function enterApp(user) {
   }
   byId('auth-screen').classList.add('hidden');
   byId('app').classList.remove('hidden');
-  showPortal();
+  showBoard();
   renderNav();
   renderCommunityLabel();
-  renderPortalWelcome();
   refreshNotificationCount();
   clearInterval(state.notificationTimer);
   state.notificationTimer = setInterval(() => { refreshNotificationCount(); loadWorkOrders(); }, 60000);
   loadWorkOrders();
   loadItems();
   if (state.pendingReturnToken) prepareReturnConfirmation();
-}
-function renderPortalWelcome() {
-  const name = byId('portal-welcome-name');
-  const schoolName = byId('portal-school-name');
-  if (!name || !schoolName || !state.user) return;
-  name.textContent = state.user.name || 'สมาชิก';
-  const school = state.schools.find((entry) => entry.id === state.user.schoolId)
-    || state.schools.find((entry) => entry.name === state.user.school);
-  schoolName.textContent = school ? `ชุมชน ${school.name} · ${school.province}` : 'เลือกสิ่งที่ต้องการทำ แล้วเริ่มได้เลย';
 }
 function renderCommunityLabel() {
   const label = byId('community-label');
@@ -327,7 +310,7 @@ function renderCommunityLabel() {
   const selectedSchool = state.schools.find((school) => school.id === state.user?.schoolId);
   label.append(dot, document.createTextNode(selectedSchool
     ? ` ชุมชน ${selectedSchool.name} · ${selectedSchool.province}`
-    : ' กระดานสาธารณะ · เลือกโรงเรียนในโปรไฟล์ได้ทุกเมื่อ'));
+    : ' สาธารณะ · เปลี่ยนชุมชนได้ที่โปรไฟล์'));
 }
 function renderProfileSchoolMap() {
   const schoolId = byId('profile-school')?.value || '';
@@ -360,7 +343,6 @@ async function loadSchools() {
     state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
-    renderPortalWelcome();
     renderProfileSchoolMap();
     renderLocationFilterOptions();
   } catch {
@@ -371,7 +353,6 @@ async function loadSchools() {
     state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
-    renderPortalWelcome();
     renderProfileSchoolMap();
     renderLocationFilterOptions();
   }
@@ -1026,6 +1007,7 @@ function openSchoolIssue() {
   byId('app').classList.add('issue-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
+  byId('nav')?.querySelector('.nav-issue')?.setAttribute('aria-current', 'page');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 async function submitSchoolIssue(event) {
@@ -2793,6 +2775,52 @@ function renderAdminReports(items) {
     body.append(row);
   }
 }
+function renderAdminAttention(workOrders, itemReports) {
+  const list = byId('admin-attention-list');
+  const tasks = [
+    ...workOrders.filter((order) => order.status !== 'resolved').map((order) => ({
+      kind: 'แจ้งปัญหาโรงเรียน',
+      title: order.title,
+      details: `${WORK_ORDER_STAGES.find((stage) => stage.id === order.status)?.label || 'รับเรื่อง'} · ${order.reporterName || 'ผู้แจ้ง'} · ${order.location || 'ไม่ระบุสถานที่'} · ${formatPostedDate(order.createdAt)}`,
+      target: 'admin-workorders-card',
+      createdAt: order.createdAt,
+    })),
+    ...itemReports.filter((report) => report.status !== 'reviewed').map((report) => ({
+      kind: 'รายงานประกาศ',
+      title: `${report.itemName || 'ประกาศ'} · ${({ inaccurate: 'ข้อมูลไม่ถูกต้อง', inappropriate: 'เนื้อหาไม่เหมาะสม', privacy: 'ข้อมูลส่วนตัว', other: 'อื่น ๆ' })[report.reason] || 'แจ้งตรวจสอบ'}`,
+      details: `รอตรวจ · ${report.fromName || 'สมาชิก'} · ${formatPostedDate(report.createdAt)}${report.details ? ` · ${report.details}` : ''}`,
+      target: 'admin-item-reports-card',
+      createdAt: report.createdAt,
+    })),
+  ].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  byId('admin-attention-total').textContent = `${tasks.length} งาน`;
+  list.replaceChildren();
+  if (!tasks.length) {
+    const empty = document.createElement('p');
+    empty.className = 'admin-attention-empty';
+    empty.textContent = 'ไม่มีงานค้างในขณะนี้ ขอบคุณที่ช่วยดูแลชุมชนโรงเรียน';
+    list.append(empty);
+    return;
+  }
+  tasks.slice(0, 8).forEach((task) => {
+    const row = document.createElement('article');
+    row.className = 'admin-attention-row';
+    const copy = document.createElement('div');
+    const kind = document.createElement('span'); kind.className = 'admin-attention-kind'; kind.textContent = task.kind;
+    const title = document.createElement('strong'); title.textContent = task.title;
+    const details = document.createElement('p'); details.textContent = task.details;
+    copy.append(kind, title, details);
+    const action = document.createElement('button');
+    action.type = 'button'; action.className = 'button small admin-attention-link'; action.textContent = 'ไปจัดการ';
+    action.addEventListener('click', () => byId(task.target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    row.append(copy, action);
+    list.append(row);
+  });
+  if (tasks.length > 8) {
+    const more = document.createElement('p'); more.className = 'admin-attention-more'; more.textContent = `ยังมีอีก ${tasks.length - 8} งาน ดูต่อในรายการด้านล่าง`;
+    list.append(more);
+  }
+}
 async function loadAdminData() {
   setMessage('admin-message', '');
   setMessage('admin-report-message', '');
@@ -2814,6 +2842,7 @@ async function loadAdminData() {
     renderAdminReports(reports.items);
     renderAdminWorkOrders(workOrders.workOrders || []);
     renderAdminItemReports(itemReports.reports);
+    renderAdminAttention(workOrders.workOrders || [], itemReports.reports || []);
   } catch (error) {
     setMessage('admin-message', error.message);
   }
@@ -2907,15 +2936,9 @@ function bindEvents() {
   updateAdminSetupVisibility();
   byId('report-lost').addEventListener('click', () => openReport('lost'));
   byId('report-found').addEventListener('click', () => openReport('found'));
-  byId('portal-open-board').addEventListener('click', () => {
-    showBoard();
-    loadItems();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
-  byId('portal-open-issue').addEventListener('click', openSchoolIssue);
   byId('school-issue-form').addEventListener('submit', submitSchoolIssue);
-  byId('close-school-issue').addEventListener('click', showPortal);
-  byId('cancel-school-issue').addEventListener('click', showPortal);
+  byId('close-school-issue').addEventListener('click', showBoard);
+  byId('cancel-school-issue').addEventListener('click', showBoard);
   byId('item-form').addEventListener('submit', submitItem);
   byId('item-reward-offered').addEventListener('change', (event) => {
     byId('reward-amount-field').hidden = !event.currentTarget.checked || state.reportType !== 'lost';
