@@ -12,14 +12,17 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=issue-page-1" />
-    <script src="script.js?v=issue-page-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=mobile-nav-1" />
+    <script src="script.js?v=mobile-nav-1" defer></script>
 </head>
 <body>
     <header class="topbar">
       <a class="brand" href="#home" aria-label="หน้าหลัก KhongHai"
         ><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M3 10.5 12 4l9 6.5M5.5 10v9.5h13V10M9 19.5v-6h6v6M8 10h.01M12 10h.01M16 10h.01" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>KhongHai <small class="brand-caption">ศูนย์ของหายและของที่พบในโรงเรียน</small></span></a
       >
+      <button class="mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-controls="nav" aria-expanded="false" aria-label="เปิดเมนู">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <nav class="nav" id="nav" aria-label="เมนูหลัก"></nav>
   </header>
 

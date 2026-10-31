@@ -194,6 +194,7 @@ function setNavButton(button, role, label, iconName) {
 }
 function renderNav() {
   const nav = byId('nav');
+  closeMobileNav();
   nav.replaceChildren();
   if (!state.user) {
     const signup = document.createElement('button');
@@ -249,6 +250,13 @@ function renderNav() {
   setNavButton(logout, 'logout', 'ออกจากระบบ', 'logout');
   logout.addEventListener('click', logoutUser);
   nav.append(logout);
+}
+function closeMobileNav() {
+  const nav = byId('nav');
+  const toggle = byId('mobile-nav-toggle');
+  nav?.classList.remove('is-open');
+  toggle?.setAttribute('aria-expanded', 'false');
+  toggle?.setAttribute('aria-label', 'เปิดเมนู');
 }
 function canManageSupport() {
   return ['staff', 'admin'].includes(state.user?.role);
@@ -2800,6 +2808,24 @@ async function deleteAdminUser(user) {
   }
 }
 function bindEvents() {
+  const mobileNavToggle = byId('mobile-nav-toggle');
+  mobileNavToggle.addEventListener('click', () => {
+    const isOpen = byId('nav').classList.toggle('is-open');
+    mobileNavToggle.setAttribute('aria-expanded', String(isOpen));
+    mobileNavToggle.setAttribute('aria-label', isOpen ? 'ปิดเมนู' : 'เปิดเมนู');
+  });
+  byId('nav').addEventListener('click', (event) => {
+    if (event.target.closest('.nav-action')) closeMobileNav();
+  });
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('#nav, #mobile-nav-toggle')) closeMobileNav();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMobileNav();
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 820) closeMobileNav();
+  });
   byId('open-signup').addEventListener('click', () => setAuthView('signup-form'));
   byId('open-login').addEventListener('click', () => setAuthView('login-form'));
   byId('open-admin-login').addEventListener('click', openAdminLogin);
