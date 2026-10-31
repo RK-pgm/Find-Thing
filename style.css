@@ -5228,6 +5228,19 @@ html[data-theme="dark"] .issue-page-form input, html[data-theme="dark"] .issue-p
 .auth-view select:focus-visible { outline: 3px solid rgba(57,137,88,.22); border-color: #4c9a69; }
 .auth-community-hint { margin: -2px 0 16px; font-size: 12px; line-height: 1.5; }
 html[data-theme="dark"] .auth-view select { border-color: #435648; background: #202d24; color: #edf4ee; }
+html[data-theme="dark"] .auth-view input {
+  border-color: #435648; background: #202d24; color: #edf4ee; box-shadow: none;
+  color-scheme: dark;
+}
+html[data-theme="dark"] .auth-view input::placeholder { color: #a8b7ab; opacity: 1; }
+html[data-theme="dark"] .auth-view input:focus {
+  border-color: #85c794; background: #24382a; color: #f1f7f1;
+  box-shadow: 0 0 0 3px rgba(126, 198, 144, .2);
+}
+html[data-theme="dark"] .auth-view input:-webkit-autofill {
+  -webkit-text-fill-color: #edf4ee;
+  box-shadow: 0 0 0 1000px #202d24 inset;
+}
 html[data-theme="dark"] .required-mark { color: #ff9688; }
 
 /* Keep navigation actions distinct and make service switching available from every signed-in screen. */
