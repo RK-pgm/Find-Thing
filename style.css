@@ -5289,16 +5289,22 @@ html[data-theme="dark"] .issue-page-form input, html[data-theme="dark"] .issue-p
 @media (max-width:700px) { .issue-page { margin: 10px 0 24px; padding: 17px 12px; border-radius: 19px; } .issue-page-header { margin-bottom: 19px; } .issue-page-back { margin-bottom: 17px; } .issue-page-form { padding: 18px 14px; } }
 
 /* School canteen directory: browsable on mobile, manageable by school admins. */
-.restaurant-page { display: none; max-width: 1180px; margin: 18px auto 42px; padding: clamp(18px, 3vw, 34px); border: 1px solid #dce7dc; border-radius: 24px; background: linear-gradient(145deg,#fffefa,#f4f8f2); box-shadow: 0 12px 34px rgba(32,68,50,.07); }
-.restaurant-page-header { max-width: 760px; margin: 0 auto 22px; text-align: center; }
-.restaurant-page-header .issue-page-back { margin-right: auto; }
-.restaurant-page-header .eyebrow { color: #387454; font-weight: 700; }
+.restaurant-page { display: none; max-width: 1180px; margin: 18px auto 42px; padding: clamp(18px, 3vw, 34px); border: 1px solid #dce7dc; border-radius: 24px; background: radial-gradient(circle at 92% 8%,rgba(232,198,117,.13),transparent 19rem),linear-gradient(145deg,#fffefa,#f4f8f2); box-shadow: 0 12px 34px rgba(32,68,50,.07); }
+.restaurant-page-nav { display: flex; justify-content: flex-start; margin: 0 0 clamp(24px,4vw,42px); }
+.restaurant-page-nav .issue-page-back { margin: 0; }
+.restaurant-page-header { max-width: 760px; margin: 0 auto clamp(24px,4vw,38px); text-align: center; }
+.restaurant-page-header .eyebrow { display: inline-flex; align-items: center; gap: 9px; padding: 7px 13px; border: 1px solid #d8e8db; border-radius: 999px; background: rgba(255,255,255,.62); color: #286b4a; font-size: 12px; font-weight: 800; letter-spacing: .035em; }
+.restaurant-page-header .eyebrow::before { width: 7px; height: 7px; border-radius: 50%; background: #40a36b; box-shadow: 0 0 0 4px rgba(64,163,107,.12); content: ""; }
 .restaurant-page-header h1 { margin: 8px 0; color: #183a31; font-size: clamp(28px,4vw,40px); line-height: 1.2; }
 .restaurant-page-header p { margin: 0; color: #65776a; }
-.restaurant-toolbar { display: grid; gap: 14px; margin: 0 0 20px; }
-.restaurant-search { display: flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 15px; border: 1px solid #dce7dc; border-radius: 13px; background: #fff; color: #738176; }
-.restaurant-search > span:first-child { font-size: 23px; }
-.restaurant-search input { width: 100%; min-width: 0; height: 48px; border: 0; outline: 0; background: transparent; color: var(--ink-primary); font: inherit; }
+.restaurant-toolbar { display: grid; gap: 14px; margin: 0 0 20px; padding: 15px; border: 1px solid #dfe9df; border-radius: 18px; background: rgba(255,255,255,.54); }
+.restaurant-search { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 54px; padding: 0 16px; border: 1px solid #dce7dc; border-radius: 13px; background: #fff; color: #738176; transition: border-color .16s ease,box-shadow .16s ease; }
+.restaurant-search:focus-within { border-color: #438c61; box-shadow: 0 0 0 3px rgba(67,140,97,.14); }
+.restaurant-search-icon { display: grid; flex: 0 0 24px; width: 24px; height: 24px; place-items: center; color: #387454; }
+.restaurant-search-icon svg { display: block; width: 22px; height: 22px; }
+.restaurant-search input { width: 100%; min-width: 0; height: 50px; border: 0; outline: 0; background: transparent; color: var(--ink-primary); font: inherit; font-size: 15px; }
+.restaurant-search input::placeholder { color: #879489; opacity: 1; }
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 .restaurant-categories { display: flex; flex-wrap: wrap; gap: 8px; }
 .restaurant-category { min-height: 42px; padding: 8px 14px; border: 1px solid #dce7dc; border-radius: 999px; background: #fff; color: #52685a; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .restaurant-category:hover { border-color: #9fc2a7; }
@@ -5353,11 +5359,16 @@ html[data-theme="dark"] .issue-page-form input, html[data-theme="dark"] .issue-p
 .admin-restaurant-menu-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(105px,.34fr) auto auto; align-items: end; gap: 8px; }
 .admin-restaurant-add-menu { padding-top: 10px; border-top: 1px dashed #dce7dc; }
 html[data-theme="dark"] .restaurant-page { border-color: #3a4d40; background: linear-gradient(145deg,#17231c,#1d2a21); }
+html[data-theme="dark"] .restaurant-page-nav .issue-page-back { border-color: #3c5143; background: #202e25; color: #c5e1ca; }
+html[data-theme="dark"] .restaurant-page-header .eyebrow { border-color: #3c5143; background: rgba(32,46,37,.82); color: #a6d5ad; }
 html[data-theme="dark"] .restaurant-page-header h1, html[data-theme="dark"] .restaurant-card h2 { color: #edf4ee; }
 html[data-theme="dark"] .restaurant-page-header p, html[data-theme="dark"] .restaurant-dialog-location, html[data-theme="dark"] .restaurant-dialog-description,
 html[data-theme="dark"] .restaurant-card-location, html[data-theme="dark"] .restaurant-card-description { color: #bdcabe; }
+html[data-theme="dark"] .restaurant-toolbar { border-color: #394b3e; background: rgba(27,39,32,.62); }
 html[data-theme="dark"] .restaurant-search, html[data-theme="dark"] .restaurant-category, html[data-theme="dark"] .restaurant-card,
 html[data-theme="dark"] .restaurant-menu-row, html[data-theme="dark"] .restaurant-star { border-color: #3c4d41; background: #1b2720; color: #e4eee5; }
+html[data-theme="dark"] .restaurant-search-icon { color: #a6d5ad; }
+html[data-theme="dark"] .restaurant-search input::placeholder { color: #aab9ad; }
 html[data-theme="dark"] .restaurant-category.is-active, html[data-theme="dark"] .restaurant-card-open { border-color: #467451; background: #285a3f; color: #edf4ee; }
 html[data-theme="dark"] .restaurant-card-category, html[data-theme="dark"] .restaurant-card-footer, html[data-theme="dark"] .restaurant-rating-summary > strong { color: #bdcabe; }
 html[data-theme="dark"] .restaurant-card-footer, html[data-theme="dark"] .restaurant-menu-section, html[data-theme="dark"] .restaurant-rating-section { border-color: #3c4d41; }
@@ -5374,7 +5385,7 @@ html[data-theme="dark"] .admin-restaurant-edit-form { border-color: #3c4d41; }
 #app.restaurant-mode > .issue-page, #app.restaurant-mode > .admin-panel { display: none !important; }
 #app.restaurant-mode > .restaurant-page { display: block; }
 @media (max-width: 980px) { .portal-choices { grid-template-columns: repeat(2,minmax(0,1fr)); } .restaurants-list { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media (max-width: 700px) { .restaurant-page { margin: 10px 0 24px; padding: 17px 12px; border-radius: 19px; } .restaurant-page-header { margin-bottom: 18px; } .restaurants-list { grid-template-columns: 1fr; } .restaurant-categories { gap: 6px; } .restaurant-category { padding-inline: 11px; } .restaurant-card { padding: 15px; } .admin-restaurant-fields, .admin-restaurant-edit-form { grid-template-columns: 1fr; } .admin-restaurant-menu-row { grid-template-columns: minmax(0,1fr) minmax(84px,.45fr) auto auto; gap: 6px; } .admin-restaurant-menu-row > label { font-size: 10px; } .admin-restaurant-menu-row .button { padding-inline: 9px; } }
+@media (max-width: 700px) { .restaurant-page { margin: 10px 0 24px; padding: 17px 12px; border-radius: 19px; } .restaurant-page-nav { margin-bottom: 23px; } .restaurant-page-header { margin-bottom: 21px; } .restaurant-page-header h1 { font-size: clamp(27px,8vw,36px); } .restaurant-toolbar { padding: 11px; gap: 11px; } .restaurant-search { min-height: 50px; padding-inline: 12px; } .restaurant-search input { height: 46px; font-size: 16px; } .restaurants-list { grid-template-columns: 1fr; } .restaurant-categories { gap: 6px; } .restaurant-category { padding-inline: 11px; } .restaurant-card { padding: 15px; } .admin-restaurant-fields, .admin-restaurant-edit-form { grid-template-columns: 1fr; } .admin-restaurant-menu-row { grid-template-columns: minmax(0,1fr) minmax(84px,.45fr) auto auto; gap: 6px; } .admin-restaurant-menu-row > label { font-size: 10px; } .admin-restaurant-menu-row .button { padding-inline: 9px; } }
 @media (max-width: 430px) { .portal-choices { grid-template-columns: 1fr; } .admin-restaurant-menu-row { grid-template-columns: minmax(0,1fr) 95px; } .admin-restaurant-menu-row .button { justify-self: start; } }
 
 .required-mark { color: #c34135; font-weight: 800; }
