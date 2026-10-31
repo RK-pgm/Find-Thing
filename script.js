@@ -209,9 +209,13 @@ function renderNav() {
     addThemeToggle(nav);
     return;
   }
+  const home = document.createElement('button');
+  setNavButton(home, 'home', 'เลือกเมนู', 'home');
+  home.addEventListener('click', showPortal);
   const board = document.createElement('button');
   setNavButton(board, 'board', 'หน้าประกาศ', 'board');
-  board.setAttribute('aria-current', 'page');
+  if (byId('app').classList.contains('portal-mode')) home.setAttribute('aria-current', 'page');
+  else board.setAttribute('aria-current', 'page');
   board.addEventListener('click', showBoard);
   const help = document.createElement('button');
   setNavButton(help, 'help', 'วิธีใช้งาน', 'help');
@@ -232,7 +236,7 @@ function renderNav() {
   messageTools.setAttribute('role', 'group');
   messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
   messageTools.append(inbox, notifications);
-  nav.append(board, messageTools, help);
+  nav.append(home, board, messageTools, help);
   addThemeToggle(nav);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
@@ -252,23 +256,34 @@ function canManageSupport() {
 function openHelp() {
   byId('help-dialog').showModal();
 }
-function showBoard() {
+function showPortal() {
   byId('app').classList.remove('admin-mode');
+  byId('app').classList.add('portal-mode');
+  byId('admin-panel').classList.add('hidden');
+  byId('nav')?.querySelectorAll('[aria-current="page"]').forEach((button) => button.removeAttribute('aria-current'));
+  byId('nav')?.querySelector('.nav-home')?.setAttribute('aria-current', 'page');
+}
+function showBoard() {
+  byId('app').classList.remove('admin-mode', 'portal-mode');
   byId('admin-panel').classList.add('hidden');
   byId('nav')?.querySelector('.nav-admin')?.removeAttribute('aria-current');
+  byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-board')?.setAttribute('aria-current', 'page');
 }
 async function openAdminPanel() {
   if (state.user?.role !== 'admin') return;
+  byId('app').classList.remove('portal-mode');
   byId('app').classList.add('admin-mode');
   byId('admin-panel').classList.remove('hidden');
   byId('nav')?.querySelector('.nav-board')?.removeAttribute('aria-current');
+  byId('nav')?.querySelector('.nav-home')?.removeAttribute('aria-current');
   byId('nav')?.querySelector('.nav-admin')?.setAttribute('aria-current', 'page');
   await loadAdminData();
 }
 function enterApp(user) {
   state.user = user;
   loadSchools();
+  renderPortalWelcome();
   try {
     state.favoriteIds = JSON.parse(localStorage.getItem(`found-it:favorites:${user.id}`) || '[]');
   } catch {
@@ -276,16 +291,25 @@ function enterApp(user) {
   }
   byId('auth-screen').classList.add('hidden');
   byId('app').classList.remove('hidden');
-  showBoard();
+  showPortal();
   renderNav();
   renderCommunityLabel();
+  renderPortalWelcome();
   refreshNotificationCount();
   clearInterval(state.notificationTimer);
   state.notificationTimer = setInterval(() => { refreshNotificationCount(); loadWorkOrders(); }, 60000);
   loadWorkOrders();
-  if (user.role === 'admin') openAdminPanel();
-  else loadItems();
+  loadItems();
   if (state.pendingReturnToken) prepareReturnConfirmation();
+}
+function renderPortalWelcome() {
+  const name = byId('portal-welcome-name');
+  const schoolName = byId('portal-school-name');
+  if (!name || !schoolName || !state.user) return;
+  name.textContent = state.user.name || 'สมาชิก';
+  const school = state.schools.find((entry) => entry.id === state.user.schoolId)
+    || state.schools.find((entry) => entry.name === state.user.school);
+  schoolName.textContent = school ? `ชุมชน ${school.name} · ${school.province}` : 'เลือกสิ่งที่ต้องการทำ แล้วเริ่มได้เลย';
 }
 function renderCommunityLabel() {
   const label = byId('community-label');
@@ -328,6 +352,7 @@ async function loadSchools() {
     state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
+    renderPortalWelcome();
     renderProfileSchoolMap();
     renderLocationFilterOptions();
   } catch {
@@ -338,6 +363,7 @@ async function loadSchools() {
     state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
+    renderPortalWelcome();
     renderProfileSchoolMap();
     renderLocationFilterOptions();
   }
@@ -982,6 +1008,7 @@ async function submitSchoolIssue(event) {
     }) });
     byId('school-issue-dialog').close();
     form.reset();
+    showBoard();
     await loadWorkOrders();
     document.getElementById('student-workorders').scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('ส่งเรื่องแล้ว คุณติดตามความคืบหน้าได้ด้านล่าง');
@@ -2827,6 +2854,12 @@ function bindEvents() {
   updateAdminSetupVisibility();
   byId('report-lost').addEventListener('click', () => openReport('lost'));
   byId('report-found').addEventListener('click', () => openReport('found'));
+  byId('portal-open-board').addEventListener('click', () => {
+    showBoard();
+    loadItems();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  byId('portal-open-issue').addEventListener('click', openSchoolIssue);
   byId('report-school-issue').addEventListener('click', openSchoolIssue);
   byId('school-issue-form').addEventListener('submit', submitSchoolIssue);
   byId('close-school-issue').addEventListener('click', () => byId('school-issue-dialog').close());
