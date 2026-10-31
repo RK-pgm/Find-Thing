@@ -1220,10 +1220,19 @@ function renderAdminRestaurants(restaurants = state.adminRestaurants, requiresSc
   byId('admin-restaurant-form').classList.remove('hidden');
   for (const restaurant of restaurants) {
     const card = document.createElement('article'); card.className = 'admin-restaurant-card';
-    const heading = document.createElement('div'); heading.className = 'admin-restaurant-card-heading';
-    const title = document.createElement('h3'); title.textContent = restaurant.name;
+    const panelId = `admin-restaurant-details-${restaurant.id}`;
+    const heading = document.createElement('button'); heading.type = 'button'; heading.className = 'admin-restaurant-card-heading';
+    heading.setAttribute('aria-expanded', 'false'); heading.setAttribute('aria-controls', panelId);
+    const title = document.createElement('span'); title.className = 'admin-restaurant-card-name'; title.setAttribute('role', 'heading'); title.setAttribute('aria-level', '3'); title.textContent = restaurant.name;
     const score = document.createElement('span'); score.textContent = restaurant.ratingCount ? `★ ${restaurant.ratingAverage} · ${restaurant.ratingCount} คะแนน` : 'ยังไม่มีคะแนน';
-    heading.append(title, score);
+    const chevron = document.createElement('span'); chevron.className = 'admin-restaurant-card-chevron'; chevron.setAttribute('aria-hidden', 'true'); chevron.textContent = '⌄';
+    heading.append(title, score, chevron);
+    const details = document.createElement('div'); details.className = 'admin-restaurant-card-body hidden'; details.id = panelId;
+    heading.addEventListener('click', () => {
+      const expanded = heading.getAttribute('aria-expanded') !== 'true';
+      heading.setAttribute('aria-expanded', String(expanded));
+      details.classList.toggle('hidden', !expanded);
+    });
     const edit = document.createElement('form'); edit.className = 'admin-restaurant-edit-form';
     const name = document.createElement('input'); name.required = true; name.minLength = 2; name.maxLength = 80; name.value = restaurant.name; name.setAttribute('aria-label', `ชื่อร้าน ${restaurant.name}`);
     const category = document.createElement('select'); category.setAttribute('aria-label', `หมวดหมู่ ${restaurant.name}`);
@@ -1264,7 +1273,8 @@ function renderAdminRestaurants(restaurants = state.adminRestaurants, requiresSc
     addMenu.append(adminRestaurantLabel('เมนูใหม่', newName), adminRestaurantLabel('ราคา (บาท)', newPrice), addMenuButton);
     addMenu.addEventListener('submit', async (event) => { event.preventDefault(); addMenuButton.disabled = true; try { await saveAdminMenu(restaurant.id, { name: newName.value.trim(), price: newPrice.value }); } catch (error) { setMessage('admin-restaurants-message', error.message); } finally { addMenuButton.disabled = false; } });
     menus.append(addMenu);
-    card.append(heading, edit, menuHeading, menus);
+    details.append(edit, menuHeading, menus);
+    card.append(heading, details);
     list.append(card);
   }
 }
