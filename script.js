@@ -236,7 +236,8 @@ function renderNav() {
   messageTools.setAttribute('role', 'group');
   messageTools.setAttribute('aria-label', 'ข้อความและการแจ้งเตือน');
   messageTools.append(inbox, notifications);
-  nav.append(home, messageTools, help);
+  nav.append(home, messageTools);
+  if (state.user.role !== 'admin') nav.append(help);
   addThemeToggle(nav);
   if (state.user.role === 'admin') {
     const adminPanel = document.createElement('button');
@@ -244,7 +245,7 @@ function renderNav() {
     adminPanel.addEventListener('click', openAdminPanel);
     nav.append(adminPanel);
   }
-  nav.append(profile);
+  if (state.user.role !== 'admin') nav.append(profile);
   const logout = document.createElement('button');
   setNavButton(logout, 'logout', 'ออกจากระบบ', 'logout');
   logout.addEventListener('click', logoutUser);
