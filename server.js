@@ -122,6 +122,22 @@ function normalizeStore(value) {
       else if (item.status === 'expired') item.timeline.push({ type: 'expired', at: item.updatedAt || item.createdAt || new Date().toISOString() });
     }
   }
+  // Claims created before the two-party return flow did not store an active claim pointer.
+  // Restore the latest approved claim so those open reports can continue through scheduling.
+  for (const item of store.items) {
+    if (item.activeClaimId || item.status !== 'open' || item.type !== 'found') continue;
+    const approved = store.claims
+      .filter((claim) => claim.itemId === item.id && claim.status === 'approved')
+      .sort((left, right) => String(right.updatedAt || right.createdAt || '').localeCompare(String(left.updatedAt || left.createdAt || '')))[0];
+    if (approved) {
+      item.activeClaimId = approved.id;
+      const timelineTypes = new Set(item.timeline.map((event) => event.type));
+      if (!timelineTypes.has('claim_approved')) addItemTimeline(item, 'claim_approved', approved.updatedAt || approved.createdAt);
+      if (approved.scheduledAt && !timelineTypes.has('pickup_scheduled')) addItemTimeline(item, 'pickup_scheduled', approved.scheduledAt);
+      if (item.handoffSentAt && !timelineTypes.has('handoff_sent')) addItemTimeline(item, 'handoff_sent', item.handoffSentAt);
+      item.timeline.sort((left, right) => Date.parse(left.at || '') - Date.parse(right.at || ''));
+    }
+  }
   return store;
 }
 function addItemTimeline(item, type, at = new Date().toISOString()) {
@@ -585,6 +601,29 @@ function rejectPendingClaims(store, item, exceptClaimId = null, updatedAt = item
     store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: 'rejected', targetItemId: item.id, createdAt: updatedAt, readAt: null });
   }
 }
+function completeClaimReturn(store, item, claim, receiver) {
+  const returnedAt = new Date().toISOString();
+  item.status = 'resolved';
+  item.returnedAt = returnedAt;
+  item.updatedAt = returnedAt;
+  item.returnConfirmedBy = receiver.id;
+  item.returnTokenHash = null;
+  item.returnTokenExpiresAt = null;
+  claim.status = 'fulfilled';
+  claim.updatedAt = returnedAt;
+  claim.receivedAt = returnedAt;
+  addItemTimeline(item, 'returned', returnedAt);
+  if (item.type === 'found' && !store.pointLedger.some((entry) => entry.itemId === item.id)) {
+    store.pointLedger.push({ id: crypto.randomUUID(), userId: item.ownerId, itemId: item.id, itemName: item.itemName, points: 10, reason: 'ช่วยเก็บและส่งคืนของจนยืนยันสำเร็จ', createdAt: returnedAt });
+  }
+  removeNotificationsForItems(store, item.id);
+  rejectPendingClaims(store, item);
+  store.notifications.push({ id: crypto.randomUUID(), type: 'return_confirmed', userId: item.ownerId, itemName: item.itemName, targetItemId: item.id, createdAt: returnedAt, readAt: null });
+  return returnedAt;
+}
+function activeApprovedClaim(store, item) {
+  return store.claims.find((claim) => claim.id === item.activeClaimId && claim.itemId === item.id && claim.status === 'approved') || null;
+}
 function sendFile(res, filename) {
   const ext = path.extname(filename).toLowerCase();
   if (!MIME[ext]) return json(res, 404, { error: 'ไม่พบข้อมูลที่ต้องการ' });
@@ -867,6 +906,8 @@ async function handler(req, res) {
       const store = await readStore();
       const item = store.items.find((entry) => entry.id === itemId);
       if (!item) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.type === 'found' && status === 'resolved')
+        return json(res, 409, { error: 'ประกาศของที่พบต้องให้ผู้พบยืนยันส่งมอบ และให้ผู้รับยืนยันรับก่อนปิดประกาศ' });
       if (item.status !== status) {
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
@@ -880,6 +921,13 @@ async function handler(req, res) {
         rejectPendingClaims(store, item);
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
+      }
+      if (status === 'open') {
+        item.activeClaimId = null;
+        item.handoffSentAt = null;
+        item.handoffSentBy = null;
+        item.returnedAt = null;
+        item.returnConfirmedBy = null;
       }
       await writeStore(store);
       return json(res, 200, { ok: true, itemId, status, assignedTo });
@@ -900,6 +948,8 @@ async function handler(req, res) {
       if (!canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId !== user.id && user.role !== 'admin')
         return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่เปลี่ยนสถานะได้' });
+      if (item.type === 'found' && status === 'resolved')
+        return json(res, 409, { error: 'ประกาศของที่พบต้องผ่านขั้นตรวจสอบ นัดรับ ส่งมอบ และให้ผู้รับยืนยันก่อนปิดประกาศ' });
       item.status = status;
       item.updatedAt = new Date().toISOString();
       addItemTimeline(item, status === 'resolved' ? 'closed' : 'reopened', item.updatedAt);
@@ -912,6 +962,11 @@ async function handler(req, res) {
       if (status === 'open') {
         item.returnTokenHash = null;
         item.returnTokenExpiresAt = null;
+        item.activeClaimId = null;
+        item.handoffSentAt = null;
+        item.handoffSentBy = null;
+        item.returnedAt = null;
+        item.returnConfirmedBy = null;
       }
       await writeStore(store);
       return json(res, 200, { ok: true, itemId, status });
@@ -1094,6 +1149,8 @@ async function handler(req, res) {
       if (!canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
       if (item.ownerId !== user.id && user.role !== 'admin') return json(res, 403, { error: 'เฉพาะเจ้าของประกาศเท่านั้นที่สร้าง QR ได้' });
       if (item.status !== 'open' || isExpiredItem(item)) return json(res, 409, { error: 'ประกาศนี้ไม่ได้เปิดรับการยืนยันรับคืนแล้ว' });
+      const activeClaim = activeApprovedClaim(store, item);
+      if (!item.handoffSentAt || !activeClaim) return json(res, 409, { error: 'ให้ผู้พบกำหนดนัดและกดยืนยันส่งมอบก่อนสร้าง QR' });
       const token = crypto.randomBytes(32).toString('base64url');
       item.returnTokenHash = hashReturnToken(token);
       item.returnTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -1111,7 +1168,8 @@ async function handler(req, res) {
       const token = String(body.token || '');
       const store = await readStore();
       const item = store.items.find((entry) => tokenMatchesHash(token, entry.returnTokenHash));
-      if (!item || !canViewItem(viewer, item) || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
+      const activeClaim = item && activeApprovedClaim(store, item);
+      if (!item || !activeClaim || activeClaim.fromId !== viewer.id || !item.handoffSentAt || !canViewItem(viewer, item) || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
         return json(res, 404, { error: 'QR หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอ QR ใหม่จากผู้แจ้ง' });
       return json(res, 200, { itemId: item.id, itemName: item.itemName, type: item.type });
     }
@@ -1121,26 +1179,10 @@ async function handler(req, res) {
       const body = await readBody(req);
       const store = await readStore();
       const item = store.items.find((entry) => tokenMatchesHash(String(body.token || ''), entry.returnTokenHash));
-      if (!item || !canViewItem(user, item) || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
+      const activeClaim = item && activeApprovedClaim(store, item);
+      if (!item || !activeClaim || activeClaim.fromId !== user.id || !item.handoffSentAt || !canViewItem(user, item) || item.status !== 'open' || isExpiredItem(item) || Date.parse(item.returnTokenExpiresAt || '') <= Date.now())
         return json(res, 404, { error: 'QR หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอ QR ใหม่จากผู้แจ้ง' });
-      if (item.ownerId === user.id) return json(res, 403, { error: 'ให้ผู้รับสิ่งของเป็นผู้สแกน QR เพื่อยืนยัน' });
-      item.status = 'resolved';
-      item.returnedAt = new Date().toISOString();
-      item.updatedAt = item.returnedAt;
-      item.returnConfirmedBy = user.id;
-      addItemTimeline(item, 'returned', item.returnedAt);
-      if (item.type === 'found' && !store.pointLedger.some((entry) => entry.itemId === item.id)) {
-        store.pointLedger.push({ id: crypto.randomUUID(), userId: item.ownerId, itemId: item.id, itemName: item.itemName, points: 10, reason: 'ช่วยเก็บและส่งคืนของจนยืนยันสำเร็จ', createdAt: item.returnedAt });
-      }
-      item.returnTokenHash = null;
-      item.returnTokenExpiresAt = null;
-      for (const claim of store.claims.filter((entry) => entry.itemId === item.id && entry.fromId === user.id && entry.status === 'approved')) {
-        claim.status = 'fulfilled';
-        claim.updatedAt = item.returnedAt;
-      }
-      removeNotificationsForItems(store, item.id);
-      rejectPendingClaims(store, item);
-      store.notifications.push({ id: crypto.randomUUID(), type: 'return_confirmed', userId: item.ownerId, itemName: item.itemName, targetItemId: item.id, createdAt: item.returnedAt, readAt: null });
+      completeClaimReturn(store, item, activeClaim, user);
       await writeStore(store);
       return json(res, 200, { ok: true, itemId: item.id, itemName: item.itemName });
     }
@@ -1550,10 +1592,85 @@ async function handler(req, res) {
       claim.status = body.status;
       claim.updatedAt = new Date().toISOString();
       addItemTimeline(item, body.status === 'approved' ? 'claim_approved' : 'claim_rejected', claim.updatedAt);
+      if (body.status === 'approved') item.activeClaimId = claim.id;
       store.notifications.push({ id: crypto.randomUUID(), userId: claim.fromId, type: 'claim_status', itemName: claim.itemName, status: claim.status, targetItemId: claim.itemId, createdAt: claim.updatedAt, readAt: null });
       if (body.status === 'approved') rejectPendingClaims(store, item, claim.id, claim.updatedAt);
       await writeStore(store);
       return json(res, 200, { claim });
+    }
+    if (req.method === 'POST' && route === '/api/claims/schedule') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const store = await readStore();
+      const claim = store.claims.find((entry) => entry.id === body.claimId);
+      if (!claim) return json(res, 404, { error: 'ไม่พบคำขอนี้' });
+      if (claim.ownerId !== user.id) return json(res, 403, { error: 'นัดรับได้เฉพาะผู้พบที่ลงประกาศนี้' });
+      const item = store.items.find((entry) => entry.id === claim.itemId);
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status !== 'open' || claim.status !== 'approved' || item.activeClaimId !== claim.id)
+        return json(res, 409, { error: 'ต้องตรวจสอบเจ้าของและอนุมัติคำขอก่อนนัดรับ' });
+      if (item.handoffSentAt) return json(res, 409, { error: 'ยืนยันส่งมอบแล้ว จึงแก้ไขนัดไม่ได้' });
+      const meetingDate = String(body.meetingDate || '').trim();
+      const meetingTime = String(body.meetingTime || '').trim();
+      const meetingPlace = String(body.meetingPlace || '').trim();
+      const meetingTimestamp = Date.parse(`${meetingDate}T${meetingTime}:00+07:00`);
+      const [year, month, day] = meetingDate.split('-').map(Number);
+      const validDate = /^\d{4}-\d{2}-\d{2}$/.test(meetingDate)
+        && new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) === meetingDate;
+      if (!validDate || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(meetingTime) || !Number.isFinite(meetingTimestamp) || meetingTimestamp <= Date.now())
+        return json(res, 400, { error: 'เลือกวันและเวลานัดรับที่ยังมาไม่ถึง' });
+      if (meetingPlace.length < 2 || meetingPlace.length > 120) return json(res, 400, { error: 'ระบุสถานที่นัดรับ 2–120 ตัวอักษร' });
+      const wasScheduled = !!claim.scheduledAt;
+      claim.meetingDate = meetingDate;
+      claim.meetingTime = meetingTime;
+      claim.meetingPlace = meetingPlace;
+      claim.scheduledAt = new Date().toISOString();
+      claim.updatedAt = claim.scheduledAt;
+      addItemTimeline(item, wasScheduled ? 'pickup_rescheduled' : 'pickup_scheduled', claim.scheduledAt);
+      store.notifications.push({ id: crypto.randomUUID(), type: 'claim_schedule', userId: claim.fromId, itemName: item.itemName, targetItemId: item.id, meetingDate, meetingTime, meetingPlace, createdAt: claim.scheduledAt, readAt: null });
+      await writeStore(store);
+      return json(res, 200, { claim, item });
+    }
+    if (req.method === 'POST' && route === '/api/claims/handoff') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const store = await readStore();
+      const claim = store.claims.find((entry) => entry.id === body.claimId);
+      if (!claim) return json(res, 404, { error: 'ไม่พบคำขอนี้' });
+      if (claim.ownerId !== user.id) return json(res, 403, { error: 'ยืนยันส่งมอบได้เฉพาะผู้พบที่ลงประกาศนี้' });
+      const item = store.items.find((entry) => entry.id === claim.itemId);
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status !== 'open' || claim.status !== 'approved' || item.activeClaimId !== claim.id || !claim.scheduledAt)
+        return json(res, 409, { error: 'ต้องอนุมัติเจ้าของและบันทึกนัดรับก่อนยืนยันส่งมอบ' });
+      if (item.handoffSentAt) return json(res, 409, { error: 'ยืนยันส่งมอบไปแล้ว รอผู้รับกดยืนยันรับ' });
+      item.handoffSentAt = new Date().toISOString();
+      item.handoffSentBy = user.id;
+      item.returnTokenHash = null;
+      item.returnTokenExpiresAt = null;
+      claim.handoffSentAt = item.handoffSentAt;
+      claim.updatedAt = item.handoffSentAt;
+      addItemTimeline(item, 'handoff_sent', item.handoffSentAt);
+      store.notifications.push({ id: crypto.randomUUID(), type: 'handoff_sent', userId: claim.fromId, itemName: item.itemName, targetItemId: item.id, createdAt: item.handoffSentAt, readAt: null });
+      await writeStore(store);
+      return json(res, 200, { ok: true, claim, item });
+    }
+    if (req.method === 'POST' && route === '/api/claims/receive') {
+      const user = await requireUser(req, res);
+      if (!user) return;
+      const body = await readBody(req);
+      const store = await readStore();
+      const claim = store.claims.find((entry) => entry.id === body.claimId);
+      if (!claim) return json(res, 404, { error: 'ไม่พบคำขอนี้' });
+      if (claim.fromId !== user.id) return json(res, 403, { error: 'ยืนยันรับได้เฉพาะผู้ที่ส่งคำขอรับคืน' });
+      const item = store.items.find((entry) => entry.id === claim.itemId);
+      if (!item || !canViewItem(user, item)) return json(res, 404, { error: 'ไม่พบประกาศนี้' });
+      if (item.status !== 'open' || claim.status !== 'approved' || item.activeClaimId !== claim.id || !item.handoffSentAt)
+        return json(res, 409, { error: 'ผู้พบยังไม่ได้ยืนยันส่งมอบของ' });
+      completeClaimReturn(store, item, claim, user);
+      await writeStore(store);
+      return json(res, 200, { ok: true, item, claim });
     }
     if (req.method === 'POST' && route === '/api/item-reports') {
       const user = await requireUser(req, res);

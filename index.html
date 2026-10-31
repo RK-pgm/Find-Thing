@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=theme-mode-2" />
-    <script src="script.js?v=theme-mode-2" defer></script>
+    <link rel="stylesheet" href="style.css?v=khonghai-landing-2" />
+    <script src="script.js?v=khonghai-landing-2" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -34,8 +34,8 @@
               สร้างบัญชี
             </button>
             <button class="button full" id="open-login" type="button">เข้าสู่ระบบสมาชิก</button>
-            <button class="button admin-entry full" id="open-admin-login" type="button"><svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3 20 6v5.5c0 5.1-3.4 8.2-8 9.5-4.6-1.3-8-4.4-8-9.5V6l8-3Zm-3.3 9 2.2 2.2 4.6-4.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>เข้าสู่ระบบผู้ดูแล</button>
             <p class="fine-print">สร้างบัญชีด้วยชื่อ รหัสนักเรียน และรหัสผ่าน</p>
+            <p class="admin-link-row"><button class="text-button admin-link" id="open-admin-login" type="button">สำหรับเจ้าหน้าที่: เข้าสู่ระบบผู้ดูแล</button></p>
           </div>
           <form id="signup-form" class="auth-view" novalidate>
             <h1>สร้างบัญชี</h1>
@@ -117,6 +117,21 @@
     </form>
 
   </div>
+      <aside class="auth-showcase" aria-label="ตัวอย่างการใช้งานระบบ">
+        <h2>ใช้งานใน 3 ขั้นตอน</h2>
+        <ol class="showcase-steps">
+          <li><strong>แจ้งหรือค้นหา</strong><span>ลงประกาศของหายหรือของที่พบ พร้อมรูปและจุดบนแผนผังโรงเรียน</span></li>
+          <li><strong>ดูรายการที่อาจตรงกัน</strong><span>ระบบเทียบชื่อ สี สถานที่ และรูปภาพให้</span></li>
+          <li><strong>รับคืนด้วย QR</strong><span>ยืนยันหลังส่งมอบจริง ผู้ที่เก็บของมาคืนได้แต้มพลเมืองดี</span></li>
+        </ol>
+        <h2>ประกาศหน้าตาแบบนี้</h2>
+        <ul class="showcase-samples">
+          <li class="sample sample-lost"><span class="sample-status">ตามหา</span><strong>กระเป๋าดินสอสีฟ้า</strong><span class="sample-meta">ห้องสมุด · เมื่อวาน</span></li>
+          <li class="sample sample-found"><span class="sample-status">มีผู้เก็บได้</span><strong>ขวดน้ำสแตนเลสสีเทา</strong><span class="sample-meta">โรงอาหาร · วันนี้ · รับคืนได้ที่ห้องประชาสัมพันธ์</span></li>
+          <li class="sample sample-done"><span class="sample-status">คืนแล้ว</span><strong>สมุดบันทึกฟิสิกส์</strong><span class="sample-meta">ห้องเรียน · ยืนยันการรับคืน</span></li>
+        </ul>
+        <p class="showcase-note">ตัวอย่างสำหรับแสดงหน้าตา ไม่ใช่ประกาศจริง</p>
+      </aside>
 </section>
         <div id="app" class="hidden">
           <section class="hero" aria-labelledby="hero-title">

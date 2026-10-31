@@ -959,6 +959,10 @@ async function loadNotificationPage(offset, append) {
         ? 'ยกเลิกคำขอรับของคืน'
       : notification.type === 'claim_status'
         ? 'อัปเดตคำขอรับของคืน'
+      : notification.type === 'claim_schedule'
+        ? 'มีนัดรับหรือส่งมอบสิ่งของ'
+      : notification.type === 'handoff_sent'
+        ? 'ผู้พบยืนยันส่งมอบสิ่งของแล้ว'
         : notification.type === 'return_confirmed'
           ? 'ยืนยันการรับคืนแล้ว'
         : notification.type === 'saved_search'
@@ -970,7 +974,11 @@ async function loadNotificationPage(offset, append) {
       : notification.type === 'claim_cancelled'
         ? `${notification.fromName} ยกเลิกคำขอรับ “${notification.itemName}”`
       : notification.type === 'claim_status'
-        ? `คำขอรับ “${notification.itemName}” ${notification.status === 'approved' ? 'ได้รับการอนุมัติ โปรดนัดรับคืนและสแกน QR เมื่อได้รับของแล้ว' : 'ยังไม่ได้รับการอนุมัติ'}`
+        ? `คำขอรับ “${notification.itemName}” ${notification.status === 'approved' ? 'ได้รับการอนุมัติแล้ว โปรดรอนัดรับและกดยืนยันเมื่อได้รับของจริง' : 'ยังไม่ได้รับการอนุมัติ'}`
+      : notification.type === 'claim_schedule'
+        ? `นัดรับ “${notification.itemName}” วันที่ ${formatDate(notification.meetingDate)} เวลา ${notification.meetingTime} น. ณ ${notification.meetingPlace}`
+      : notification.type === 'handoff_sent'
+        ? `ผู้พบยืนยันส่งมอบ “${notification.itemName}” แล้ว กรุณาตรวจของและกด “รับแล้ว” เมื่อได้รับจริง`
         : notification.type === 'return_confirmed'
           ? `ผู้รับยืนยันรับ “${notification.itemName}” คืนแล้ว`
         : notification.type === 'saved_search'
@@ -1025,11 +1033,11 @@ async function openItemDetails(itemId, replyToId = null) {
   deleteButton.classList.toggle('hidden', !canDelete);
   deleteButton.onclick = () => deleteItem(item);
   const statusButton = byId('resolve-item');
-  statusButton.classList.toggle('hidden', !canDelete);
+  statusButton.classList.toggle('hidden', !canDelete || (item.type === 'found' && item.status === 'open'));
   statusButton.textContent = ['resolved', 'expired'].includes(item.status) ? 'เปิดประกาศอีกครั้ง' : 'ปิดประกาศแล้ว (ได้ของคืน)';
   statusButton.onclick = () => updateItemStatus(item, ['resolved', 'expired'].includes(item.status) ? 'open' : 'resolved');
   const returnQrButton = byId('return-qr-button');
-  returnQrButton.classList.toggle('hidden', !canDelete || item.status !== 'open');
+  returnQrButton.classList.toggle('hidden', !canDelete || item.status !== 'open' || !item.handoffSentAt);
   returnQrButton.onclick = () => createReturnQr(item);
   const editButton = byId('edit-item');
   editButton.classList.toggle('hidden', !canDelete || item.status === 'resolved');
@@ -1119,6 +1127,16 @@ async function openItemDetails(itemId, replyToId = null) {
   await loadItemComments(item.id);
   if (replyToId) setCommentReply(replyToId);
 }
+async function refreshClaimFlow(item) {
+  await loadItems();
+  const latest = state.items.find((entry) => entry.id === item.id);
+  if (!latest) return;
+  renderItemTimeline(latest);
+  const canManage = state.user && (state.user.role === 'admin' || latest.ownerId === state.user.id);
+  byId('resolve-item').classList.toggle('hidden', !canManage || (latest.type === 'found' && latest.status === 'open'));
+  byId('return-qr-button').classList.toggle('hidden', !canManage || latest.status !== 'open' || !latest.handoffSentAt);
+  await loadClaimsForItem(latest);
+}
 async function loadClaimsForItem(item) {
   const list = byId('claim-list');
   list.replaceChildren();
@@ -1126,12 +1144,13 @@ async function loadClaimsForItem(item) {
   try {
     const result = await api(`/api/claims?itemId=${encodeURIComponent(item.id)}`);
     const canReview = item.ownerId === state.user.id || state.user.role === 'admin';
+    const isFinder = item.ownerId === state.user.id;
     const claims = canReview ? result.claims : result.claims.filter((claim) => claim.fromId === state.user.id);
     for (const claim of claims) {
       const card = document.createElement('article');
       card.className = 'message-card';
       const title = document.createElement('strong');
-      title.textContent = `${claim.fromName} · ${claim.status === 'pending' ? 'รอพิจารณา' : claim.status === 'approved' ? 'อนุมัติคำขอ · รอรับคืน' : claim.status === 'fulfilled' ? 'ยืนยันรับคืนแล้ว' : claim.status === 'cancelled' ? 'ผู้ขอยกเลิกคำขอ' : 'ไม่อนุมัติ'}`;
+      title.textContent = `${claim.fromName} · ${claim.status === 'pending' ? 'รอตรวจสอบเจ้าของ' : claim.status === 'approved' ? claim.scheduledAt ? 'ตรวจสอบเจ้าของแล้ว · นัดรับแล้ว' : 'ตรวจสอบเจ้าของแล้ว · รอนัดรับ' : claim.status === 'fulfilled' ? 'ส่งคืนเรียบร้อย' : claim.status === 'cancelled' ? 'ผู้ขอยกเลิกคำขอ' : 'ไม่อนุมัติ'}`;
       const proof = document.createElement('p');
       proof.textContent = claim.proof;
       card.append(title, proof);
@@ -1144,9 +1163,8 @@ async function loadClaimsForItem(item) {
           button.addEventListener('click', async () => {
             try {
               await api('/api/claims/status', { method: 'POST', body: JSON.stringify({ claimId: claim.id, status }) });
-              await loadClaimsForItem(item);
-              await loadItems();
-              showToast(status === 'approved' ? 'อนุมัติคำขอแล้ว ให้นัดรับคืนและสร้าง QR ยืนยัน' : 'ปฏิเสธคำขอแล้ว');
+              await refreshClaimFlow(item);
+              showToast(status === 'approved' ? 'ตรวจสอบเจ้าของแล้ว ต่อไปกรุณาบันทึกนัดรับ' : 'ปฏิเสธคำขอแล้ว');
             } catch (error) { byId('claim-status').textContent = error.message; }
           });
           card.append(button);
@@ -1160,8 +1178,7 @@ async function loadClaimsForItem(item) {
           cancel.disabled = true;
           try {
             await api('/api/claims/cancel', { method: 'POST', body: JSON.stringify({ claimId: claim.id }) });
-            await loadClaimsForItem(item);
-            await loadItems();
+            await refreshClaimFlow(item);
             refreshNotificationCount();
             showToast('ยกเลิกคำขอแล้ว');
           } catch (error) {
@@ -1170,6 +1187,111 @@ async function loadClaimsForItem(item) {
           }
         });
         card.append(cancel);
+      }
+      if (claim.status === 'approved') {
+        const activeClaim = item.activeClaimId === claim.id;
+        if (claim.scheduledAt) {
+          const appointment = document.createElement('p');
+          appointment.className = 'claim-appointment';
+          appointment.textContent = `นัดรับ ${formatDate(claim.meetingDate)} เวลา ${claim.meetingTime} น. · ${claim.meetingPlace}`;
+          card.append(appointment);
+        }
+        if (isFinder && activeClaim && !claim.scheduledAt) {
+          const form = document.createElement('form');
+          form.className = 'claim-schedule-form';
+          const dateId = `meeting-date-${claim.id}`;
+          const timeId = `meeting-time-${claim.id}`;
+          const placeId = `meeting-place-${claim.id}`;
+          const dateLabel = document.createElement('label');
+          dateLabel.htmlFor = dateId;
+          dateLabel.textContent = 'วันนัดรับ';
+          const date = document.createElement('input');
+          date.id = dateId;
+          date.name = 'meetingDate';
+          date.type = 'date';
+          date.min = shiftDate(0);
+          date.required = true;
+          const timeLabel = document.createElement('label');
+          timeLabel.htmlFor = timeId;
+          timeLabel.textContent = 'เวลานัด';
+          const time = document.createElement('input');
+          time.id = timeId;
+          time.name = 'meetingTime';
+          time.type = 'time';
+          time.required = true;
+          const placeLabel = document.createElement('label');
+          placeLabel.htmlFor = placeId;
+          placeLabel.textContent = 'สถานที่นัดรับ';
+          const place = document.createElement('input');
+          place.id = placeId;
+          place.name = 'meetingPlace';
+          place.type = 'text';
+          place.maxLength = 120;
+          place.placeholder = 'เช่น ห้องประชาสัมพันธ์ หรือหน้าอาคาร 2';
+          place.required = true;
+          const message = document.createElement('p');
+          message.className = 'form-message';
+          message.setAttribute('aria-live', 'polite');
+          const submit = document.createElement('button');
+          submit.className = 'button small primary';
+          submit.type = 'submit';
+          submit.textContent = 'บันทึกนัดรับ';
+          form.append(dateLabel, date, timeLabel, time, placeLabel, place, message, submit);
+          form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!form.reportValidity()) return;
+            submit.disabled = true;
+            try {
+              await api('/api/claims/schedule', { method: 'POST', body: JSON.stringify({ claimId: claim.id, meetingDate: date.value, meetingTime: time.value, meetingPlace: place.value.trim() }) });
+              await refreshClaimFlow(item);
+              refreshNotificationCount();
+              showToast('บันทึกนัดรับแล้ว');
+            } catch (error) { message.textContent = error.message; submit.disabled = false; }
+          });
+          card.append(form);
+        } else if (!claim.scheduledAt && !isFinder) {
+          const waiting = document.createElement('p');
+          waiting.className = 'form-hint';
+          waiting.textContent = 'ผู้พบกำลังจัดเวลานัดรับและสถานที่';
+          card.append(waiting);
+        }
+        if (activeClaim && claim.scheduledAt && !item.handoffSentAt && isFinder) {
+          const handoff = document.createElement('button');
+          handoff.className = 'button small primary';
+          handoff.type = 'button';
+          handoff.textContent = 'ยืนยันส่งมอบแล้ว';
+          handoff.addEventListener('click', async () => {
+            handoff.disabled = true;
+            try {
+              await api('/api/claims/handoff', { method: 'POST', body: JSON.stringify({ claimId: claim.id }) });
+              await refreshClaimFlow(item);
+              refreshNotificationCount();
+              showToast('ยืนยันส่งมอบแล้ว รอผู้รับกดรับ');
+            } catch (error) { byId('claim-status').textContent = error.message; handoff.disabled = false; }
+          });
+          card.append(handoff);
+        } else if (activeClaim && item.handoffSentAt && claim.fromId === state.user.id) {
+          const receive = document.createElement('button');
+          receive.className = 'button small primary';
+          receive.type = 'button';
+          receive.textContent = 'ได้รับของแล้ว';
+          receive.addEventListener('click', async () => {
+            if (!window.confirm(`ยืนยันว่าได้รับ “${item.itemName}” จากผู้พบแล้วหรือไม่?`)) return;
+            receive.disabled = true;
+            try {
+              const result = await api('/api/claims/receive', { method: 'POST', body: JSON.stringify({ claimId: claim.id }) });
+              await refreshClaimFlow(item);
+              refreshNotificationCount();
+              showToast('ยืนยันรับแล้ว · ส่งคืนเรียบร้อย');
+            } catch (error) { byId('claim-status').textContent = error.message; receive.disabled = false; }
+          });
+          card.append(receive);
+        } else if (activeClaim && item.handoffSentAt && isFinder) {
+          const waiting = document.createElement('p');
+          waiting.className = 'form-hint';
+          waiting.textContent = 'ส่งมอบแล้ว · รอผู้รับกดยืนยันว่าได้รับของ';
+          card.append(waiting);
+        }
       }
       list.append(card);
     }
@@ -1365,9 +1487,11 @@ function renderItemTimeline(item) {
   const list = byId('item-timeline-list');
   list.replaceChildren();
   const labels = {
-    reported: 'ลงประกาศ', claim_requested: 'มีผู้ส่งคำขอรับคืน', claim_approved: 'ผู้แจ้งอนุมัติคำขอ',
+    reported: 'ลงประกาศ', claim_requested: 'มีผู้ส่งคำขอรับคืน', claim_approved: 'ตรวจสอบเจ้าของแล้ว',
     claim_rejected: 'คำขอรับคืนไม่ได้รับอนุมัติ', claim_cancelled: 'ยกเลิกคำขอรับคืน',
-    returned: 'ยืนยันการรับคืนผ่าน QR แล้ว', closed: 'ผู้แจ้งปิดประกาศ', reopened: 'เปิดประกาศอีกครั้ง', expired: 'ประกาศหมดอายุ',
+    pickup_scheduled: 'นัดรับหรือส่งมอบแล้ว', pickup_rescheduled: 'เปลี่ยนเวลานัดรับหรือส่งมอบ',
+    handoff_sent: 'ผู้พบกดยืนยันส่งมอบแล้ว',
+    returned: 'ส่งคืนเรียบร้อย · ผู้รับยืนยันแล้ว', closed: 'ผู้แจ้งปิดประกาศ', reopened: 'เปิดประกาศอีกครั้ง', expired: 'ประกาศหมดอายุ',
   };
   const timeline = Array.isArray(item.timeline) && item.timeline.length
     ? item.timeline
@@ -1426,7 +1550,7 @@ async function loadCommunityPoints() {
     });
     if (!result.entries.length) {
       const empty = document.createElement('li');
-      empty.textContent = 'ยังไม่มีรายการแต้ม เมื่อช่วยส่งคืนและผู้รับยืนยันผ่าน QR แต้มจะบันทึกที่นี่';
+      empty.textContent = 'ยังไม่มีรายการแต้ม เมื่อช่วยส่งคืนและผู้รับยืนยันว่าได้รับของแล้ว แต้มจะบันทึกที่นี่';
       history.append(empty);
       return;
     }
