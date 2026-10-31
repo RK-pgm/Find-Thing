@@ -1185,6 +1185,29 @@ function adminRestaurantLabel(label, control) {
   wrapper.append(document.createTextNode(label), control);
   return wrapper;
 }
+function addInitialRestaurantMenuRow() {
+  const container = byId('initial-restaurant-menus');
+  const row = document.createElement('div'); row.className = 'admin-new-menu-row';
+  const name = document.createElement('input'); name.className = 'admin-new-menu-name'; name.maxLength = 80; name.placeholder = 'เช่น ข้าวกะเพราไก่';
+  const price = document.createElement('input'); price.className = 'admin-new-menu-price'; price.inputMode = 'decimal'; price.pattern = '\\d{1,5}(?:\\.\\d{1,2})?'; price.placeholder = 'เช่น 40';
+  const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'button small danger-button admin-remove-new-menu'; remove.textContent = 'ลบ'; remove.setAttribute('aria-label', 'ลบรายการเมนูนี้');
+  row.append(adminRestaurantLabel('ชื่อเมนู', name), adminRestaurantLabel('ราคา (บาท)', price), remove);
+  container.append(row);
+}
+function collectInitialRestaurantMenus() {
+  const menus = [];
+  for (const row of byId('initial-restaurant-menus').querySelectorAll('.admin-new-menu-row')) {
+    const name = row.querySelector('.admin-new-menu-name').value.trim();
+    const rawPrice = row.querySelector('.admin-new-menu-price').value.trim();
+    if (!name && !rawPrice) continue;
+    if (name.length < 2 || name.length > 80) return { error: 'กรุณาใส่ชื่อเมนูอย่างน้อย 2 ตัวอักษร' };
+    if (!/^\d{1,5}(?:\.\d{1,2})?$/.test(rawPrice) || Number(rawPrice) > 99999)
+      return { error: `กรุณาใส่ราคาของเมนู “${name}” เป็นตัวเลขไม่เกิน 99,999 บาท` };
+    menus.push({ name, price: rawPrice });
+  }
+  if (menus.length > 100) return { error: 'เพิ่มเมนูได้ไม่เกิน 100 รายการต่อร้าน' };
+  return { menus };
+}
 function renderAdminRestaurants(restaurants = state.adminRestaurants, requiresSchool = false) {
   const list = byId('admin-restaurant-list');
   list.replaceChildren();
@@ -3315,6 +3338,8 @@ function bindEvents() {
     event.preventDefault();
     const form = event.currentTarget;
     if (!form.reportValidity()) return;
+    const { menus, error } = collectInitialRestaurantMenus();
+    if (error) { setMessage('admin-restaurants-message', error); return; }
     const button = form.querySelector('[type="submit"]');
     button.disabled = true;
     setMessage('admin-restaurants-message', '');
@@ -3322,12 +3347,20 @@ function bindEvents() {
       await api('/api/admin/restaurants', { method: 'POST', body: JSON.stringify({
         name: byId('new-restaurant-name').value.trim(), category: byId('new-restaurant-category').value,
         location: byId('new-restaurant-location').value.trim(), description: byId('new-restaurant-description').value.trim(),
+        menus,
       }) });
       form.reset();
+      byId('initial-restaurant-menus').replaceChildren();
+      addInitialRestaurantMenuRow();
       showToast('เพิ่มร้านอาหารแล้ว');
       await loadAdminRestaurants();
     } catch (error) { setMessage('admin-restaurants-message', error.message); }
     finally { button.disabled = false; }
+  });
+  byId('add-initial-restaurant-menu').addEventListener('click', addInitialRestaurantMenuRow);
+  byId('initial-restaurant-menus').addEventListener('click', (event) => {
+    const remove = event.target.closest('.admin-remove-new-menu');
+    if (remove) remove.closest('.admin-new-menu-row')?.remove();
   });
   byId('school-issue-form').addEventListener('submit', submitSchoolIssue);
   byId('close-school-issue').addEventListener('click', showPortal);

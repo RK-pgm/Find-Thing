@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=school-food-2" />
-    <script src="script.js?v=school-food-2" defer></script>
+    <link rel="stylesheet" href="style.css?v=school-food-3" />
+    <script src="script.js?v=school-food-3" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -460,6 +460,12 @@
                 <label>ที่ตั้งในโรงเรียน<input id="new-restaurant-location" maxlength="120" placeholder="เช่น โรงอาหาร แถวที่ 2" /></label>
                 <label>รายละเอียดสั้น ๆ<input id="new-restaurant-description" maxlength="240" placeholder="เช่น อาหารตามสั่ง เปิดช่วงพักกลางวัน" /></label>
               </div>
+              <section class="admin-initial-menus" aria-labelledby="admin-initial-menus-title">
+                <div class="admin-initial-menus-heading"><div><h4 id="admin-initial-menus-title">เมนูและราคา</h4><p>ใส่เมนูแรกได้เลย หรือเพิ่มรายการอื่นก่อนบันทึกร้าน</p></div><button class="button small" id="add-initial-restaurant-menu" type="button">＋ เพิ่มเมนู</button></div>
+                <div id="initial-restaurant-menus" class="admin-initial-menu-list">
+                  <div class="admin-new-menu-row"><label>ชื่อเมนู<input class="admin-new-menu-name" maxlength="80" placeholder="เช่น ข้าวกะเพราไก่" /></label><label>ราคา (บาท)<input class="admin-new-menu-price" inputmode="decimal" pattern="\d{1,5}(\.\d{1,2})?" placeholder="เช่น 40" /></label><button class="button small danger-button admin-remove-new-menu" type="button" aria-label="ลบรายการเมนูนี้">ลบ</button></div>
+                </div>
+              </section>
               <button class="button primary" type="submit">เพิ่มร้านอาหาร</button>
             </form>
             <div id="admin-restaurant-list" class="admin-restaurant-list" aria-live="polite"></div>

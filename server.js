@@ -7,7 +7,7 @@ const QRCode = require('qrcode');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
 const { buildWorkOrderImpact } = require('./lib/work-order-impact');
-const { buildRestaurantList, saveRestaurantRating } = require('./lib/restaurant-service');
+const { buildRestaurantList, saveRestaurantRating, normalizeRestaurantMenuInputs } = require('./lib/restaurant-service');
 const ROOT = process.cwd();
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'data') : path.join(ROOT, 'data'));
 const PHOTO_DIR = process.env.UPLOAD_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'uploads') : path.join(ROOT, 'uploads'));
@@ -998,6 +998,7 @@ async function handler(req, res) {
       const category = String(body.category || '');
       const location = String(body.location || '').trim();
       const description = String(body.description || '').trim();
+      const initialMenus = normalizeRestaurantMenuInputs(body.menus);
       if (!['food', 'drink', 'snack'].includes(category)) return json(res, 400, { error: 'กรุณาเลือกหมวดหมู่ร้านให้ถูกต้อง' });
       if (name.length < 2 || name.length > 80) return json(res, 400, { error: 'ชื่อร้านต้องมีความยาว 2–80 ตัวอักษร' });
       if (location.length > 120 || description.length > 240) return json(res, 400, { error: 'สถานที่หรือคำอธิบายยาวเกินกำหนด' });
@@ -1007,7 +1008,13 @@ async function handler(req, res) {
       if (!restaurantId && store.restaurants.some((entry) => entry.schoolId === admin.schoolId && entry.name.toLocaleLowerCase() === name.toLocaleLowerCase()))
         return json(res, 409, { error: 'มีร้านชื่อนี้อยู่แล้วในโรงเรียน' });
       if (!restaurant) {
-        restaurant = { id: crypto.randomUUID(), schoolId: admin.schoolId, schoolName: SCHOOLS.find((school) => school.id === admin.schoolId).name, menus: [], createdAt: new Date().toISOString() };
+        const createdAt = new Date().toISOString();
+        restaurant = {
+          id: crypto.randomUUID(), schoolId: admin.schoolId,
+          schoolName: SCHOOLS.find((school) => school.id === admin.schoolId).name,
+          menus: initialMenus.map((menu) => ({ id: crypto.randomUUID(), ...menu, createdAt, updatedAt: createdAt })),
+          createdAt,
+        };
         store.restaurants.push(restaurant);
       }
       restaurant.name = name;

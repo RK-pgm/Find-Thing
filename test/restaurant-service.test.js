@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildRestaurantList, saveRestaurantRating } = require('../lib/restaurant-service');
+const { buildRestaurantList, saveRestaurantRating, normalizeRestaurantMenuInputs } = require('../lib/restaurant-service');
 
 function makeStore() {
   return {
@@ -48,4 +48,22 @@ test('ratings reject invalid stars and shops from another school', () => {
   const store = makeStore();
   assert.throws(() => saveRestaurantRating(store, { id: 'u1', schoolId: 'school-a' }, 'school-a-shop', 0), { status: 400 });
   assert.throws(() => saveRestaurantRating(store, { id: 'u1', schoolId: 'school-a' }, 'school-b-shop', 5), { status: 404 });
+});
+
+test('new shop menus and prices are normalized together and blank rows are ignored', () => {
+  assert.deepEqual(normalizeRestaurantMenuInputs([
+    { name: '', price: '' },
+    { name: 'ข้าวผัด', price: '45' },
+    { name: 'ชาเย็น', price: '25.50' },
+  ]), [
+    { name: 'ข้าวผัด', price: 45 },
+    { name: 'ชาเย็น', price: 25.5 },
+  ]);
+  assert.deepEqual(normalizeRestaurantMenuInputs(undefined), []);
+});
+
+test('new shop menus reject missing prices, invalid amounts, and oversized lists', () => {
+  assert.throws(() => normalizeRestaurantMenuInputs([{ name: 'ข้าวผัด', price: '' }]), { status: 400 });
+  assert.throws(() => normalizeRestaurantMenuInputs([{ name: 'ข้าวผัด', price: '-1' }]), { status: 400 });
+  assert.throws(() => normalizeRestaurantMenuInputs(Array.from({ length: 101 }, () => ({ name: 'ข้าวผัด', price: '40' }))), { status: 400 });
 });
