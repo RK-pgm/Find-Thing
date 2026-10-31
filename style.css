@@ -5224,6 +5224,86 @@ html[data-theme="dark"] .workorder-step small, html[data-theme="dark"] .workorde
 }
 @media (prefers-reduced-motion: reduce) { .hero-actions .school-issue-action { scroll-behavior: auto; } }
 
+/* Final fixes from mobile and dark-theme review. */
+.issue-page-nav { display: flex; justify-content: flex-start; margin: 0 0 clamp(22px, 3.5vw, 36px); }
+.issue-page-nav .issue-page-back { min-height: 48px; margin: 0; border-radius: 12px; font-weight: 750; }
+.issue-page-header .issue-page-back { display: none; }
+.hero-actions .button,
+.hero-actions #report-lost,
+.hero-actions #report-found {
+  display: inline-flex;
+  min-width: 190px;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  transition: transform .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.hero-actions #report-lost { border-color: #d85862; background: linear-gradient(145deg,#d85862,#b8323f 80%); box-shadow: 0 4px 0 #842a32,0 8px 18px rgba(184,50,63,.2); }
+.hero-actions #report-found { border-color: #438f6c; background: linear-gradient(145deg,#398c66,#246b52 80%); box-shadow: 0 4px 0 #174638,0 8px 18px rgba(36,107,82,.2); }
+.hero-actions #report-lost:hover { border-color: #c74753; background: linear-gradient(145deg,#e16a70,#c13b48 80%); box-shadow: 0 4px 0 #842a32,0 11px 22px rgba(184,50,63,.26); }
+.hero-actions #report-found:hover { border-color: #347d5a; background: linear-gradient(145deg,#47a474,#2b7958 80%); box-shadow: 0 4px 0 #174638,0 11px 22px rgba(36,107,82,.26); }
+.hero-actions .button > svg { width: 19px; height: 19px; flex: 0 0 19px; }
+.comment-form { background: #f5f8f5; }
+.comment-form .dialog-actions { justify-content: flex-end; gap: 8px; margin: 12px 0 0; padding: 0; border: 0; background: transparent; }
+.match-factor-row { min-width: 0; }
+.match-factor-heading span { min-width: 0; overflow-wrap: anywhere; }
+.match-method-note, .match-caution-note { overflow-wrap: anywhere; }
+html[data-theme="dark"] .issue-page-nav .issue-page-back { border-color: #42584a; background: #223127; color: #dce9de; }
+html[data-theme="dark"] .admin-workorder-controls select,
+html[data-theme="dark"] .admin-workorder-controls input,
+html[data-theme="dark"] .admin-workorder-controls textarea { border-color: #435648; background: #18231c; color: #edf4ee; }
+html[data-theme="dark"] .admin-workorder-controls input::placeholder { color: #9dac9f; }
+html[data-theme="dark"] #detail-dialog .comment-form { border-color: #3b4d41; background: #202d25; color: #e4eee5; }
+html[data-theme="dark"] #detail-dialog .comment-form label { color: #d4e2d6; }
+html[data-theme="dark"] #detail-dialog .comment-form textarea { border-color: #435648; background: #151e18; color: #edf4ee; }
+html[data-theme="dark"] #detail-dialog .comment-form textarea::placeholder { color: #99aa9d; }
+html[data-theme="dark"] #detail-dialog .comment-form .dialog-actions { border: 0; background: transparent; }
+
+@media (max-width: 600px) {
+  .hero-actions { display: grid; width: 100%; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .hero-actions .button,
+  .hero-actions #report-lost,
+  .hero-actions #report-found { width: 100%; min-width: 0; min-height: 54px; padding: 9px 8px; gap: 7px; font-size: clamp(12px,3.5vw,14px); white-space: normal; overflow-wrap: anywhere; }
+  .hero-actions .button > svg { flex: 0 0 18px; width: 18px; height: 18px; }
+  .issue-page { padding: clamp(16px,4vw,24px); }
+  .issue-page-nav { margin-bottom: 24px; }
+  .issue-page-header { margin-bottom: 20px; }
+  .issue-page-header h1 { font-size: clamp(26px,7.4vw,34px); }
+  .detail-match-list { gap: 12px; }
+  .detail-matches { padding: 14px; border-radius: 16px; }
+  .match-preview { display: grid; grid-template-columns: minmax(0,1fr); align-items: stretch; gap: 11px; padding: 14px; }
+  .match-preview-content { width: 100%; gap: 8px; }
+  .match-preview-content strong { font-size: 14px; line-height: 1.45; }
+  .match-preview-content > span:not(.match-meter) { font-size: 12px; line-height: 1.45; }
+  .match-meter { height: 7px; }
+  .match-coverage, .match-reasons { font-size: 12px !important; line-height: 1.5; }
+  .match-evidence { width: 100%; min-width: 0; padding: 12px; }
+  .match-evidence > strong { font-size: 13px; line-height: 1.4; }
+  .match-factor-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 14px; }
+  .match-factor-heading { align-items: flex-start; font-size: 12px; line-height: 1.35; }
+  .match-factor-heading strong { font-size: 12px; }
+  .match-method-note, .match-caution-note { font-size: 12px; line-height: 1.6; }
+  .match-open { width: 100%; min-height: 44px; margin: 0; font-size: 13px; }
+  .comment-form { padding: 14px; border-radius: 15px; }
+}
+@media (max-width: 380px) {
+  .hero-actions { grid-template-columns: 1fr; }
+  .hero-actions .button,
+  .hero-actions #report-lost,
+  .hero-actions #report-found { min-height: 50px; }
+  .match-factor-list { grid-template-columns: 1fr; }
+}
+
 
 /* Post-login service chooser: two clear paths into the existing workflows. */
 .portal-home { display: none; position: relative; isolation: isolate; overflow: hidden; margin: 18px 0 36px; padding: clamp(28px, 5vw, 58px); border: 1px solid #dce7dc; border-radius: 26px; background: radial-gradient(circle at 92% 8%, rgba(232,198,117,.27), transparent 25rem), radial-gradient(circle at 0 100%, rgba(111,163,123,.15), transparent 28rem), linear-gradient(135deg, #fffefa 0%, #f2f7f0 100%); box-shadow: 0 14px 38px rgba(32,68,50,.08); }

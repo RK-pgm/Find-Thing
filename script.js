@@ -1845,6 +1845,10 @@ async function submitItemReport(event) {
   } catch (error) { byId('item-report-status').textContent = error.message; }
 }
 async function deleteItem(item) {
+  if (!state.user || (state.user.role !== 'admin' && item.ownerId !== state.user.id)) {
+    showToast('ลบประกาศได้เฉพาะเจ้าของโพสต์หรือแอดมิน');
+    return;
+  }
   const confirmed = window.confirm(`ต้องการลบประกาศ “${item.itemName}” ใช่ไหม? การลบนี้ไม่สามารถย้อนกลับได้`);
   if (!confirmed) return;
   const button = byId('delete-item');
