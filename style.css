@@ -5284,6 +5284,31 @@ html[data-theme="dark"] .admin-attention-total, html[data-theme="dark"] .admin-a
   .admin-attention-link { align-self: stretch; }
 }
 
+/* Give every desktop navigation action the same button shape and surface. */
+.nav .nav-action {
+  min-height: 44px; padding: 8px 12px; border: 1px solid #dce6dc; border-radius: 12px;
+  background: #fffefa; color: #355548; box-shadow: 0 2px 7px rgba(31,73,52,.045);
+  font-weight: 650;
+}
+.nav .nav-action:hover { border-color: #b8cfba; background: #f3f7f1; color: #214a39; }
+.nav .nav-home[aria-current="page"] { border-color: #1e5a44; background: #1e5a44; color: #fff; }
+.nav .nav-tool-group { gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.nav .nav-tool-group .nav-action { min-height: 44px; padding: 8px 12px; }
+.nav .nav-logout { margin-left: 0; padding-left: 12px; border-left: 1px solid #dce6dc; border-radius: 12px; color: #355548; }
+.nav .nav-logout:hover { border-left-color: #b8cfba; background: #f3f7f1; color: #214a39; }
+html[data-theme="dark"] .nav .nav-action {
+  border-color: #3d5043; background: #202d24; color: #d9e5da; box-shadow: none;
+}
+html[data-theme="dark"] .nav .nav-action:hover { border-color: #5a785f; background: #2a3a2e; color: #f2f7f2; }
+html[data-theme="dark"] .nav .nav-home[aria-current="page"] { border-color: #4c8a62; background: #28613e; color: #fff; }
+html[data-theme="dark"] .nav .nav-tool-group { border: 0; background: transparent; box-shadow: none; }
+html[data-theme="dark"] .nav .nav-logout { border-left-color: #3d5043; color: #d9e5da; }
+html[data-theme="dark"] .nav .nav-logout:hover { border-left-color: #5a785f; background: #2a3a2e; color: #f2f7f2; }
+@media (max-width: 820px) {
+  .nav .nav-tool-group { gap: 5px; }
+  .nav.is-open .nav-action { border-radius: 12px; }
+}
+
 @media (max-width: 700px) {
   .portal-home { margin: 10px 0 24px; padding: 26px 17px; border-radius: 20px; }
   .portal-intro { margin-bottom: 21px; }
