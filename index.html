@@ -375,6 +375,29 @@
             <div class="admin-attention-heading"><div><span class="admin-attention-kicker">คิวงานแนะนำ</span><h2 id="admin-attention-title">รายการที่ควรตรวจสอบ</h2><p>เรียงงานที่ยังไม่เสร็จและรายงานที่ยังไม่ได้ตรวจไว้ให้จัดการต่อได้ทันที</p></div><span class="admin-attention-total" id="admin-attention-total">0 งาน</span></div>
             <div class="admin-attention-list" id="admin-attention-list" aria-live="polite"></div>
           </section>
+          <section class="admin-impact" data-admin-view-panel="overview" aria-labelledby="admin-impact-title">
+            <div class="admin-impact-heading">
+              <div><span class="admin-attention-kicker">ผลลัพธ์จากการทำงานจริง</span><h2 id="admin-impact-title">ภาพรวมการดูแลชุมชน</h2><p>คำนวณจากประวัติเรื่องที่แจ้งในระบบ ไม่ใช้ข้อมูลตัวอย่าง</p></div>
+              <span class="admin-impact-period">ย้อนหลัง 4 สัปดาห์</span>
+            </div>
+            <div class="admin-impact-stats" aria-live="polite">
+              <article class="admin-impact-stat"><span>ปิดงานแล้ว</span><strong id="admin-impact-resolved">—</strong><small id="admin-impact-resolved-note">จากเรื่องที่แจ้งทั้งหมด</small></article>
+              <article class="admin-impact-stat"><span>ยังอยู่ระหว่างดำเนินการ</span><strong id="admin-impact-active">—</strong><small>เรื่องที่ยังไม่ถึงขั้นแก้ไขแล้ว</small></article>
+              <article class="admin-impact-stat"><span>อัตราปิดงาน</span><strong id="admin-impact-rate">—</strong><small>สัดส่วนเรื่องที่แก้ไขแล้ว</small></article>
+              <article class="admin-impact-stat"><span>เวลาเฉลี่ยจนปิดงาน</span><strong id="admin-impact-time">—</strong><small>นับจากรับเรื่องถึงแก้ไขแล้ว</small></article>
+            </div>
+            <div class="admin-impact-grid">
+              <article class="admin-impact-chart-card">
+                <div class="admin-impact-card-heading"><h3>งานใหม่และงานที่ปิด</h3><p>เปรียบเทียบเป็นรายสัปดาห์</p></div>
+                <div id="admin-impact-trend" class="admin-impact-trend" role="img" aria-label="จำนวนเรื่องใหม่และเรื่องที่ปิดในแต่ละสัปดาห์"></div>
+                <div class="admin-impact-legend"><span><i class="trend-new"></i>เรื่องใหม่</span><span><i class="trend-done"></i>ปิดงาน</span></div>
+              </article>
+              <article class="admin-impact-chart-card">
+                <div class="admin-impact-card-heading"><h3>เรื่องแจ้งแยกตามประเภท</h3><p>ช่วยเห็นภาระงานแต่ละฝ่าย</p></div>
+                <div id="admin-impact-categories" class="admin-impact-categories"></div>
+              </article>
+            </div>
+          </section>
           <section class="admin-card admin-work-card" id="admin-items-card" data-admin-view-panel="announcements lost found" aria-labelledby="admin-work-title">
             <div class="admin-card-heading">
               <div>

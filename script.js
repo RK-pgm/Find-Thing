@@ -2858,6 +2858,82 @@ function renderAdminAttention(workOrders, itemReports) {
     list.append(more);
   }
 }
+function renderAdminImpact(impact = {}) {
+  const resolved = Number(impact.resolvedWorkOrderCount) || 0;
+  const active = Number(impact.activeWorkOrderCount) || 0;
+  const total = Number(impact.totalWorkOrderCount) || 0;
+  byId('admin-impact-resolved').textContent = String(resolved);
+  byId('admin-impact-resolved-note').textContent = `จากเรื่องที่แจ้งทั้งหมด ${total} เรื่อง`;
+  byId('admin-impact-active').textContent = String(active);
+  byId('admin-impact-rate').textContent = Number.isFinite(impact.resolutionRatePercent) ? `${impact.resolutionRatePercent}%` : '—';
+  const hours = impact.averageResolutionHours;
+  byId('admin-impact-time').textContent = Number.isFinite(hours)
+    ? hours < 1 ? 'น้อยกว่า 1 ชม.' : hours < 24 ? `${hours} ชม.` : `${Math.floor(hours / 24)} วัน ${hours % 24} ชม.`
+    : 'ยังไม่มีข้อมูล';
+
+  const trend = byId('admin-impact-trend');
+  trend.replaceChildren();
+  const weeks = Array.isArray(impact.trend) ? impact.trend : [];
+  if (!weeks.some((week) => week.created || week.resolved)) {
+    const empty = document.createElement('p');
+    empty.className = 'admin-impact-empty';
+    empty.textContent = 'ยังไม่มีข้อมูลในช่วง 4 สัปดาห์นี้ เมื่อมีการแจ้งและปิดงาน กราฟจะแสดงผลที่นี่';
+    trend.append(empty);
+  } else {
+    for (const week of weeks) {
+      const column = document.createElement('div');
+      column.className = 'admin-impact-week';
+      const bars = document.createElement('div');
+      bars.className = 'admin-impact-bars';
+      for (const [key, value, label] of [['created', week.created, 'เรื่องใหม่'], ['resolved', week.resolved, 'ปิดงาน']]) {
+        const bar = document.createElement('span');
+        bar.className = `admin-impact-bar trend-${key}`;
+        bar.style.height = `${Math.max(value ? 8 : 2, Math.min(100, Number(week[`${key}Percent`]) || 0))}%`;
+        bar.setAttribute('aria-label', `${label} ${value} เรื่อง`);
+        bars.append(bar);
+      }
+      const label = document.createElement('small');
+      label.textContent = week.label;
+      const values = document.createElement('span');
+      values.className = 'admin-impact-week-values';
+      values.textContent = `${week.created} / ${week.resolved}`;
+      column.append(bars, values, label);
+      trend.append(column);
+    }
+  }
+
+  const categories = byId('admin-impact-categories');
+  categories.replaceChildren();
+  const rows = Array.isArray(impact.categoryStats) ? impact.categoryStats : [];
+  if (!rows.some((row) => row.total)) {
+    const empty = document.createElement('p');
+    empty.className = 'admin-impact-empty';
+    empty.textContent = 'ยังไม่มีเรื่องแจ้ง แผงนี้จะแยกภาระงานตามฝ่ายเมื่อเริ่มใช้งาน';
+    categories.append(empty);
+    return;
+  }
+  const max = Math.max(1, ...rows.map((row) => Number(row.total) || 0));
+  for (const row of rows) {
+    const entry = document.createElement('div');
+    entry.className = 'admin-impact-category';
+    const heading = document.createElement('div');
+    heading.className = 'admin-impact-category-heading';
+    const name = document.createElement('strong');
+    name.textContent = row.label;
+    const count = document.createElement('span');
+    count.textContent = `${row.resolved} / ${row.total} ปิดแล้ว`;
+    heading.append(name, count);
+    const track = document.createElement('div');
+    track.className = 'admin-impact-category-track';
+    track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', `${row.label}: ${row.total} เรื่อง ปิดแล้ว ${row.resolved} เรื่อง`);
+    const fill = document.createElement('span');
+    fill.style.width = `${Math.max(row.total ? 4 : 0, (row.total / max) * 100)}%`;
+    track.append(fill);
+    entry.append(heading, track);
+    categories.append(entry);
+  }
+}
 async function loadAdminData() {
   setMessage('admin-message', '');
   setMessage('admin-report-message', '');
@@ -2876,6 +2952,7 @@ async function loadAdminData() {
     byId('admin-return-count').textContent = overview.returnedCount ?? 0;
     byId('admin-user-count').textContent = overview.userCount;
     byId('admin-support-count').textContent = overview.supportCount;
+    renderAdminImpact(overview.impact);
     byId('admin-nav-count-announcements').textContent = state.adminItems.length;
     byId('admin-nav-count-lost').textContent = state.adminItems.filter((item) => item.type === 'lost').length;
     byId('admin-nav-count-found').textContent = state.adminItems.filter((item) => item.type === 'found').length;

@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const QRCode = require('qrcode');
 const { promisify } = require('node:util');
 const scrypt = promisify(crypto.scrypt);
+const { buildWorkOrderImpact } = require('./lib/work-order-impact');
 const ROOT = process.cwd();
 const DATA_DIR = process.env.DATA_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'data') : path.join(ROOT, 'data'));
 const PHOTO_DIR = process.env.UPLOAD_DIR || (process.env.VERCEL ? path.join('/tmp', 'found-it', 'uploads') : path.join(ROOT, 'uploads'));
@@ -978,14 +979,21 @@ async function handler(req, res) {
       return json(res, 200, { ok: true, workOrder: order });
     }
     if (req.method === 'GET' && route === '/api/admin/overview') {
-      if (!(await requireAdmin(req, res))) return;
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
       const store = await readStore();
+      const impact = buildWorkOrderImpact(
+        store.workOrders,
+        admin.schoolId,
+        Object.entries(WORK_ORDER_TYPES).map(([type, definition]) => ({ type, label: definition.label })),
+      );
       return json(res, 200, {
         lostCount: store.items.filter((item) => item.type === 'lost').length,
         foundCount: store.items.filter((item) => item.type === 'found').length,
         returnedCount: store.items.filter((item) => item.status === 'resolved' && item.returnedAt).length,
         userCount: store.users.length,
         supportCount: store.staffMessages.length,
+        impact,
       });
     }
     if (req.method === 'POST' && route === '/api/admin/items/update') {
