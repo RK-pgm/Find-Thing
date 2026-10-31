@@ -29,6 +29,13 @@ test('students see only active restaurants from their selected school and no vot
   assert.equal('userId' in restaurants[0].menus[0], false);
 });
 
+test('restaurant cards receive the saved storefront photo URL', () => {
+  const store = makeStore();
+  store.restaurants[0].photo = 'https://storefront.example/shop-front.webp';
+  const [restaurant] = buildRestaurantList(store, { schoolId: 'school-a' });
+  assert.equal(restaurant.photo, 'https://storefront.example/shop-front.webp');
+});
+
 test('admins can manage inactive shops but remain scoped to their school', () => {
   const restaurants = buildRestaurantList(makeStore(), { schoolId: 'school-a', includeInactive: true });
   assert.deepEqual(restaurants.map((entry) => entry.id), ['school-a-shop', 'school-a-hidden']);

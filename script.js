@@ -1097,6 +1097,16 @@ function renderRestaurantList(requiresSchool = false) {
   for (const restaurant of restaurants) {
     const card = document.createElement('article');
     card.className = 'restaurant-card';
+    if (restaurant.photo) {
+      card.classList.add('has-photo');
+      const photo = document.createElement('img');
+      photo.className = 'restaurant-card-photo';
+      photo.src = restaurant.photo;
+      photo.alt = `ภาพหน้าร้าน ${restaurant.name}`;
+      photo.loading = 'lazy';
+      photo.decoding = 'async';
+      card.append(photo);
+    }
     const top = document.createElement('div'); top.className = 'restaurant-card-top';
     const icon = document.createElement('span'); icon.className = `restaurant-card-icon restaurant-icon-${restaurant.category}`; icon.setAttribute('aria-hidden', 'true');
     icon.textContent = restaurant.category === 'drink' ? '◉' : restaurant.category === 'snack' ? '✦' : '♨';
@@ -1240,15 +1250,52 @@ function renderAdminRestaurants(restaurants = state.adminRestaurants, requiresSc
     category.value = restaurant.category;
     const location = document.createElement('input'); location.maxLength = 120; location.value = restaurant.location || ''; location.placeholder = 'ที่ตั้งในโรงเรียน'; location.setAttribute('aria-label', `ที่ตั้งร้าน ${restaurant.name}`);
     const description = document.createElement('input'); description.maxLength = 240; description.value = restaurant.description || ''; description.placeholder = 'รายละเอียดสั้น ๆ'; description.setAttribute('aria-label', `รายละเอียดร้าน ${restaurant.name}`);
+    let selectedPhoto = '';
+    let removePhoto = false;
+    const photoControl = document.createElement('div'); photoControl.className = 'admin-restaurant-photo-control';
+    const photoInputId = `restaurant-photo-${restaurant.id}`;
+    const photoLabel = document.createElement('label'); photoLabel.htmlFor = photoInputId; photoLabel.textContent = 'ภาพหน้าร้าน (ไม่บังคับ)';
+    const photoInput = document.createElement('input'); photoInput.id = photoInputId; photoInput.type = 'file'; photoInput.accept = 'image/jpeg,image/png,image/webp'; photoInput.setAttribute('aria-label', `เลือกรูปหน้าร้าน ${restaurant.name}`);
+    const photoHelp = document.createElement('p'); photoHelp.textContent = 'เลือกภาพ JPG, PNG หรือ WebP · ระบบย่อไฟล์ให้อัตโนมัติ';
+    const photoPreview = document.createElement('img'); photoPreview.className = 'admin-restaurant-photo-preview'; photoPreview.alt = `ตัวอย่างภาพหน้าร้าน ${restaurant.name}`;
+    if (restaurant.photo) photoPreview.src = restaurant.photo;
+    else photoPreview.classList.add('hidden');
+    const photoActions = document.createElement('div'); photoActions.className = 'admin-restaurant-photo-actions';
+    const removePhotoButton = document.createElement('button'); removePhotoButton.type = 'button'; removePhotoButton.className = 'button small'; removePhotoButton.textContent = 'นำรูปออก'; removePhotoButton.disabled = !restaurant.photo;
+    photoActions.append(removePhotoButton);
+    photoControl.append(photoLabel, photoInput, photoHelp, photoPreview, photoActions);
+    photoInput.addEventListener('change', async () => {
+      const file = photoInput.files?.[0];
+      if (!file) return;
+      photoInput.disabled = true;
+      try {
+        selectedPhoto = await fileAsDataUrl(await optimizePhoto(file));
+        removePhoto = false;
+        photoPreview.src = selectedPhoto;
+        photoPreview.classList.remove('hidden');
+        removePhotoButton.disabled = false;
+        photoHelp.textContent = 'เลือกรูปใหม่แล้ว · บันทึกข้อมูลร้านเพื่อใช้รูปนี้';
+      } catch (error) { setMessage('admin-restaurants-message', error.message); photoInput.value = ''; }
+      finally { photoInput.disabled = false; }
+    });
+    removePhotoButton.addEventListener('click', () => {
+      selectedPhoto = '';
+      removePhoto = true;
+      photoInput.value = '';
+      photoPreview.removeAttribute('src');
+      photoPreview.classList.add('hidden');
+      removePhotoButton.disabled = true;
+      photoHelp.textContent = 'รูปจะถูกนำออกเมื่อบันทึกข้อมูลร้าน';
+    });
     const activeLabel = document.createElement('label'); activeLabel.className = 'admin-restaurant-active';
     const active = document.createElement('input'); active.type = 'checkbox'; active.checked = restaurant.isActive !== false;
     activeLabel.append(active, document.createTextNode('แสดงให้สมาชิกเห็น'));
-    edit.append(adminRestaurantLabel('ชื่อร้าน', name), adminRestaurantLabel('หมวดหมู่', category), adminRestaurantLabel('ที่ตั้ง', location), adminRestaurantLabel('รายละเอียด', description), activeLabel);
+    edit.append(adminRestaurantLabel('ชื่อร้าน', name), adminRestaurantLabel('หมวดหมู่', category), adminRestaurantLabel('ที่ตั้ง', location), adminRestaurantLabel('รายละเอียด', description), photoControl, activeLabel);
     const saveRestaurant = document.createElement('button'); saveRestaurant.type = 'submit'; saveRestaurant.className = 'button small primary'; saveRestaurant.textContent = 'บันทึกข้อมูลร้าน'; edit.append(saveRestaurant);
     edit.addEventListener('submit', async (event) => {
       event.preventDefault(); saveRestaurant.disabled = true;
       try {
-        await api('/api/admin/restaurants', { method: 'POST', body: JSON.stringify({ restaurantId: restaurant.id, name: name.value.trim(), category: category.value, location: location.value.trim(), description: description.value.trim(), isActive: active.checked }) });
+        await api('/api/admin/restaurants', { method: 'POST', body: JSON.stringify({ restaurantId: restaurant.id, name: name.value.trim(), category: category.value, location: location.value.trim(), description: description.value.trim(), isActive: active.checked, ...(selectedPhoto ? { photo: selectedPhoto } : {}), ...(removePhoto ? { removePhoto: true } : {}) }) });
         showToast('บันทึกข้อมูลร้านแล้ว'); await loadAdminRestaurants();
       } catch (error) { setMessage('admin-restaurants-message', error.message); }
       finally { saveRestaurant.disabled = false; }
@@ -3361,15 +3408,39 @@ function bindEvents() {
       await api('/api/admin/restaurants', { method: 'POST', body: JSON.stringify({
         name: byId('new-restaurant-name').value.trim(), category: byId('new-restaurant-category').value,
         location: byId('new-restaurant-location').value.trim(), description: byId('new-restaurant-description').value.trim(),
+        ...(form.dataset.restaurantPhoto ? { photo: form.dataset.restaurantPhoto } : {}),
         menus,
       }) });
       form.reset();
+      form.dataset.restaurantPhoto = '';
+      byId('new-restaurant-photo-preview').removeAttribute('src');
+      byId('new-restaurant-photo-preview').classList.add('hidden');
       byId('initial-restaurant-menus').replaceChildren();
       addInitialRestaurantMenuRow();
       showToast('เพิ่มร้านอาหารแล้ว');
       await loadAdminRestaurants();
     } catch (error) { setMessage('admin-restaurants-message', error.message); }
     finally { button.disabled = false; }
+  });
+  byId('new-restaurant-photo').addEventListener('change', async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.disabled = true;
+    setMessage('admin-restaurants-message', 'กำลังเตรียมภาพหน้าร้าน…');
+    try {
+      const photo = await optimizePhoto(file);
+      const dataUrl = await fileAsDataUrl(photo);
+      byId('admin-restaurant-form').dataset.restaurantPhoto = dataUrl;
+      const preview = byId('new-restaurant-photo-preview');
+      preview.src = dataUrl;
+      preview.classList.remove('hidden');
+      setMessage('admin-restaurants-message', 'เลือกรูปหน้าร้านแล้ว');
+    } catch (error) {
+      input.value = '';
+      byId('admin-restaurant-form').dataset.restaurantPhoto = '';
+      setMessage('admin-restaurants-message', error.message);
+    } finally { input.disabled = false; }
   });
   byId('add-initial-restaurant-menu').addEventListener('click', addInitialRestaurantMenuRow);
   byId('initial-restaurant-menus').addEventListener('click', (event) => {

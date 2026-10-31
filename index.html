@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=ui-fixes-1" />
-    <script src="script.js?v=ui-fixes-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=restaurant-photo-dark-1" />
+    <script src="script.js?v=restaurant-photo-dark-1" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -459,6 +459,12 @@
                 <label>หมวดหมู่<select id="new-restaurant-category" required><option value="food">ร้านอาหาร</option><option value="drink">ร้านเครื่องดื่ม</option><option value="snack">ร้านของกินเล่น</option></select></label>
                 <label>ที่ตั้งในโรงเรียน<input id="new-restaurant-location" maxlength="120" placeholder="เช่น โรงอาหาร แถวที่ 2" /></label>
                 <label>รายละเอียดสั้น ๆ<input id="new-restaurant-description" maxlength="240" placeholder="เช่น อาหารตามสั่ง เปิดช่วงพักกลางวัน" /></label>
+              </div>
+              <div class="admin-restaurant-photo-control">
+                <label for="new-restaurant-photo">ภาพหน้าร้าน <span>(ไม่บังคับ)</span></label>
+                <input id="new-restaurant-photo" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="new-restaurant-photo-help" />
+                <p id="new-restaurant-photo-help">เลือกภาพ JPG, PNG หรือ WebP ระบบจะย่อภาพให้อัตโนมัติก่อนบันทึก</p>
+                <img id="new-restaurant-photo-preview" class="admin-restaurant-photo-preview hidden" alt="ตัวอย่างภาพหน้าร้าน" />
               </div>
               <section class="admin-initial-menus" aria-labelledby="admin-initial-menus-title">
                 <div class="admin-initial-menus-heading"><div><h4 id="admin-initial-menus-title">เมนูและราคา</h4><p>ใส่เมนูแรกได้เลย หรือเพิ่มรายการอื่นก่อนบันทึกร้าน</p></div><button class="button small" id="add-initial-restaurant-menu" type="button">＋ เพิ่มเมนู</button></div>

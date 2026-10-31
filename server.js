@@ -1017,13 +1017,19 @@ async function handler(req, res) {
         };
         store.restaurants.push(restaurant);
       }
+      const previousPhoto = restaurant.photo || '';
+      let nextPhoto = previousPhoto;
+      if (body.photo) nextPhoto = await storeItemPhoto(body.photo);
+      else if (body.removePhoto === true) nextPhoto = '';
       restaurant.name = name;
       restaurant.category = category;
+      restaurant.photo = nextPhoto;
       restaurant.location = location;
       restaurant.description = description;
       restaurant.isActive = body.isActive !== false;
       restaurant.updatedAt = new Date().toISOString();
       await writeStore(store);
+      if (previousPhoto && previousPhoto !== nextPhoto) await deleteItemPhotos([previousPhoto]);
       return json(res, 200, { ok: true, restaurant });
     }
     if (req.method === 'POST' && route === '/api/admin/restaurants/menu') {
