@@ -5219,6 +5219,17 @@ html[data-theme="dark"] .issue-page-form > label { color: #d4e2d6; }
 html[data-theme="dark"] .issue-page-form input, html[data-theme="dark"] .issue-page-form select, html[data-theme="dark"] .issue-page-form textarea { border-color: #435648; background: #202d24; color: #edf4ee; }
 @media (max-width:700px) { .issue-page { margin: 10px 0 24px; padding: 17px 12px; border-radius: 19px; } .issue-page-header { margin-bottom: 19px; } .issue-page-back { margin-bottom: 17px; } .issue-page-form { padding: 18px 14px; } }
 
+.required-mark { color: #c34135; font-weight: 800; }
+.auth-view select {
+  width: 100%; min-height: 48px; margin: 0 0 8px; padding: 11px 13px;
+  border: 1px solid #d5e2d7; border-radius: 12px; background: #fbfcfa;
+  color: #20392c; font: inherit; font-size: 14px;
+}
+.auth-view select:focus-visible { outline: 3px solid rgba(57,137,88,.22); border-color: #4c9a69; }
+.auth-community-hint { margin: -2px 0 16px; font-size: 12px; line-height: 1.5; }
+html[data-theme="dark"] .auth-view select { border-color: #435648; background: #202d24; color: #edf4ee; }
+html[data-theme="dark"] .required-mark { color: #ff9688; }
+
 @media (max-width: 700px) {
   .portal-home { margin: 10px 0 24px; padding: 26px 17px; border-radius: 20px; }
   .portal-intro { margin-bottom: 21px; }

@@ -12,8 +12,8 @@
         if (localStorage.getItem('khonghai-theme') === 'dark') document.documentElement.dataset.theme = 'dark';
       } catch {}
     </script>
-    <link rel="stylesheet" href="style.css?v=mobile-nav-1" />
-    <script src="script.js?v=mobile-nav-1" defer></script>
+    <link rel="stylesheet" href="style.css?v=auth-community-1" />
+    <script src="script.js?v=auth-community-1" defer></script>
 </head>
 <body>
     <header class="topbar">
@@ -63,6 +63,12 @@
               required
               placeholder="กรอกรหัสนักเรียน"
             />
+            <label for="signup-community">ชุมชนที่ต้องการเข้า <span class="required-mark">*</span></label>
+            <select id="signup-community" name="schoolId" required>
+              <option value="">เลือกโรงเรียนหรือสาธารณะก่อน</option>
+              <option value="public">สาธารณะ · ดูประกาศที่เปิดให้ทุกโรงเรียน</option>
+            </select>
+            <p class="form-hint auth-community-hint">ประกาศของโรงเรียนที่เลือกจะอยู่ในฟีดของชุมชนนั้น และเปลี่ยนได้ภายหลังที่โปรไฟล์</p>
       <label for="signup-password">รหัสผ่าน</label>
             <input
               id="signup-password"
@@ -103,6 +109,12 @@
               required
               placeholder="เช่น รหัสนักเรียน หรือ A1010"
             />
+            <label for="login-community">เลือกชุมชนที่จะเข้า <span class="required-mark">*</span></label>
+            <select id="login-community" name="schoolId" required>
+              <option value="">เลือกโรงเรียนหรือสาธารณะก่อน</option>
+              <option value="public">สาธารณะ · ดูประกาศที่เปิดให้ทุกโรงเรียน</option>
+            </select>
+            <p class="form-hint auth-community-hint">เลือกได้ทุกครั้งที่เข้าสู่ระบบ และเปลี่ยนได้ภายหลังที่โปรไฟล์</p>
         <label for="login-password">รหัสผ่าน</label>
             <input
               id="login-password"
@@ -614,7 +626,7 @@
         <input id="profile-grade" name="grade" maxlength="40" placeholder="เช่น ม.3/2" />
         <label for="profile-school">โรงเรียนที่สังกัด</label>
         <select id="profile-school" name="schoolId">
-          <option value="">ยังไม่เลือก · เลือกภายหลังได้</option>
+          <option value="">สาธารณะ · ไม่ผูกกับโรงเรียน</option>
           <option value="thung-song">โรงเรียนทุ่งสง · นครศรีธรรมราช</option>
           <option value="hamster-hub">โรงเรียน Hamster Hub · นครศรีธรรมราช · สมมุติ</option>
         </select>

@@ -781,6 +781,12 @@ async function handler(req, res) {
         return json(res, 403, { error: 'รหัสนี้สงวนไว้สำหรับบัญชีผู้ดูแลระบบ' });
       if (password.length < 8 || password.length > 128)
         return json(res, 400, { error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
+      const requestedSchoolId = String(body.schoolId || '').trim();
+      const selectedSchool = requestedSchoolId === 'public'
+        ? null
+        : SCHOOLS.find((school) => school.id === requestedSchoolId);
+      if (!requestedSchoolId || (requestedSchoolId !== 'public' && !selectedSchool))
+        return json(res, 400, { error: 'กรุณาเลือกโรงเรียนหรือสาธารณะก่อนสมัครสมาชิก' });
       const adminCandidate = isAdminIdentity(name, studentId);
       if (studentId.toLocaleUpperCase() === ADMIN_STUDENT_ID && !adminCandidate)
         return json(res, 403, { error: 'รหัสนักเรียนนี้สงวนไว้สำหรับบัญชีผู้ดูแลระบบ' });
@@ -816,6 +822,8 @@ async function handler(req, res) {
             : 'student',
         salt,
         passwordHash: hash.toString('hex'),
+        schoolId: selectedSchool?.id || '',
+        school: selectedSchool?.name || '',
         createdAt: new Date().toISOString(),
       };
       latestStore.users.push(user);
@@ -850,6 +858,12 @@ async function handler(req, res) {
           loginAttempts.set(ip, attempts);
           return json(res, 401, { error: 'รหัสผู้ดูแลหรือรหัสผ่านไม่ถูกต้อง' });
         }
+        const requestedSchoolId = String(body.schoolId || '').trim();
+        const selectedSchool = requestedSchoolId === 'public'
+          ? null
+          : SCHOOLS.find((school) => school.id === requestedSchoolId);
+        if (!requestedSchoolId || (requestedSchoolId !== 'public' && !selectedSchool))
+          return json(res, 400, { error: 'กรุณาเลือกโรงเรียนหรือสาธารณะก่อนเข้าสู่ระบบ' });
         const store = await readStore();
         let admin = store.users.find((user) => user.studentId.toLowerCase() === ADMIN_LOGIN_ID.toLowerCase());
         if (admin && admin.role !== 'admin')
@@ -867,12 +881,15 @@ async function handler(req, res) {
             createdAt: new Date().toISOString(),
           };
           store.users.push(admin);
-          await writeStore(store);
         }
+        admin.schoolId = selectedSchool?.id || '';
+        admin.school = selectedSchool?.name || '';
+        await writeStore(store);
         loginAttempts.delete(ip);
         return json(res, 200, { user: cleanUser(admin) }, { 'Set-Cookie': sessionCookie(admin.id, admin.sessionVersion || 0) });
       }
-      const user = (await readStore()).users.find(
+      const store = await readStore();
+      const user = store.users.find(
         (u) => u.studentId.toLowerCase() === studentId.toLowerCase(),
       );
       const hash = user ? await scrypt(password, user.salt, 64) : Buffer.alloc(64);
@@ -882,6 +899,15 @@ async function handler(req, res) {
         loginAttempts.set(ip, attempts);
         return json(res, 401, { error: 'รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง' });
       }
+      const requestedSchoolId = String(body.schoolId || '').trim();
+      const selectedSchool = requestedSchoolId === 'public'
+        ? null
+        : SCHOOLS.find((school) => school.id === requestedSchoolId);
+      if (!requestedSchoolId || (requestedSchoolId !== 'public' && !selectedSchool))
+        return json(res, 400, { error: 'กรุณาเลือกโรงเรียนหรือสาธารณะก่อนเข้าสู่ระบบ' });
+      user.schoolId = selectedSchool?.id || '';
+      user.school = selectedSchool?.name || '';
+      await writeStore(store);
       loginAttempts.delete(ip);
       const cookie = sessionCookie(user.id, user.sessionVersion || 0);
       return json(

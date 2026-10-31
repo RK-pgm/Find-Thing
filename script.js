@@ -356,7 +356,7 @@ async function loadSchools() {
     state.schools = result.schools || [];
     const profileSchool = byId('profile-school');
     const selectedId = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
-    profileSchool.replaceChildren(new Option('ยังไม่เลือก · เลือกภายหลังได้', ''));
+    profileSchool.replaceChildren(new Option('สาธารณะ · ไม่ผูกกับโรงเรียน', ''));
     state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
@@ -367,7 +367,7 @@ async function loadSchools() {
     // Keep the local school list and map previews usable if the directory request is temporarily unavailable.
     const profileSchool = byId('profile-school');
     const selectedId = state.user?.schoolId || state.schools.find((school) => school.name === state.user?.school)?.id || '';
-    profileSchool.replaceChildren(new Option('ยังไม่เลือก · เลือกภายหลังได้', ''));
+    profileSchool.replaceChildren(new Option('สาธารณะ · ไม่ผูกกับโรงเรียน', ''));
     state.schools.forEach((school) => profileSchool.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · สมมุติ' : ''}`, school.id)));
     profileSchool.value = selectedId;
     renderCommunityLabel();
@@ -390,6 +390,11 @@ function exitApp() {
   renderNav();
 }
 async function start() {
+  renderAuthCommunityOptions();
+  api('/api/schools').then((result) => {
+    state.schools = result.schools || FALLBACK_SCHOOLS;
+    renderAuthCommunityOptions();
+  }).catch(() => {});
   renderNav();
   try {
     const result = await api('/api/session');
@@ -397,6 +402,21 @@ async function start() {
   } catch {
     byId('auth-screen').classList.remove('hidden');
   }
+}
+function renderAuthCommunityOptions() {
+  ['signup-community', 'login-community'].forEach((id) => {
+    const select = byId(id);
+    if (!select) return;
+    const selectedValue = select.value;
+    select.replaceChildren(
+      new Option('เลือกโรงเรียนหรือสาธารณะก่อน', ''),
+      new Option('สาธารณะ · ดูประกาศที่เปิดให้ทุกโรงเรียน', 'public'),
+    );
+    state.schools.forEach((school) => {
+      select.add(new Option(`${school.name} · ${school.province}${school.fictional ? ' · โรงเรียนสมมุติ' : ''}`, school.id));
+    });
+    if ([...select.options].some((option) => option.value === selectedValue)) select.value = selectedValue;
+  });
 }
 async function submitAuth(event, kind) {
   event.preventDefault();
@@ -411,8 +431,13 @@ async function submitAuth(event, kind) {
           studentId: byId('signup-id').value.trim(),
           password: byId('signup-password').value,
           adminSetupCode: byId('admin-setup-code').value,
+          schoolId: byId('signup-community').value,
         }
-      : { studentId: byId('login-id').value.trim(), password: byId('login-password').value };
+      : {
+          studentId: byId('login-id').value.trim(),
+          password: byId('login-password').value,
+          schoolId: byId('login-community').value,
+        };
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
